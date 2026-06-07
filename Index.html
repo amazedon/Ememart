@@ -762,7 +762,7 @@ document.addEventListener('click', function askOnce(){
       </div>
       <div class="flex flex-col gap-1">
         <label class="label-sm">Email Address*</label>
-        <input type="email" id="inp-email" required placeholder="name@domain.com" class="inp">
+        <input type="text" id="inp-email" required placeholder="Email, phone or username" class="inp">
         <span class="field-error" id="err-email">Enter a valid email address</span>
       </div>
       <div class="flex flex-col gap-1">
@@ -810,7 +810,10 @@ document.addEventListener('click', function askOnce(){
   <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex justify-between items-center">
     <div>
       <div id="session-label" class="text-xs font-bold text-gray-400 mono">🔴 Guest</div>
-      <div id="session-balance" class="text-xl font-black text-white mono mt-1">₦0.00</div>
+      <div class="flex items-center gap-2 mt-1">
+        <div id="session-balance" class="text-xl font-black text-white mono">₦0.00</div>
+        <button onclick="toggleBalanceVisibility()" id="balance-eye-btn" class="text-gray-500 hover:text-emerald-400 transition text-base leading-none" title="Show/hide balance">👁️</button>
+      </div>
       <div id="session-location" class="text-[10px] text-emerald-400 mt-0.5 flex items-center gap-1"><svg width="14" height="16" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;flex-shrink:0"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg> <span id="session-location-text">—</span></div>
     </div>
     <div class="flex flex-col gap-2 items-end">
@@ -1346,7 +1349,10 @@ document.addEventListener('click', function askOnce(){
       <div class="flex justify-between items-start">
         <div>
           <div class="text-[10px] text-gray-400 uppercase font-black tracking-wider">Wallet Balance</div>
-          <div id="wallet-hub-balance" class="text-3xl font-black text-white mono mt-1">₦0.00</div>
+          <div class="flex items-center gap-2 mt-1">
+            <div id="wallet-hub-balance" class="text-3xl font-black text-white mono">₦0.00</div>
+            <button onclick="toggleBalanceVisibility()" class="text-gray-500 hover:text-emerald-400 transition text-xl leading-none" title="Show/hide balance">👁️</button>
+          </div>
         </div>
         <div class="text-2xl">💰</div>
       </div>
@@ -3222,28 +3228,24 @@ async function handleAuth(e) {
 // OTP CHANNEL + REGISTER
 // ============================================================
 async function sendRegistrationOTP() {
-  const channel = document.querySelector('input[name="reg-otp-channel"]:checked')?.value;
-  if (!channel) { showPopupNotif('⚠️','Choose Channel','Select SMS or WhatsApp.'); return; }
-
   const btn = el('send-otp-btn');
-  btn.textContent = 'Sending...'; btn.disabled = true;
-
+  if(btn){ btn.textContent = 'Sending...'; btn.disabled = true; }
   try {
     const d = window._pendingReg;
     const res = await apiPost('auth.php','register_send_otp', {
       full_name: d.full_name, email: d.email, phone: d.phone,
-      password: d.password, otp_channel: channel
+      password: d.password, otp_channel: 'email'
     });
     if (res.success) {
       _otpPurpose = 'register';
       el('otp-channel-modal').classList.add('hidden');
-      el('otp-verify-info').textContent = `OTP sent to your email & ${channel.toUpperCase()}. Enter the 6-digit code.`;
+      el('otp-verify-info').textContent = `OTP sent to ${d.email}. Enter the 6-digit code.`;
       el('otp-verify-modal').classList.remove('hidden');
     } else {
       showPopupNotif('❌','Error', res.message);
     }
   } catch(e) { showPopupNotif('❌','Error','Connection failed.'); }
-  finally { btn.textContent = 'Send OTP'; btn.disabled = false; }
+  finally { if(btn){ btn.textContent = 'Send OTP to Email'; btn.disabled = false; } }
 }
 
 async function verifyOTP() {
@@ -7978,14 +7980,27 @@ function renderBoostAnalytics(){
 }
 
 // --- Cancel an active boost ---
-
+function cancelBoost(boostId){
+  const records = getPromotedRecords();
+  const rec = records.find(r=>r.id===boostId);
+  if(!rec||rec.status!=='active'){ showPopupNotif('⚠️','Not Found','Boost not found or already expired.'); return; }
+  rec.status='cancelled';
+  savePromotedRecords(records);
+  const post = state.posts.find(p=>p.id===rec.postId);
+  if(post){ post.promoted=false; post.promotedUntil=null; saveState(); }
   renderFeed();
   renderBoostAnalytics();
   showPopupNotif('❌','Boost Cancelled','Your boost has been cancelled. No refund is issued for cancelled boosts.');
 }
 
 // --- Restore active boosts on page load (from storage) ---
-
+function restoreActiveBoosts(){
+  const records = getPromotedRecords().filter(r=>r.status==='active' && r.expiresAt > Date.now());
+  records.forEach(r=>{
+    const post = state.posts.find(p=>p.id===r.postId);
+    if(post){ post.promoted=true; post.promotedUntil=r.expiresAt; }
+    const msLeft = r.expiresAt - Date.now();
+    setTimeout(()=>expireBoost(r.postId), msLeft);
   });
   // Expire any overdue ones
   const overdue = getPromotedRecords().filter(r => r.status === 'active' && r.expiresAt <= Date.now());
@@ -8011,6 +8026,10 @@ if(vaPanel && !el('boost-analytics-list')){
 }
 
 
+function openBoostFromAnalytics(){
+  const myPosts = state.posts.filter(p=>p.authorId===state.session?.id);
+  if(!myPosts.length){ showPopupNotif('⚠️','No Posts','Create a post first before boosting.'); return; }
+  const myPost = myPosts[0];
   openBoostModal(myPost.id);
 }
 
@@ -8019,9 +8038,7 @@ if(vaPanel && !el('boost-analytics-list')){
 // ============================================================
 // POST PREVIEW ENGINE
 // ============================================================
-
-
-
+function showPostPreview(){
   const text   = el('post-text')?.value.trim() || '';
   const isFood = state.postType === 'business' && state.businessCategory === 'food';
   const isBiz  = state.postType === 'business' && state.businessCategory === 'other';
@@ -8116,7 +8133,17 @@ if(vaPanel && !el('boost-analytics-list')){
 }
 
 // Build a temporary post object for preview (mirrors submitPost logic)
-, ${state.session.lga||''}, ${state.session.state||''}`.replace(/^[, ]+|[, ]+$/g,''),
+function buildPreviewPost(){
+  const text   = el('post-text')?.value.trim()||'';
+  const isFood = state.postType==='business' && state.businessCategory==='food';
+  return {
+    id          : 'PREVIEW',
+    authorId    : state.session?.id,
+    authorName  : state.session?.full_name||'You',
+    authorRole  : state.session?.role||'user',
+    authorAvatar: state.session?.avatar||null,
+    verified    : state.session?.verified||false,
+    location    : `${state.session?.town||''}, ${state.session?.lga||''}, ${state.session?.state||''}`.replace(/^[, ]+|[, ]+$/g,''),
     town        : state.session.town,
     lga         : state.session.lga,
     state       : state.session.state,
@@ -8158,7 +8185,9 @@ if(vaPanel && !el('boost-analytics-list')){
 }
 
 // Render pre-publish checklist
-);
+function renderPublishChecklist(post){
+  const w = el('publish-checklist'); if(!w) return;
+  const checks = [];
   checks.push({ ok: !!(post.text || post.image || post.isFood || post.bizServiceName), label: 'Has content',   fix: 'Add text or image' });
 
   if(post.isFood){
@@ -8239,17 +8268,20 @@ const TRACK_STEPS = [
 ];
 
 // --- Tracking records storage ---
-'); }catch(e){ return {}; } }
+// Tracking storage defined above
 
 
 
 
-), ...data };
+function updateTrackingRecord(orderId, data){
+  const records = getTrackingRecords();
+  if(records[orderId]) records[orderId] = { ...records[orderId], ...data };
   saveTrackingRecords(records);
 }
 
 // --- Create tracking record when order is placed ---
-);
+function createTrackingRecord(order, post){
+  const records = getTrackingRecords();
 
   const record = {
     orderId     : order.id,
@@ -8275,11 +8307,20 @@ const TRACK_STEPS = [
 // --- Simulate order progressing through steps (demo) ---
 const DEMO_DELAYS = { accepted:4000, preparing:8000, ready:14000, picked_up:20000, on_the_way:26000, delivered:36000 };
 
-, delay);
+function simulateDemoTracking(orderId, postId){
+  const steps = ['accepted','preparing','ready','picked_up','on_the_way','delivered'];
+  steps.forEach(step => {
+    const delay = DEMO_DELAYS[step] || 5000;
+    setTimeout(() => advanceTrackingStep(orderId, postId, step), delay);
   });
 }
 
-);
+function advanceTrackingStep(orderId, postId, step){
+  const records = getTrackingRecords();
+  const record  = records[orderId]; if(!record) return;
+  record.currentStep = step;
+  record.steps = record.steps || {};
+  record.steps[step] = { ts: Date.now(), done: true };
   updateTrackingRecord(orderId, record);
 
   // Update the actual order status on the post
@@ -8309,12 +8350,18 @@ const DEMO_DELAYS = { accepted:4000, preparing:8000, ready:14000, picked_up:2000
 }
 
 // --- Open the tracking modal ---
-
-
-
-
-
-
+let _trackingOrderId = null;
+function openOrderTracking(orderId){
+  const records = getTrackingRecords();
+  const record  = records[orderId];
+  if(!record){ showPopupNotif('⚠️','Not Found','Order tracking not found.'); return; }
+  _trackingOrderId = orderId;
+  el('order-tracking-modal')?.classList.remove('hidden');
+  renderOrderTrackingModal(orderId);
+}
+function renderOrderTrackingModal(orderId){
+  const records = getTrackingRecords();
+  const record  = records[orderId]; if(!record) return;
   const stepIdx   = TRACK_STEPS.findIndex(s=>s.key===record.currentStep);
   const stepMeta  = TRACK_STEPS[stepIdx] || TRACK_STEPS[0];
   const isDone    = record.currentStep === 'delivered';
@@ -8442,17 +8489,32 @@ const DEMO_DELAYS = { accepted:4000, preparing:8000, ready:14000, picked_up:2000
 }
 
 // --- Call rider (placeholder) ---
-
-
-
+function callRider(orderId){
+  showPopupNotif('📞','Calling Rider','Connecting you to the rider. Feature coming soon.');
+}
 
 // --- Add Track button to buyer orders list ---
-, 50);
+function addTrackButtonToBuyerOrders(orderId, postId){
+  setTimeout(()=>{
+    const card = document.querySelector(`[data-order-id="${orderId}"]`);
+    if(card && !card.querySelector('.track-btn')){
+      const btn = document.createElement('button');
+      btn.className = 'track-btn btn-sm-outline text-[9px] py-1 px-2 mt-1 text-blue-400 border-blue-900';
+      btn.textContent = '📍 Track Order';
+      btn.onclick = ()=>openOrderTracking(orderId);
+      card.appendChild(btn);
+    }
+  }, 50);
 }
 
 // Patch renderBuyerOrders to add Track button
-);
-  }));
+function renderBuyerOrders(){
+  const w = el('my-orders-list'); if(!w) return;
+  const myOrders = (state.posts||[]).flatMap(p=>
+    (p.orders||[]).filter(o=>o.buyerId===state.session?.id).map(o=>({
+      ...o, postId:p.id, foodName:p.foodName||p.text, authorName:p.authorName, escrow:p.escrow
+    }))
+  );
   if(!myOrders.length){
     w.innerHTML = '<div class="text-center py-6 text-xs text-gray-500 italic">No orders yet. Start ordering from the Feed!</div>';
     return;
@@ -8499,7 +8561,9 @@ const DEMO_DELAYS = { accepted:4000, preparing:8000, ready:14000, picked_up:2000
 // --- Multi-image state ---
 if(!state.postImages) state.postImages = [];
 
-
+function handleMultiImageUpload(e){
+  const files = [...e.target.files].slice(0, 5 - (state.postImages||[]).length);
+  files.forEach(file => {
     const reader = new FileReader();
     reader.onload = ev => {
       state.postImages.push(ev.target.result);
@@ -8517,6 +8581,11 @@ if(!state.postImages) state.postImages = [];
 
 
 
+function renderMultiImageStrip(){
+  const strip = el('multi-image-strip');
+  const label = el('multi-image-count-label');
+  const uploadLabel = el('post-image-upload-label');
+  if(!strip) return;
   strip.classList.remove('hidden');
   strip.innerHTML = '';
   if(label) label.textContent = `${state.postImages.length}/5 added · tap to add more`;
@@ -8546,14 +8615,18 @@ if(!state.postImages) state.postImages = [];
 
 
 // Patch clearMediaPreview to also clear multi-images
-
-
-// Patch submitPost to save images array on post
-
+const _origClearMedia = window.clearMediaPreview;
+window.clearMediaPreview = function(){
+  if(_origClearMedia) _origClearMedia();
+  state.postImages = [];
+  renderMultiImageStrip();
+};
 
 // After submitPost creates the post, inject images
-
-  }
+const _origSubmitPost = window.submitPost;
+window.submitPost = async function(){
+  if(_origSubmitPost) await _origSubmitPost();
+  // Images already attached via state.postImageBase64 and state.postImages
   // Reset multi-images
   state.postImages = [];
   renderMultiImageStrip();
@@ -8564,10 +8637,19 @@ if(!state.postImages) state.postImages = [];
 // ============================================================
 
 let _galleryImages  = [];
+let _galleryIndex   = 0;
+let _galleryZoomed  = false;
 
-
-
-
+function openGallery(images, startIndex=0){
+  if(!images||!images.length) return;
+  _galleryImages = images;
+  _galleryIndex  = startIndex;
+  _galleryZoomed = false;
+  const modal = el('lightbox-modal'); if(!modal) return;
+  modal.classList.remove('hidden');
+  const capEl = el('gallery-caption');
+  if(capEl){
+    if(images[startIndex]?.caption) { capEl.textContent=images[startIndex].caption; capEl.classList.remove('hidden'); }
     else capEl.classList.add('hidden');
   }
 
@@ -8579,31 +8661,50 @@ let _galleryImages  = [];
 
 
 
-, 120);
+function renderGallerySlide(){
+  const img = el('gallery-main-img');
+  const counter = el('gallery-counter');
+  if(!img) return;
+  img.style.transition='opacity .15s';
+  img.style.opacity='0';
+  setTimeout(()=>{
+    img.src = typeof _galleryImages[_galleryIndex]==='string'
+      ? _galleryImages[_galleryIndex]
+      : (_galleryImages[_galleryIndex]?.src||'');
+    img.style.opacity='1';
+    if(counter) counter.textContent=`${_galleryIndex+1} / ${_galleryImages.length}`;
+  }, 120);
 
   // Reset zoom on slide change
   _galleryZoomed = false;
-  const zBtn = el('gl-zoom-btn');
+}
+
+function updateGalleryUI(){
+  const counter = el('gallery-counter');
+  const dots    = el('gallery-dots');
+  const prev    = el('gl-prev');
+  const next    = el('gl-next');
+  const zBtn    = el('gl-zoom-btn');
   if(zBtn) zBtn.textContent = '🔍';
 
   // Counter
-  if(counter) counter.textContent = `${_galleryIdx + 1} / ${_galleryImages.length}`;
+  if(counter) counter.textContent = `${_galleryIndex + 1} / ${_galleryImages.length}`;
 
   // Dots
   if(dots){
     dots.innerHTML = '';
     _galleryImages.forEach((_, i) => {
       const d = document.createElement('div');
-      d.className = 'gallery-dot' + (i === _galleryIdx ? ' active' : '');
-      d.onclick = () => { _galleryIdx = i; renderGallerySlide(); };
+      d.className = 'gallery-dot' + (i === _galleryIndex ? ' active' : '');
+      d.onclick = () => { _galleryIndex = i; renderGallerySlide(); };
       dots.appendChild(d);
     });
   }
 
   // Highlight active thumb
   document.querySelectorAll('.gl-thumb').forEach((t,i) => {
-    t.classList.toggle('ring-2', i === _galleryIdx);
-    t.classList.toggle('ring-emerald-400', i === _galleryIdx);
+    t.classList.toggle('ring-2', i === _galleryIndex);
+    t.classList.toggle('ring-emerald-400', i === _galleryIndex);
   });
 
   // Arrows
@@ -8611,22 +8712,32 @@ let _galleryImages  = [];
   if(next) next.classList.toggle('hidden', _galleryImages.length <= 1);
 }
 
+function setupGallerySwipe(){
+  const modal = el('lightbox-modal'); if(!modal) return;
+  let startX=0;
+  modal.addEventListener('touchstart',e=>{ startX=e.touches[0].clientX; },{passive:true});
+  modal.addEventListener('touchend',e=>{
+    const diff = startX - e.changedTouches[0].clientX;
+    if(Math.abs(diff)>50){ diff>0 ? galleryNext() : galleryPrev(); }
+  },{passive:true});
+}
 
+
+function buildGalleryThumbs(){
+  const w = el('gallery-thumbs'); if(!w) return;
+  w.innerHTML='';
   w.classList.remove('hidden');
   _galleryImages.forEach((img, i) => {
     const t = document.createElement('img');
-    t.src = img;
-    t.className = `gl-thumb w-12 h-12 object-cover rounded-lg flex-shrink-0 cursor-pointer border-2 ${i===_galleryIdx?'border-emerald-400 ring-2 ring-emerald-400':'border-gray-700'} hover:border-emerald-500 transition`;
-    t.onclick = () => { _galleryIdx = i; renderGallerySlide(); };
+    t.src = typeof img==='string' ? img : img?.src||'';
+    t.className = `gl-thumb w-12 h-12 object-cover rounded-lg flex-shrink-0 cursor-pointer border-2 ${i===_galleryIndex?'border-emerald-400 ring-2 ring-emerald-400':'border-gray-700'} hover:border-emerald-500 transition`;
+    t.onclick = () => { _galleryIndex = i; renderGallerySlide(); };
     w.appendChild(t);
   });
 }
 
 
-
-
-
-
+function shareGalleryImage(){
   if(navigator.share){
     navigator.share({ title:'Ememart Post', text:'Check out this listing on Ememart!', url: 'https://ememart.ng' }).catch(()=>{});
   } else {
@@ -8636,6 +8747,11 @@ let _galleryImages  = [];
 }
 
 
+function downloadGalleryImage(){
+  const src = typeof _galleryImages[_galleryIndex]==='string'
+    ? _galleryImages[_galleryIndex]
+    : (_galleryImages[_galleryIndex]?.src||'');
+  if(!src) return;
   const a = document.createElement('a');
   a.href     = src;
   a.download = `ememart-image-${Date.now()}.jpg`;
@@ -8644,7 +8760,10 @@ let _galleryImages  = [];
 }
 
 // --- Swipe gesture support ---
-;
+let _gallerySwipeX = null;
+function setupGallerySwipeArea(){
+  const area = el('gallery-main-img'); if(!area) return;
+  area.ontouchstart = (e) => { _gallerySwipeX = e.touches[0].clientX; };
   area.ontouchend   = (e) => {
     if(_gallerySwipeX === null) return;
     const diff = _gallerySwipeX - e.changedTouches[0].clientX;
@@ -8717,21 +8836,35 @@ const TIER_FEATURE_ROWS = [
 ];
 
 // --- Get current vendor tier ---
-
-
-
+function getCurrentVendorTier(){
+  return VENDOR_TIERS[state.session?.vendorTier||'free'] || VENDOR_TIERS.free;
+}
 
 // --- Open tier modal with full UI ---
-
+function openVendorTierModal(){
   buildVendorTierModal();
   el('vendor-tier-modal').classList.remove('hidden');
 }
 
-)}`;
-    } else {
-      ren.textContent = currentTierKey === 'free' ? '' : '';
+function buildVendorTierModal(){
+  const currentTierKey = state.session?.vendorTier || 'free';
+  const currentTier = VENDOR_TIERS[currentTierKey];
+
+  // Render tier cards
+  Object.values(VENDOR_TIERS).forEach(tier => {
+    const card = el(`vtm-card-${tier.id}`);
+    const badge = el(`vtm-badge-${tier.id}`);
+    const ren  = el(`vtm-renewinfo-${tier.id}`);
+    if(card) card.classList.toggle('ring-2', tier.id === currentTierKey);
+    if(badge) badge.classList.toggle('hidden', tier.id !== currentTierKey);
+    if(ren){
+      if(tier.id !== 'free' && tier.id === currentTierKey){
+        ren.textContent = `Next renewal: ${new Date(Date.now()+30*864e5).toLocaleDateString()}`;
+      } else {
+        ren.textContent = currentTierKey === 'free' ? '' : '';
+      }
     }
-  }
+  });
 
   // Feature comparison table
   const rowsEl = el('vtm-feature-rows');
@@ -8797,7 +8930,9 @@ const TIER_FEATURE_ROWS = [
 }
 
 // --- Confirm upgrade ---
-
+function confirmVendorTierUpgrade(tierKey){
+  const tier = VENDOR_TIERS[tierKey];
+  if(!tier||!state.session){ return; }
   if((state.session?.balance||0) < tier.price){
     showPopupNotif('❌','Insufficient Funds',`Fund your wallet with at least ₦${fmt(tier.price)} to upgrade to ${tier.name}.`);
     return;
@@ -8817,11 +8952,20 @@ const TIER_FEATURE_ROWS = [
 }
 
 // --- Confirm downgrade ---
-`,`Your plan has been changed. Some features may no longer be available.`);
+function confirmVendorTierDowngrade(tierKey){
+  const tier = VENDOR_TIERS[tierKey];
+  if(!tier||!state.session) return;
+  setVendorTier(tierKey);
+  el('vendor-tier-modal')?.classList.add('hidden');
+  showPopupNotif(tier.icon, `Plan Changed to ${tier.name}`,`Your plan has been changed. Some features may no longer be available.`);
 }
 
 // --- Enforce tier limits ---
- plan allows ${tier.activePosts} active posts. Upgrade to Pro for unlimited posts.`);
+function checkTierPostLimit(){
+  const tier = getCurrentVendorTier();
+  const myActivePosts = (state.posts||[]).filter(p=>p.authorId===state.session?.id&&!p.expired).length;
+  if(myActivePosts >= tier.activePosts){
+    showPopupNotif('⚠️','Post Limit Reached',`Your ${tier.name} plan allows ${tier.activePosts} active posts. Upgrade to Pro for unlimited posts.`);
     openVendorTierModal();
     return false;
   }
@@ -8829,7 +8973,13 @@ const TIER_FEATURE_ROWS = [
 }
 
 // --- Render tier info on vendor dashboard ---
-`; }
+function renderVendorTierInfo(){
+  const tierKey = state.session?.vendorTier || 'free';
+  const tier    = VENDOR_TIERS[tierKey] || VENDOR_TIERS.free;
+  const ticon   = el('vendor-tier-icon');
+  const tname   = el('vendor-tier-name');
+  const tren    = el('vendor-tier-renewal');
+  if(ticon){ ticon.textContent = tier.icon; ticon.className = `text-2xl`; }
   if(tname){ tname.textContent = tier.name + ' Plan'; tname.className = `text-sm font-black ${tier.color}`; }
   if(tren){
     const renewalDate = localStorage.getItem('ememart_vendor_tier_renewal');
@@ -8897,14 +9047,11 @@ const TIER_FEATURE_ROWS = [
 }
 
 // --- Patch syncAccountDisplay to update tier UI ---
-
+const _origSyncAcc2 = window.syncAccountDisplay;
+window.syncAccountDisplay = function(){
+  if(_origSyncAcc2) _origSyncAcc2();
+  renderVendorTierInfo();
 }
-
-// --- Patch submitPost to enforce post limits ---
-
-
-// --- Apply Premium 0% escrow on orders ---
-
 
 // === FROM BLOCK 10 ===
 // ============================================================
@@ -8915,7 +9062,13 @@ let _selectedReminderService = '';
 let _selectedReminderServiceIcon = '';
 
 // --- Open/close modal ---
-);
+let _selectedReminderDay = null;
+function openAddReminderModal(editId=null){
+  el('reminder-modal-title').textContent = editId ? 'Edit Reminder' : 'Add Bill Reminder';
+  el('reminder-edit-id').value = editId || '';
+  _selectedReminderService = ''; _selectedReminderServiceIcon = ''; _selectedReminderDay = null;
+  if(el('reminder-account'))  el('reminder-account').value  = '';
+  if(el('reminder-amount'))   el('reminder-amount').value   = '';
   el('reminder-advance').value = '2';
   if(el('reminder-autopay')) el('reminder-autopay').checked = false;
   el('reminder-custom-label-wrap')?.classList.add('hidden');
@@ -8956,7 +9109,13 @@ let _selectedReminderServiceIcon = '';
 
 
 // --- Service selector ---
-);
+function selectReminderService(service, icon, btn){
+  _selectedReminderService = service;
+  _selectedReminderServiceIcon = icon;
+  document.querySelectorAll('.reminder-svc-btn').forEach(b => {
+    b.classList.remove('border-emerald-500','bg-emerald-950/30','text-emerald-400');
+    b.classList.add('border-gray-700','bg-gray-800','text-gray-300');
+  });
   btn.classList.add('border-emerald-500','bg-emerald-950/30','text-emerald-400');
   btn.classList.remove('border-gray-700','bg-gray-800','text-gray-300');
   const customWrap = el('reminder-custom-label-wrap');
@@ -8964,7 +9123,13 @@ let _selectedReminderServiceIcon = '';
 }
 
 // --- Build day grid (1–31) ---
-`;
+function buildReminderDayGrid(){
+  const grid = el('reminder-day-grid'); if(!grid) return;
+  grid.innerHTML = '';
+  for(let d=1; d<=31; d++){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = `rday-${d}`;
     btn.className = 'h-8 w-full rounded-lg text-[10px] font-black border border-gray-700 bg-gray-800 text-gray-400 hover:border-emerald-500 hover:text-emerald-400 transition';
     btn.textContent = d;
     btn.onclick = () => selectReminderDay(d);
@@ -8972,7 +9137,10 @@ let _selectedReminderServiceIcon = '';
   }
 }
 
-`);
+function selectReminderDay(day){
+  _selectedReminderDay = day;
+  for(let d=1; d<=31; d++){
+    const btn = el(`rday-${d}`);
     if(!btn) continue;
     if(d === day){
       btn.className = 'h-8 w-full rounded-lg text-[10px] font-black border border-emerald-500 bg-emerald-500 text-gray-900 transition';
@@ -8985,7 +9153,8 @@ let _selectedReminderServiceIcon = '';
 }
 
 // --- Save reminder ---
-
+function saveReminder(){
+  if(!_selectedReminderService){ showPopupNotif('⚠️','Select Service','Please pick the bill type.'); return; }
   if(!_selectedReminderDay){ showPopupNotif('⚠️','Select Day','Please pick the day of the month this bill is due.'); return; }
   const amount  = parseFloat(el('reminder-amount')?.value) || 0;
   if(!amount){ showPopupNotif('⚠️','Enter Amount','Please enter the typical bill amount.'); return; }
@@ -9022,7 +9191,24 @@ let _selectedReminderServiceIcon = '';
 }
 
 // --- Render reminders list ---
-</span>
+function renderRemindersList(){
+  const reminders = getBillReminders();
+  const nextListEl = el('upcoming-reminders-list');
+  if(nextListEl){
+    nextListEl.innerHTML = '';
+    const today = new Date().getDate();
+    const upcoming = reminders.map(r => ({ ...r, daysLeft: r.dayOfMonth >= today ? r.dayOfMonth - today : 31 - today + r.dayOfMonth }))
+      .sort((a,b)=>a.daysLeft-b.daysLeft).slice(0,3);
+    if(!upcoming.length){
+      nextListEl.innerHTML = '<div class="text-xs text-gray-500 italic text-center py-3">No upcoming bills.</div>';
+    } else {
+      upcoming.forEach(r => {
+        const daysLeft = r.daysLeft;
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between py-2 border-b border-gray-800 last:border-0';
+        div.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="text-base">${r.icon||'📋'}</span>
             <span class="font-black text-white">${r.service}</span>
           </div>
           <div class="flex items-center gap-2">
@@ -9087,7 +9273,9 @@ let _selectedReminderServiceIcon = '';
 }
 
 // --- Pay a reminder immediately via VTU ---
-;
+function payReminderNow(remId){
+  const rem = getBillReminders().find(r=>r.id===remId); if(!rem) return;
+  const vtuMap = { 'Electricity':'electricity','Airtime':'airtime','Data':'data','DSTV':'cable','GOtv':'cable','EKEDC':'electricity','IKEDC':'electricity' };
   const vtuService = vtuMap[rem.service];
   if(vtuService){
     showPanel('finance');
@@ -9100,14 +9288,28 @@ let _selectedReminderServiceIcon = '';
 }
 
 // --- Toggle active/paused ---
- reminder ${rem.active ? 'is now active' : 'has been paused'}.`);
+function toggleReminderActive(remId){
+  const reminders = getBillReminders();
+  const rem = reminders.find(r=>r.id===remId); if(!rem) return;
+  rem.active = !rem.active;
+  localStorage.setItem(BILL_REM_KEY, JSON.stringify(reminders));
+  renderRemindersList();
+  showPopupNotif('🔔', rem.active?'Reminder On':'Reminder Paused', `${rem.service} reminder ${rem.active ? 'is now active' : 'has been paused'}.`);
 }
 
 // --- Delete reminder ---
-
+function deleteReminder(remId){
+  const reminders = getBillReminders().filter(r=>r.id!==remId);
+  localStorage.setItem(BILL_REM_KEY, JSON.stringify(reminders));
+  renderRemindersList();
+  showPopupNotif('🗑️','Deleted','Bill reminder removed.');
+}
 
 // --- Auto-pay on due date ---
-_${new Date().getMonth()}_${new Date().getFullYear()}`;
+function processAutoPay(){
+  const today = new Date().getDate();
+  getBillReminders().filter(r=>r.active&&r.autoPay&&r.dayOfMonth===today).forEach(rem=>{
+    const key=`auto_paid_${rem.id}_${new Date().getMonth()}_${new Date().getFullYear()}`;
     if(localStorage.getItem(key)) return;
     if(!state.session || state.session.balance < rem.amount){
       showPopupNotif('⚠️','Auto-Pay Failed',`Insufficient balance for ${rem.service} (₦${fmt(rem.amount)}). Please fund your wallet.`);
@@ -9121,6 +9323,7 @@ _${new Date().getMonth()}_${new Date().getFullYear()}`;
   });
 }
 // Run auto-pay check on load
+const runAutoPayReminders = processAutoPay;
 runAutoPayReminders();
 
 
@@ -9134,22 +9337,34 @@ const PIN_SET_KEY   = 'ememart_pin_set';
 const PIN_ATTEMPTS_KEY = 'ememart_pin_attempts';
 const PIN_LOCKED_KEY   = 'ememart_pin_locked_until';
 
-   // 1=enter, 2=confirm
+let _pinSetupStep   = 1;  // 1=enter, 2=confirm
 let _pinSetupFirst  = '';  // first entry
 let _pinSetupEntry  = '';  // current input
 let _pinVerifyEntry = '';
 
 // Simple hash (for demo — in production use bcrypt on server)
-
-
-
-
+function hashPin(pin){ let h=0; for(let c of pin){ h=((h<<5)-h)+c.charCodeAt(0); h|=0; } return h.toString(36); }
+function pinIsSet(){ return !!localStorage.getItem(PIN_SET_KEY); }
+function verifyPin(pin){ return hashPin(pin)===localStorage.getItem(PIN_KEY); }
 
 // --- Show PIN setup prompt ---
+function showPinSetup(){
+  _pinSetupStep=1; _pinSetupFirst=''; _pinSetupEntry='';
+  if(el('pin-step-indicator')) el('pin-step-indicator').textContent='Step 1 of 2 — Create your PIN';
+  if(el('pin-setup-title')) el('pin-setup-title').textContent='Create PIN';
+  if(el('pin-setup-subtitle')) el('pin-setup-subtitle').textContent='Enter a 4-digit transaction PIN.';
+  updatePinDots('pin-dot','');
+  el('pin-setup-modal')?.classList.remove('hidden');
+}
 
 
 // --- PIN pad input (setup) ---
-
+function pinPadInput(digit){
+  if(_pinSetupEntry.length >= 4) return;
+  _pinSetupEntry += digit;
+  updatePinDots('pin-dot', _pinSetupEntry);
+  if(_pinSetupEntry.length === 4){
+    if(_pinSetupStep === 1){
         _pinSetupFirst = _pinSetupEntry;
         _pinSetupEntry = '';
         _pinSetupStep  = 2;
@@ -9180,24 +9395,18 @@ let _pinVerifyEntry = '';
           }, 600);
         }
       }
-    }, 100);
   }
 }
 
-
-
-
-
-
-}
-
-
-  el('set-pin-modal').classList.add('hidden');
-  showPopupNotif('⚠️','PIN Skipped','Your wallet is less secure without a PIN. You can set one anytime in Account → Settings.'); 
+function skipPinSetup(){
+  el('set-pin-modal')?.classList.add('hidden');
+  showPopupNotif('⚠️','PIN Skipped','Your wallet is less secure without a PIN. You can set one anytime in Account → Settings.');
 }
 
 // --- PIN verification before sensitive actions ---
-
+let _pinVerifyCallback = null;
+let _pinAttempts = 0;
+function requirePin(action, callback){
   if(isPinLocked()){
     const until = new Date(parseInt(localStorage.getItem(PIN_LOCKED_KEY))).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     showPopupNotif('🔒','PIN Locked',`Too many wrong attempts. Try again after ${until}.`);
@@ -9213,17 +9422,17 @@ let _pinVerifyEntry = '';
   if(titleEl) titleEl.textContent = action || 'Enter Your PIN';
   el('pin-verify-modal').classList.remove('hidden');
 }
-
-
-}
-
-
-
-
-
-
-
- else {
+function pinVerifyInput(digit){
+  if(_pinVerifyEntry.length >= 4) return;
+  _pinVerifyEntry += digit;
+  updatePinDots('vpin-dot', _pinVerifyEntry);
+  if(_pinVerifyEntry.length === 4){
+    if(verifyPin(_pinVerifyEntry)){
+      _pinAttempts = 0;
+      localStorage.setItem(PIN_ATTEMPTS_KEY,'0');
+      el('pin-verify-modal')?.classList.add('hidden');
+      if(_pinVerifyCallback) { _pinVerifyCallback(); _pinVerifyCallback=null; }
+    } else {
     // Wrong
     _pinAttempts++;
     localStorage.setItem(PIN_ATTEMPTS_KEY, _pinAttempts);
@@ -9245,13 +9454,17 @@ let _pinVerifyEntry = '';
 }
 
 // --- Helpers ---
--${i}`);
+function updatePinDots(prefix, entry){
+  for(let i=1; i<=4; i++){
+    const dot = el(`${prefix}-${i}`);
     if(!dot) continue;
     dot.className = `w-4 h-4 rounded-full border-2 transition-all ${i <= entry.length ? 'pin-dot-filled border-emerald-500 bg-emerald-500' : 'border-gray-600'}`;
   }
 }
 
--${i}`);
+function flashPinDotsError(prefix){
+  for(let i=1; i<=4; i++){
+    const dot = el(`${prefix}-${i}`);
     if(dot) dot.className = 'w-4 h-4 rounded-full border-2 pin-dot-error border-red-500 bg-red-500';
   }
 }
@@ -9264,24 +9477,34 @@ function isWeakPin(pin){
 // --- Patch sensitive actions to require PIN ---
 
 // Withdraw
-
+const _origProcessWithdrawal = window.processWithdrawal;
+window.processWithdrawal = async function(){
+  if(pinIsSet()){
+    requirePin('Confirm Withdrawal', async () => { await _origProcessWithdrawal?.(); });
+  } else {
+    await _origProcessWithdrawal?.();
   }
-  await _origProcessWithdrawal();
 }
 
 // Transfer
-
+const _origProcessTransfer = window.processTransfer;
+window.processTransfer = async function(){
+  if(pinIsSet()){
+    requirePin('Confirm Transfer', async () => { await _origProcessTransfer?.(); });
+  } else {
+    await _origProcessTransfer?.();
   }
-  await _origProcessTransfer();
 }
 
 // Deposit — prompt PIN setup on first deposit
-
-  _origDoDeposit();
+const _origDoDeposit = window.doDeposit;
+window.doDeposit = function(){
+  if(!pinIsSet()) showPinSetup();
+  _origDoDeposit?.();
 }
 
 // PIN settings in Account
-
+function changePIN(){
   // Verify old PIN first, then set new one
   requirePin('Verify Current PIN', () => {
     _pinSetupStep  = 1;
@@ -9329,11 +9552,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Sync PIN button label when account reloads
-`;
+function syncPinButtonLabel(){
+  const btn = el('pin-setting-btn');
+  if(btn) btn.textContent = pinIsSet() ? '🔑 Change PIN' : '🔑 Set PIN';
 }
-
-// Replace submitSetPIN to use new flow
-
 
 // === FROM BLOCK 12 ===
 // ============================================================
@@ -9344,49 +9566,66 @@ const CASHBACK_KEY  = 'ememart_cashback_v1';
 const REFERRAL_KEY  = 'ememart_referrals_v1';
 
 // --- Cashback storage ---
-catch(e){ return []; } }
+function getCashbackRecords(){ try{ return JSON.parse(localStorage.getItem(CASHBACK_KEY)||'[]'); }catch(e){ return []; } }
+function saveCashbackRecords(r){ localStorage.setItem(CASHBACK_KEY, JSON.stringify(r)); }
 
 
-);
+function addCashbackRecord(record){
+  const records = getCashbackRecords();
+  records.unshift({ ...record, id: 'cb_'+Date.now(), ts: Date.now() });
   saveCashbackRecords(records);
   updateCashbackSummary();
 }
 
-
-
-
-
-
-
 // --- Referral storage ---
-catch(e){ return []; } }
+function getReferralData(){ try{ return JSON.parse(localStorage.getItem(REFERRAL_KEY)||'{}'); }catch(e){ return {}; } }
+function saveReferralData(r){ localStorage.setItem(REFERRAL_KEY, JSON.stringify(r)); }
 
 
-);
-  saveReferralRecords(records);
+function saveReferralRecords(r){ localStorage.setItem(REFERRAL_KEY, JSON.stringify(r)); }
+function addReferralRecord(record){
+  const data = getReferralData();
+  data.count = (data.count||0) + 1;
+  data.cashback = (data.cashback||0) + (record.bonus||0);
+  if(!data.history) data.history = [];
+  data.history.unshift({ ...record, ts: Date.now() });
+  saveReferralData(data);
   updateReferralSummary();
 }
 
-
-
 // --- Open dashboard ---
-
+function openReferralDashboard(){
   buildReferralDashboard();
   el('referral-dashboard-modal').classList.remove('hidden');
 }
 
-`;
+function buildReferralDashboard(){
+  const ref = getReferralData();
+  const infoEl = el('referral-info-block');
+  if(infoEl) infoEl.innerHTML = '<div class="flex items-center justify-between"><span class="text-xs text-gray-400">Your referral code</span><span class="font-black text-emerald-400 mono text-sm">'+( ref.code||'—')+'</span></div><div class="flex items-center justify-between"><span class="text-xs text-gray-400">Total referrals</span><span class="font-black text-white text-sm">'+(ref.count||0)+'</span></div><div class="flex items-center justify-between"><span class="text-xs text-gray-400">Cashback earned</span><span class="font-black text-emerald-400 mono text-sm">₦'+fmt(ref.cashback||0)+'</span></div>';
   switchReferralTab('cashback');
 }
 
 // --- Tab switcher ---
-);
+function switchReferralTab(tab){
+  ['cashback','referral'].forEach(t=>{
+    el(`ref-tab-${t}`)?.classList.toggle('active', t===tab);
+    el(`ref-panel-${t}`)?.classList.toggle('hidden', t!==tab);
+  });
   if(tab==='cashback') renderCashbackTab();
   if(tab==='referral')  renderReferralTab();
 }
 
 // --- Render cashback tab ---
- else {
+function renderCashbackTab(){
+  const w = el('cashback-list'); if(!w) return;
+  const records = getTransactions().filter(t=>t.category==='cashback'&&t.userId===state.session?.id);
+  const emptyEl = el('cashback-empty');
+  if(!records.length){
+    emptyEl?.classList.remove('hidden');
+    w.innerHTML = '';
+    return;
+  } else {
       emptyEl?.classList.add('hidden');
       const serviceIcons = { airtime:'📱', data:'📶', electricity:'💡', tv:'📺', internet:'🌐', betting:'⚽', deposit:'💳', other:'💰' };
       records.slice(0,20).forEach(r => {
@@ -9439,7 +9678,16 @@ catch(e){ return []; } }
 }
 
 // --- Render referral tab ---
- else {
+function renderReferralTab(){
+  const w = el('referral-list'); if(!w) return;
+  const ref = getReferralData();
+  const records = ref.history||[];
+  const emptyEl = el('referral-empty');
+  if(!records.length){
+    emptyEl?.classList.remove('hidden');
+    w.innerHTML='';
+    return;
+  } else {
       emptyEl?.classList.add('hidden');
       records.forEach(r => {
         const div = document.createElement('div');
@@ -9454,14 +9702,14 @@ catch(e){ return []; } }
             <span class="text-xs font-black text-emerald-400 mono">+${fmtCurrency(r.earned)}</span>
             <span class="text-[8px] font-black text-emerald-400 border border-emerald-900/50 px-1.5 py-0.5 rounded-full">✅ Paid</span>
           </div>`;
-        histEl.appendChild(div);
+        w.appendChild(div);
       });
-    }
   }
 }
 
 // --- Share referral link ---
-
+function shareReferralLink(){
+  if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in to share your referral link.'); return; }
   const link = `https://ememart.ng/ref/${state.session.id}`;
   const text = `Join Ememart — Nigeria's hyperlocal marketplace! Order food, hire artisans & pay bills near you. Use my link to sign up and we both benefit: ${link}`;
   if(navigator.share){
@@ -9475,7 +9723,8 @@ catch(e){ return []; } }
 }
 
 // Override copyReferralLink to also track and open dashboard
-
+function copyReferralLink(){
+  if(!state.session) return;
   const link = `https://ememart.ng/ref/${state.session.id}`;
   navigator.clipboard?.writeText(link).catch(()=>{});
   localStorage.setItem('ememart_ref_clicks', (parseInt(localStorage.getItem('ememart_ref_clicks')||'0')+1).toString());
@@ -9483,7 +9732,21 @@ catch(e){ return []; } }
 }
 
 // --- Demo: simulate a referral ---
- joined and deposited` });
+function simulateReferral(){
+  if(!state.session){ showPopupNotif('⚠️','Sign In','Sign in first.'); return; }
+  const names = ['Chidi Okeke','Amaka Eze','Tunde Balogun','Ngozi Okonkwo','Emeka Nwosu'];
+  const name  = names[Math.floor(Math.random()*names.length)];
+  const bonus = 500;
+  const data  = getReferralData();
+  if(!data.code) data.code = state.session.id.toString().slice(-6).toUpperCase();
+  data.count  = (data.count||0)+1;
+  data.cashback = (data.cashback||0)+bonus;
+  if(!data.history) data.history=[];
+  data.history.unshift({ friendName:name, earned:bonus, ts:Date.now() });
+  saveReferralData(data);
+  if(state.session){
+    state.session.balance = (state.session.balance||0)+bonus;
+    addTransaction({ type:'credit', category:'referral', userId:state.session.id, amount:bonus, desc:`Referral bonus — ${name} joined and deposited` });
     syncAccountDisplay();
   }
   renderReferralTab();
@@ -9518,15 +9781,27 @@ window.addEventListener('load', () => {
   }
 });
 
-);
+function initGoogleSignIn(){
+  try{
+    google.accounts.id.initialize({
+      client_id: 'YOUR_GOOGLE_CLIENT_ID',
+      callback: handleGoogleCredentialResponse
+    });
+    google.accounts.id.renderButton(
+      document.getElementById('google-signin-btn'),
+      { theme:'filled_black', size:'large', text:'signin_with', shape:'pill', width:280 }
+    );
   } catch(e){
     console.warn('Google GSI init failed:', e);
   }
 }
 
 // --- Handle Google button click ---
-
-          );
+async function handleGoogleSignIn(){
+  try{
+    if(typeof google !== 'undefined' && google.accounts){
+      google.accounts.id.prompt((notification) => {
+        if(notification.isNotDisplayed() || notification.isSkippedMoment()){
           handleGoogleSignInFallback();
         }
       });
@@ -9544,7 +9819,9 @@ window.addEventListener('load', () => {
 }
 
 // --- Handle Google credential response ---
-
+async function handleGoogleCredentialResponse(response){
+  try {
+    const payload = JSON.parse(atob(response.credential.split('.')[1]));
 
     // Try to authenticate with backend
     try {
@@ -9578,27 +9855,43 @@ window.addEventListener('load', () => {
 }
 
 // --- Complete sign-in with full user object ---
-;
+function completeGoogleSignIn(user, payload){
+  state.session = { ...user, avatar: user.picture || payload?.picture || null };
+  saveState();
   finishSignIn();
 }
 
 // --- Demo mode: simulate sign-in from Google profile ---
-;
+function completeGoogleSignInNew(user, payload){
+  state.session = { ...user, avatar: user.picture || payload?.picture || null };
+  saveState();
   finishSignIn();
   // New Google user — prompt location setup
   setTimeout(() => showGoogleNewUserSetup(payload), 1000);
 }
 
 // --- Fallback for when GSI not available ---
+function handleGoogleSignInFallback(){
+  el('google-signin-info-modal')?.classList.remove('hidden');
+}
 
-
-// --- Google sign-in info modal (when GSI not available / demo) ---
-
+// --- Google sign-in info modal ---
+function showGoogleSignInInfo(){
+  el('google-signin-info-modal')?.classList.remove('hidden');
+}
 
 // --- New Google user location setup ---
+function showGoogleNewUserSetup(payload){
+  el('google-setup-modal')?.classList.remove('hidden');
+  if(el('google-setup-name')) el('google-setup-name').textContent = payload?.given_name||payload?.name||'';
+}
 
-
-
+function saveGoogleUserSetup(){
+  const town  = el('google-setup-town')?.value.trim()||'';
+  const lga   = el('google-setup-lga')?.value.trim()||'';
+  const state2= el('google-setup-state')?.value||'';
+  const role  = el('google-setup-role')?.value||'user';
+  if(!town){ showPopupNotif('⚠️','Enter Town','Please enter your town/street name.'); return; }
   if(state.session){
     state.session.town  = town;
     state.session.lga   = lga;
@@ -9613,7 +9906,12 @@ window.addEventListener('load', () => {
 }
 
 // --- Finish sign-in (common for Google + email) ---
-, ${firstName}!`,
+function finishSignIn(){
+  el('auth-modal')?.classList.add('hidden');
+  el('auth-panel')?.classList.add('hidden');
+  const firstName = state.session?.full_name?.split(' ')[0] || 'there';
+  const method    = state.session?.google_id ? 'Google' : 'email';
+  showPopupNotif('👋',`Welcome back, ${firstName}!`,
     `Signed in with ${method}. ${state.session?.isNew ? 'Complete your profile to unlock all features.' : ''}`);
 
   // New user — show onboarding if not seen
@@ -9627,13 +9925,19 @@ window.addEventListener('load', () => {
 }
 
 // --- Decode Google JWT (for demo/frontend parsing) ---
- catch(e){
+function decodeGoogleJWT(token){
+  try{
+    const base64 = token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+    return JSON.parse(atob(base64));
+  } catch(e){
     return null;
   }
 }
 
 // --- Apple Sign-In (placeholder — requires Apple Developer account) ---
-
+function handleAppleSignIn(){
+  showPopupNotif('🍎','Apple Sign-In','Apple Sign-In requires an Apple Developer account. Coming soon!');
+}
 
 // === FROM BLOCK 14 ===
 // ============================================================
@@ -9646,34 +9950,53 @@ const ONLINE_THRESHOLD  = 5 * 60 * 1000; // 5 mins = online
 
 // --- Presence record structure ---
 // { userId, lastSeen, isOnline, status: 'online'|'away'|'offline' }
-
-'); }catch(e){ return {}; }
-}
+function getPresenceRecords(){ try{ return JSON.parse(localStorage.getItem(PRESENCE_KEY)||'{}'); }catch(e){ return {}; } }
+function savePresenceRecords(r){ localStorage.setItem(PRESENCE_KEY, JSON.stringify(r)); }
 
 
 // --- Update own presence ---
-;
+function updateOwnPresence(){
+  if(!state.session) return;
+  const records = getPresenceRecords();
+  records[state.session.id] = { userId: state.session.id, lastSeen: Date.now(), isOnline: true, status:'online' };
   savePresenceRecords(records);
 }
 
 // --- Check if a user is online ---
-
+function isUserOnline(userId){
+  const rec = getPresenceRecords()[userId];
+  if(!rec) return false;
+  return (Date.now() - rec.lastSeen) < ONLINE_THRESHOLD;
+}
 
 // --- Get last seen string ---
-m ago`;
+function getLastSeen(userId){
+  const rec = getPresenceRecords()[userId];
+  if(!rec) return 'Never seen';
+  if(isUserOnline(userId)) return 'Online now';
+  const diff = Date.now() - rec.lastSeen;
+  if(diff < 3600000)    return `Last seen ${Math.floor(diff/60000)}m ago`;
   if(diff < 86400000)   return `Last seen ${Math.floor(diff/3600000)}h ago`;
   return `Last seen ${Math.floor(diff/86400000)}d ago`;
 }
 
 // --- Seed demo presence for existing post authors ---
-;
+function seedDemoPresence(){
+  const records = getPresenceRecords();
+  (state.posts||[]).forEach(p=>{
+    if(!records[p.authorId]){
+      const rndMs = Math.random()*600000; // 0-10 min ago
+      records[p.authorId] = { userId:p.authorId, lastSeen:Date.now()-rndMs, isOnline:rndMs<300000, status:rndMs<300000?'online':'away' };
     }
   });
   savePresenceRecords(records);
 }
 
 // --- Start presence heartbeat ---
-, PRESENCE_INTERVAL);
+let _presenceInterval = null;
+function startPresenceHeartbeat(){
+  updateOwnPresence();
+  _presenceInterval = setInterval(updateOwnPresence, PRESENCE_INTERVAL);
 }
 
 // --- Set offline on page unload ---
@@ -9688,9 +10011,14 @@ window.addEventListener('beforeunload', () => {
 });
 
 // --- Update vendor profile with live status ---
-
-
-`;
+function updateVendorProfileStatus(vendorId){
+  const isOnline = isUserOnline(vendorId);
+  const lastSeen = getLastSeen(vendorId);
+  const dot   = el('vp-online-dot');
+  const label = el('vp-online-label');
+  if(dot){
+    dot.className = `w-2.5 h-2.5 rounded-full flex-shrink-0 ${isOnline ? 'bg-emerald-400 shadow-emerald-400/60 shadow-[0_0_6px_2px]' : 'bg-gray-600'}`;
+    dot.title = lastSeen;
   }
   if(label){
     label.textContent  = lastSeen;
@@ -9706,8 +10034,13 @@ window.addEventListener('beforeunload', () => {
 }
 
 // --- Online status in messages panel ---
-`;
-  });
+function updateMessageOnlineStatus(userId){
+  const isOnline = isUserOnline(userId);
+  const lastSeen = getLastSeen(userId);
+  const dot = el('msg-online-dot');
+  const label = el('msg-online-label');
+  if(dot) dot.className = `w-2 h-2 rounded-full ${isOnline?'bg-emerald-400':'bg-gray-600'}`;
+  if(label) label.textContent = lastSeen;
 }
 
 // --- Online status settings (user can set custom status) ---
@@ -9718,8 +10051,15 @@ const STATUS_OPTIONS = [
   { key:'invisible',     label:'⚫ Appear Offline',   desc:'Others see you as offline' },
 ];
 
-`;
-      btn.innerHTML = `
+function renderStatusPicker(){
+  const w = el('status-picker-list'); if(!w) return;
+  const current = getPresenceRecords()[state.session?.id]?.status||'online';
+  w.innerHTML='';
+  STATUS_OPTIONS.forEach(opt=>{
+    const btn = document.createElement('button');
+    btn.className = `w-full text-left px-3 py-2.5 rounded-xl border transition ${opt.key===current?'border-emerald-500 bg-emerald-950/30':'border-gray-700 bg-gray-900 hover:border-gray-600'}`;
+    btn.onclick = ()=>setUserStatus(opt.key);
+    btn.innerHTML = `
         <div class="flex items-center gap-3">
           <span class="text-base">${opt.label.split(' ')[0]}</span>
           <div>
@@ -9728,14 +10068,24 @@ const STATUS_OPTIONS = [
           </div>
         </div>
         ${opt.key === current ? '<span class="text-emerald-400 font-black text-sm">✓</span>' : ''}`;
-      btn.onclick = () => { setMyStatus(opt.key); modal.classList.add('hidden'); };
-      list.appendChild(btn);
+      w.appendChild(btn);
     });
-  }
+}
+
+function showStatusPicker(){
+  const modal = el('status-picker-modal');
+  if(!modal) return;
+  renderStatusPicker();
   modal.classList.remove('hidden');
 }
 
-;
+function setUserStatus(statusKey){
+  if(!state.session) return;
+  const records = getPresenceRecords();
+  if(!records[state.session.id]) records[state.session.id]={};
+  records[state.session.id].status = statusKey;
+  records[state.session.id].isOnline = statusKey !== 'invisible';
+  records[state.session.id].lastSeen = Date.now();
   savePresenceRecords(records);
   renderFeed();
   const opt = STATUS_OPTIONS.find(o => o.key === statusKey);
@@ -9743,12 +10093,18 @@ const STATUS_OPTIONS = [
   updateMyStatusDisplay();
 }
 
- <span class="text-[9px] font-black">${opt?.label.split(' ').slice(1).join(' ')||'Online'}</span>`;
+function updateMyStatusDisplay(){
+  const btn = el('my-status-btn'); if(!btn) return;
+  const status = getPresenceRecords()[state.session?.id]?.status||'online';
+  const opt = STATUS_OPTIONS.find(o=>o.key===status);
+  btn.innerHTML = `${opt?.label.split(' ')[0]||'🟢'} <span class="text-[9px] font-black">${opt?.label.split(' ').slice(1).join(' ')||'Online'}</span>`;
 }
 
 // --- Patch syncAccountDisplay to add status button ---
-
-  }
+const _origSyncAcc3 = window.syncAccountDisplay;
+window.syncAccountDisplay = function(){
+  if(_origSyncAcc3) _origSyncAcc3();
+  updateMyStatusDisplay();
 }
 
 // --- Add status response time to vendor profile panel ---
@@ -9763,11 +10119,14 @@ if(vpPhone && !el('vp-response-time')){
 }
 
 // --- Init on load ---
-
+function initPresenceSystem(){
+  if(!state.session) return;
+  startPresenceHeartbeat();
+  seedDemoPresence();
+  updateMyStatusDisplay();
 }
 
 // Run after session loads
-
 initPresenceSystem();
 
 
@@ -9779,27 +10138,46 @@ initPresenceSystem();
 const SUSPENSION_KEY = 'ememart_suspended_vendors';
 
 // --- Get suspended vendors ---
-catch(e){ return []; } }
+function getSuspendedVendors(){ try{ return JSON.parse(localStorage.getItem(SUSPENSION_KEY)||'[]'); }catch(e){ return []; } }
+function saveSuspendedVendors(r){ localStorage.setItem(SUSPENSION_KEY, JSON.stringify(r)); }
 
 
 
 // --- Get spoil count for vendor ---
+const SPOIL_COUNT_KEY = 'ememart_spoil_counts_v1';
+function getSpoilCounts(){ try{ return JSON.parse(localStorage.getItem(SPOIL_COUNT_KEY)||'{}'); }catch(e){ return {}; } }
+function saveSpoilCounts(r){ localStorage.setItem(SPOIL_COUNT_KEY, JSON.stringify(r)); }
+function getSpoilCount(vendorId){ return getSpoilCounts()[vendorId]||0; }
 
-
-// --- Patch dispute submission to handle suspension ---
-
+// --- Report spoiled food ---
+function reportSpoiledFood(postId){
+  const post = state.posts.find(p=>p.id===postId); if(!post) return;
+  const vendorId = post.authorId;
+  const counts = getSpoilCounts();
+  counts[vendorId] = (counts[vendorId]||0)+1;
+  saveSpoilCounts(counts);
+  checkSuspensionThreshold(vendorId, post.authorName);
   renderSpoilLog();
 }
 
-// --- Suspend a vendor ---
-);
-    renderFeed();
-    showPopupNotif('🚫','Vendor Suspended',`${vendorName} has been suspended after 5 spoiled food reports. Their listings are now flagged.`);
+// --- Check suspension threshold ---
+function checkSuspensionThreshold(vendorId, vendorName){
+  const count = getSpoilCount(vendorId);
+  if(count >= 5){
+    const suspended = getSuspendedVendors();
+    if(!suspended.includes(vendorId)){
+      suspended.push(vendorId);
+      saveSuspendedVendors(suspended);
+      renderFeed();
+      showPopupNotif('🚫','Vendor Suspended',`${vendorName} has been suspended after 5 spoiled food reports. Their listings are now flagged.`);
+    }
   }
 }
 
 // --- Unsuspend (admin action) ---
-);
+function unsuspendVendor(vendorId){
+  const suspended = getSuspendedVendors().filter(id=>id!==vendorId);
+  saveSuspendedVendors(suspended);
   const counts = getSpoilCounts();
   counts[vendorId] = 0;
   saveSpoilCounts(counts);
@@ -9809,10 +10187,9 @@ catch(e){ return []; } }
 }
 
 // --- Vendor profile: show spoil warning ---
-
-
-
-
+function showSpoilWarningOnProfile(vendorId){
+  const warningEl = el('vendor-spoil-warning');
+  const count     = getSpoilCount(vendorId);
   if(!warningEl) return;
   if(count === 0){ warningEl.classList.add('hidden'); return; }
 
@@ -9856,27 +10233,28 @@ catch(e){ return []; } }
 }
 
 // --- Spoil detail modal ---
-
-
-</div>
-        <div class="text-[10px] text-gray-400">Spoiled food complaint history</div>
-      </div>
-    </div>
-
-    <!-- Counter gauge -->
-    <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 mb-3">
-      <div class="flex justify-between items-center mb-2">
-        <span class="text-[10px] font-black text-gray-400 uppercase tracking-wider">Report Count</span>
-        <span class="text-2xl font-black ${count>=5?'text-red-400':count>=4?'text-orange-400':'text-amber-400'} mono">${count} / 5</span>
-      </div>
-      <div class="h-2.5 bg-gray-800 rounded-full overflow-hidden mb-1.5">
-        <div class="h-full ${count>=5?'bg-red-500':count>=4?'bg-orange-500':'bg-amber-500'} rounded-full transition-all" style="width:${pct}%"></div>
-      </div>
-      <div class="flex justify-between text-[8px] text-gray-600">
-        <span>1st report</span><span>⚠️ Warning</span><span>🚫 Suspend</span>
-      </div>
-    </div>
-
+function openSpoilDetailModal(vendorId){
+  const modal = el('spoil-detail-modal'); if(!modal) return;
+  const count   = getSpoilCount(vendorId);
+  const post    = state.posts.find(p=>p.authorId===vendorId);
+  const name    = post?.authorName||'This Vendor';
+  const isSus   = getSuspendedVendors().includes(vendorId);
+  const headEl  = el('sdm-vendor-name');
+  const countEl = el('sdm-count');
+  const barEl   = el('sdm-bar');
+  const statusEl= el('sdm-status');
+  if(headEl) headEl.textContent = name;
+  if(countEl) countEl.textContent = `${count} / 5`;
+  if(barEl)   barEl.style.width = `${Math.min(100,(count/5)*100)}%`;
+  if(statusEl) statusEl.innerHTML = isSus
+    ? '<span class="text-red-400 font-black">🚫 SUSPENDED</span>'
+    : `<span class="${count>=4?'text-red-400':count>=3?'text-orange-400':'text-amber-400'} font-black">${count>=5?'Suspension Imminent':count>=3?'High Risk':'Under Watch'}</span>`;
+  const sdmHead = el('sdm-header');
+  if(sdmHead) sdmHead.innerHTML = '<div class="font-black text-white">' + name + '</div><div class="text-[10px] text-gray-400">Spoiled food complaint history</div>';
+  const bodyEl = el('sdm-body');
+  const disputes = [];
+  const pct = Math.min(100,(count/5)*100);
+  if(bodyEl) bodyEl.innerHTML = `
     <!-- What happens at each level -->
     <div class="flex flex-col gap-1.5 mb-3">
       ${[1,2,3,4,5].map(n => `
@@ -9913,13 +10291,16 @@ catch(e){ return []; } }
     ` : count > 0 ? `
       <button onclick="suspendVendor('${vendorId}','${vendorName}'); el('spoil-detail-modal').classList.add('hidden'); renderVendorSpoilWarning('${vendorId}');" class="w-full mt-3 py-2.5 rounded-xl text-xs font-black text-red-400 border border-red-900 hover:bg-red-950 transition">🚫 Manually Suspend Vendor (Admin)</button>
     ` : ''}`;
+  modal.classList.remove('hidden');
 }
 
 // --- Spoil log in disputes panel ---
-
-
-
-
+function renderSpoilLog(){
+  const w = el('spoil-log-list'); if(!w) return;
+  const counts    = getSpoilCounts();
+  const suspended = getSuspendedVendors();
+  const entries   = Object.entries(counts).filter(([,c])=>c>0);
+  if(!entries.length){ w.innerHTML='<div class="text-xs text-gray-500 italic text-center py-4">No spoiled food reports yet.</div>'; return; }
   w.innerHTML = '';
   entries.sort((a,b) => b[1]-a[1]).forEach(([vendorId, count]) => {
     const post       = state.posts.find(p => p.authorId === vendorId);
@@ -9952,7 +10333,14 @@ catch(e){ return []; } }
 }
 
 // --- Add suspended badge to post cards ---
-);
+function addSuspendedBadgeToCard(card, post){
+  if(!card||!post) return;
+  const isSuspended = getSuspendedVendors().includes(post.authorId);
+  if(isSuspended){
+    const badge = document.createElement('div');
+    badge.className = 'text-[8px] font-black text-center py-1 bg-red-950/60 text-red-400 border-t border-red-900/40';
+    badge.textContent = '🚫 SUSPENDED — Vendor under review';
+    card.appendChild(badge);
   } else {
     const count = getVendorSpoilCount(post.authorId);
     if(count >= 3 && post.isFood){
@@ -9967,8 +10355,9 @@ catch(e){ return []; } }
 }
 
 // Patch renderFeed to mark suspended posts
-);
-  _origRenderFeedSpoil();
+const _origRenderFeedSpoil = window.renderFeed;
+window.renderFeed = function(){
+  if(_origRenderFeedSpoil) _origRenderFeedSpoil();
 }
 
 
@@ -9987,7 +10376,16 @@ let   _adminDisputeFilter = 'all';
 const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
 
 // --- Admin login ---
- else {
+function adminLogin(){
+  const user = el('admin-user-inp')?.value.trim();
+  const pass = el('admin-pass-inp')?.value.trim();
+  if(user===ADMIN_CREDENTIALS.username && pass===ADMIN_CREDENTIALS.password){
+    localStorage.setItem(ADMIN_KEY, JSON.stringify({ user, ts: Date.now() }));
+    el('admin-login-modal')?.classList.add('hidden');
+    el('admin-panel-content')?.classList.remove('hidden');
+    renderAdminOverview();
+    showPopupNotif('✅','Admin Access Granted','Welcome to the Ememart Admin Dashboard.');
+  } else {
     showPopupNotif('❌','Access Denied','Invalid admin credentials.');
     el('admin-pass-inp').value = '';
   }
@@ -9996,11 +10394,24 @@ const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
 
 
 // Auto-restore admin session
-
+function restoreAdminSession(){
+  try{
+    const session = JSON.parse(localStorage.getItem(ADMIN_KEY)||'null');
+    if(session && (Date.now()-session.ts) < 3600000){
+      el('admin-login-modal')?.classList.add('hidden');
+      el('admin-panel-content')?.classList.remove('hidden');
+    }
+  }catch(e){}
 }
 
 // --- Tab switcher ---
-);
+function switchAdminTab(tab){
+  document.querySelectorAll('.admin-tab-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.tab===tab);
+  });
+  document.querySelectorAll('.admin-tab-panel').forEach(p=>{
+    p.classList.toggle('hidden', p.id!==`admin-${tab}-panel`);
+  });
   const renderers = {
     overview: renderAdminOverview,
     users:    renderAdminUsers,
@@ -10015,14 +10426,35 @@ const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
 }
 
 // --- OVERVIEW ---
-
-
-;
+function renderAdminOverview(){
+  const users    = getDemoUsers();
+  const vendors  = users.filter(u=>u.role==='vendor');
+  const riders   = users.filter(u=>u.role==='rider');
+  const orders   = (state.posts||[]).flatMap(p=>p.orders||[]);
+  const revenue  = orders.reduce((s,o)=>s+(o.total||0)*0.05,0);
+  const disputes = getDisputeRecords?.()?.length||0;
+  const stats = [
+    { id:'admin-stat-users',    val: users.length },
+    { id:'admin-stat-vendors',  val: vendors.length },
+    { id:'admin-stat-riders',   val: riders.length },
+    { id:'admin-stat-orders',   val: orders.length },
+    { id:'admin-stat-revenue',  val: '₦'+fmt(revenue) },
+    { id:'admin-stat-disputes', val: disputes },
+  ];
+  stats.forEach(s=>{ const e=el(s.id); if(e) e.textContent=s.val; });
 }
 
 // --- Demo users (from posts + session) ---
-`) || (Math.random()>0.7?'pending':'none'),
-        spoilCount: getVendorSpoilCount(p.authorId),
+function getDemoUsers(){
+  const seen = new Set();
+  const users = [];
+  (state.posts||[]).forEach(p=>{
+    if(!seen.has(p.authorId)){
+      seen.add(p.authorId);
+      users.push({ id:p.authorId, name:p.authorName, role:p.authorRole||'vendor',
+        suspended: getSuspendedVendors().includes(p.authorId),
+        kycStatus : localStorage.getItem(`kyc_${p.authorId}`) || (Math.random()>0.7?'pending':'none'),
+        spoilCount: getSpoilCount(p.authorId),
         joinDate  : new Date(p.ts - Math.random()*30*86400000).toLocaleDateString('en-NG',{month:'short',year:'numeric'}),
         notes     : localStorage.getItem(`admin_note_${p.authorId}`) || ''
       });
@@ -10035,7 +10467,11 @@ const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
 }
 
 // --- USERS TAB ---
-
+function renderAdminUsers(){
+  const w = el('admin-users-list'); if(!w) return;
+  const filter = el('admin-user-filter')?.value||'all';
+  let users = getDemoUsers();
+  if(filter!=='all') users = users.filter(u=>u.role===filter);
   w.innerHTML = '';
   users.forEach(u => {
     const div = document.createElement('div');
@@ -10061,8 +10497,14 @@ const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
 }
 
 
-
-</div>
+function openAdminUserModal(userId){
+  const users = getDemoUsers();
+  const u = users.find(u=>u.id===userId); if(!u) return;
+  const modal = el('admin-user-modal'); if(!modal) return;
+  const body = el('aum-body');
+  if(body) body.innerHTML = `
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center font-black text-lg text-white">${u.name[0]}</div>
       <div><div class="text-sm font-black text-white">${u.name}</div><div class="text-[10px] text-gray-400">${u.role} · ${u.id}</div></div>
     </div>
     <!-- Role change -->
@@ -10100,7 +10542,8 @@ const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
     </div>`;
 }
 
-`);
+function adminChangeRole(userId){
+  const sel = el(`aum-role-${userId}`);
   if(!sel) return;
   const newRole = sel.value;
   const log = JSON.parse(localStorage.getItem('ememart_role_log')||'[]');
@@ -10110,36 +10553,48 @@ const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
   renderAdminUsers();
 }
 
-`)?.value.trim() || '';
+function adminSaveNote(userId){
+  const note = el(`aum-note-${userId}`)?.value.trim() || '';
   localStorage.setItem(`admin_note_${userId}`, note);
   showPopupNotif('📝','Note Saved','Admin note saved for this user.');
   renderAdminUsers();
 }
 
-`, 'verified');
+function approveKYC(userId){
+  localStorage.setItem(`kyc_${userId}`, 'verified');
   if(state.session?.id === userId){ localStorage.setItem('ememart_kyc_status','verified'); }
   el('admin-user-modal')?.classList.add('hidden');
   showPopupNotif('✅','KYC Approved',`User ${userId} KYC has been verified.`);
   renderAdminUsers(); renderAdminKYC(); renderAdminOverview();
 }
 
-`, 'rejected');
+function rejectKYC(userId){
+  localStorage.setItem(`kyc_${userId}`, 'rejected');
   el('admin-user-modal')?.classList.add('hidden');
   showPopupNotif('❌','KYC Rejected',`KYC for user ${userId} has been rejected.`);
   renderAdminUsers(); renderAdminKYC();
 }
 
-
+function adminSuspendUser(userId){
+  const suspended = getSuspendedVendors();
+  if(!suspended.includes(userId)){ suspended.push(userId); saveSuspendedVendors(suspended); }
+  el('admin-user-modal')?.classList.add('hidden');
   showPopupNotif('🚫','User Suspended',`User ${userId} suspended.`);
   renderAdminUsers(); renderAdminOverview(); renderFeed();
 }
 
- reinstated.`);
+function adminUnsuspendUser(userId){
+  const suspended = getSuspendedVendors().filter(id=>id!==userId);
+  saveSuspendedVendors(suspended);
+  el('admin-user-modal')?.classList.add('hidden');
+  showPopupNotif('✅','User Reinstated',`User ${userId} reinstated.`);
   renderAdminUsers(); renderAdminOverview(); renderFeed();
 }
 
 // --- POSTS TAB ---
-
+function renderAdminPosts(){
+  const w = el('admin-posts-list'); if(!w) return;
+  const posts = (state.posts||[]).slice().sort((a,b)=>b.ts-a.ts);
   w.innerHTML='';
   posts.slice(0,30).forEach(p => {
     const div=document.createElement('div');
@@ -10167,8 +10622,11 @@ const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
 
 
 // --- KYC TAB ---
-
+function renderAdminKYC(){
+  const w = el('admin-kyc-list'); if(!w) return;
+  const pending = getDemoUsers().filter(u=>u.kycStatus==='pending');
   w.innerHTML='';
+  if(!pending.length){ w.innerHTML='<div class="text-xs text-gray-500 italic text-center py-4">No pending KYC submissions.</div>'; return; }
   pending.forEach(u => {
     const div=document.createElement('div');
     div.className='bg-gray-900 border border-amber-900/40 rounded-xl p-3 flex flex-col gap-2';
@@ -10193,9 +10651,11 @@ const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
 }
 
 // --- DISPUTES TAB (admin view) ---
-
-
-
+function renderAdminDisputes(){
+  const w = el('admin-disputes-list'); if(!w) return;
+  let disputes = getDisputeRecords?.() || [];
+  if(_adminDisputeFilter!=='all') disputes=disputes.filter(d=>d.status===_adminDisputeFilter);
+  disputes = disputes.slice().sort((a,b)=>b.createdAt-a.createdAt);
   w.innerHTML='';
   const statusColors={open:'text-amber-400',acknowledged:'text-sky-400',escalated:'text-red-400',resolved:'text-emerald-400',closed:'text-gray-500'};
   disputes.forEach(d => {
@@ -10221,14 +10681,18 @@ const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
   });
 }
 
-);
-  saveDisputes(disputes);
+function adminResolveDispute(disputeId){
+  const disputes = getDisputeRecords?.() || [];
+  const d = disputes.find(x=>x.id===disputeId);
+  if(d){ d.status='resolved'; d.resolvedAt=Date.now(); d.resolvedBy='admin'; }
+  saveDisputeRecords?.(disputes);
   renderAdminDisputes(); renderAdminOverview();
   showPopupNotif('✅','Dispute Resolved','Admin manually resolved this dispute.');
 }
 
 // --- FEES TAB ---
-');
+function renderAdminFees(){
+  const fees = JSON.parse(localStorage.getItem(ADMIN_FEES_KEY)||'{}');
   if(fees.escrowSeller !== undefined) el('fee-escrow-seller').value=fees.escrowSeller;
   if(fees.escrowBuyer  !== undefined) el('fee-escrow-buyer').value=fees.escrowBuyer;
   if(fees.escrowWho    !== undefined) el('fee-escrow-who').value=fees.escrowWho;
@@ -10240,7 +10704,17 @@ const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
   renderFeeLog();
 }
 
-;
+function saveFees(){
+  const fees = {
+    escrowSeller: parseFloat(el('fee-escrow-seller')?.value)||10,
+    escrowBuyer:  parseFloat(el('fee-escrow-buyer')?.value)||5,
+    escrowWho:    el('fee-escrow-who')?.value||'seller',
+    boost1h:      parseFloat(el('fee-boost-1h')?.value)||200,
+    boost6h:      parseFloat(el('fee-boost-6h')?.value)||500,
+    boost24h:     parseFloat(el('fee-boost-24h')?.value)||1200,
+    kyc:          parseFloat(el('fee-kyc')?.value)||100,
+    savedAt:      Date.now()
+  };
   localStorage.setItem(ADMIN_FEES_KEY, JSON.stringify(fees));
   const log=JSON.parse(localStorage.getItem(ADMIN_FEE_LOG)||'[]');
   log.unshift({...fees});
@@ -10250,6 +10724,9 @@ const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
 }
 
 
+function renderFeeLog(){
+  const w = el('fee-log-list'); if(!w) return;
+  const log = JSON.parse(localStorage.getItem(ADMIN_FEE_LOG)||'[]');
   w.innerHTML='';
   log.slice(0,5).forEach(entry => {
     const div=document.createElement('div');
@@ -10260,13 +10737,22 @@ const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
 }
 
 // --- NOTIFY TAB ---
-
+function previewNotif(){
+  const title = el('notif-title-inp')?.value.trim()||'';
+  const msg   = el('notif-message-inp')?.value.trim()||'';
+  if(!title||!msg){ showPopupNotif('⚠️','Fill In','Enter a title and message first.'); return; }
   el('notif-preview-title').textContent=title;
   el('notif-preview-msg').textContent=msg;
   el('notif-preview-box').classList.remove('hidden');
 }
 
 
+function sendAdminNotif(){
+  const title  = el('notif-title-inp')?.value.trim()||'';
+  const msg    = el('notif-message-inp')?.value.trim()||'';
+  const target = el('notif-target')?.value||'all';
+  const locVal = el('notif-location-val')?.value.trim()||'';
+  if(!title||!msg){ showPopupNotif('⚠️','Fill In','Enter a title and message.'); return; }
   const audience = target==='all'?'All users':target==='state'?`State: ${locVal}`:target==='lga'?`LGA: ${locVal}`:`${target} users`;
   const log=JSON.parse(localStorage.getItem(ADMIN_NOTIF_LOG)||'[]');
   log.unshift({ title, msg, audience, sentAt:Date.now() });
@@ -10285,7 +10771,11 @@ el('notif-title-inp')?.addEventListener('input', previewAdminNotif);
 el('notif-message-inp')?.addEventListener('input', previewAdminNotif);
 
 
+function renderAdminNotifLog(){
+  const w = el('notif-log-list'); if(!w) return;
+  const log = JSON.parse(localStorage.getItem(ADMIN_NOTIF_LOG)||'[]');
   w.innerHTML='';
+  if(!log.length){ w.innerHTML='<div class="text-xs text-gray-500 italic text-center py-4">No notifications sent yet.</div>'; return; }
   log.slice(0,5).forEach(n => {
     const div=document.createElement('div');
     div.className='bg-gray-950 border border-gray-800 rounded-xl p-2.5 flex flex-col gap-0.5';
@@ -10295,11 +10785,22 @@ el('notif-message-inp')?.addEventListener('input', previewAdminNotif);
 }
 
 // --- EARNINGS TAB ---
-</span></div>
-      <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">KYC Fees</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.kyc)}</span></div>
+function renderAdminEarnings(){
+  const w = el('earnings-summary'); if(!w) return;
+  const txns = JSON.parse(localStorage.getItem('ememart_txns')||'[]');
+  const rev = {
+    escrow: txns.filter(t=>t.category==='escrow_fee').reduce((s,t)=>s+(t.amount||0),0),
+    kyc:    txns.filter(t=>t.category==='kyc').reduce((s,t)=>s+(t.amount||0),0),
+    boost:  txns.filter(t=>t.category==='promotion').reduce((s,t)=>s+(t.amount||0),0),
+    subs:   txns.filter(t=>t.category==='subscription').reduce((s,t)=>s+(t.amount||0),0),
+  };
+  rev.total = rev.escrow+rev.kyc+rev.boost+rev.subs;
+  w.innerHTML = `
+    <div class="bg-gray-900 border border-emerald-900/30 rounded-xl p-3 flex flex-col gap-1 col-span-2"><span class="text-[9px] text-gray-500 uppercase font-black">Total Revenue</span><span class="text-2xl font-black text-emerald-400 mono">${fmtCurrency(rev.total)}</span></div>
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Escrow Fees</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.escrow)}</span></div>
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">KYC Fees</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.kyc)}</span></div>
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Boost Fees</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.boost)}</span></div>
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Subscriptions</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.subs)}</span></div>`;
-  }
   const txnLog=el('earnings-txn-log');
   if(txnLog){
     txnLog.innerHTML='';
@@ -10315,18 +10816,148 @@ el('notif-message-inp')?.addEventListener('input', previewAdminNotif);
 }
 
 // --- Admin access from Account panel (secret tap) ---
-
+let _adminTapCount = 0;
+function onAdminTap(){
+  _adminTapCount++;
+  if(_adminTapCount >= 7){
+    _adminTapCount = 0;
+    el('admin-login-modal')?.classList.remove('hidden');
+  }
 }
 
 // --- showPanel patch to handle admin ---
-
+const _origShowPanelAdmin = window.showPanel;
+window.showPanel = function(name){
   el('admin-panel')?.classList.remove('active');
   el('admin-panel')?.classList.add('hidden');
-  _origShowPanelAdmin(name);
+  if(_origShowPanelAdmin) _origShowPanelAdmin(name);
 }
 
 // Init
+function checkAdminSession(){ restoreAdminSession(); }
 checkAdminSession();
+
+
+// ============================================================
+// MISSING FUNCTIONS — Auto-generated stubs
+// ============================================================
+
+function acceptRiderOrder(orderId){
+  const assignments = getRiderAssignments();
+  const a = assignments.find(x => x.orderId === orderId || x.id === orderId);
+  if(!a) return;
+  a.status = 'accepted'; a.riderId = state.session?.id; a.riderName = state.session?.full_name;
+  saveRiderAssignments(assignments);
+  showPopupNotif('✅','Order Accepted!',`Delivery accepted. Head to vendor for pickup.`);
+  switchRiderTab('active');
+  refreshAvailableOrders();
+}
+
+function saveRiderAssignments(r){ localStorage.setItem(RIDER_ASSIGN_KEY, JSON.stringify(r)); }
+function saveRiderData(d){ localStorage.setItem(RIDER_DATA_KEY, JSON.stringify(d)); }
+
+function addRecentSearch(q){
+  if(!q) return;
+  try{
+    let recent = JSON.parse(localStorage.getItem(RECENT_KEY)||'[]');
+    recent = [q, ...recent.filter(s=>s!==q)].slice(0,10);
+    localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+  }catch(e){}
+}
+
+function checkPinVerify(){
+  if(verifyPin(_pinVerifyEntry)){
+    _pinAttempts = 0;
+    localStorage.setItem(PIN_ATTEMPTS_KEY,'0');
+    el('pin-verify-modal')?.classList.add('hidden');
+    if(_pinVerifyCallback){ _pinVerifyCallback(); _pinVerifyCallback=null; }
+  } else {
+    _pinAttempts++;
+    localStorage.setItem(PIN_ATTEMPTS_KEY, _pinAttempts);
+    flashPinDotsError('vpin-dot');
+    if(_pinAttempts >= 5){
+      localStorage.setItem(PIN_LOCKED_KEY, Date.now() + 15*60*1000);
+      el('pin-verify-modal')?.classList.add('hidden');
+      showPopupNotif('🔒','PIN Locked','Too many wrong attempts. Try again in 15 minutes.');
+    } else {
+      const errEl = el('pin-verify-error');
+      if(errEl){ errEl.textContent = `Wrong PIN. ${5-_pinAttempts} attempts left.`; errEl.classList.remove('hidden'); }
+      setTimeout(()=>{ _pinVerifyEntry=''; updatePinDots('vpin-dot',''); }, 600);
+    }
+  }
+}
+
+function isPinSet(){ return !!localStorage.getItem(PIN_SET_KEY); }
+function isPinLocked(){
+  const until = parseInt(localStorage.getItem(PIN_LOCKED_KEY)||'0');
+  return until > Date.now();
+}
+
+function completeSetPin(pin){
+  if(isWeakPin(pin)){ showPopupNotif('⚠️','Weak PIN','Avoid repeated digits like 1111.'); _pinSetupStep=1; _pinSetupFirst=''; _pinSetupEntry=''; updatePinDots('pin-dot',''); return; }
+  localStorage.setItem(PIN_KEY, hashPin(pin));
+  localStorage.setItem(PIN_SET_KEY,'1');
+  el('set-pin-modal')?.classList.add('hidden');
+  showPopupNotif('🔐','PIN Set!','Your transaction PIN has been set successfully.');
+  syncPinButtonLabel && syncPinButtonLabel();
+}
+
+function getDisputeRecords(){ try{ return JSON.parse(localStorage.getItem('ememart_disputes_v1')||'[]'); }catch(e){ return []; } }
+function saveDisputeRecords(r){ localStorage.setItem('ememart_disputes_v1', JSON.stringify(r)); }
+
+function getTransactions(){ try{ return JSON.parse(localStorage.getItem('ememart_txns')||'[]'); }catch(e){ return []; } }
+
+function updateCashbackSummary(){
+  const total = getCashbackRecords?.()?.reduce((s,r)=>s+(r.earned||0),0)||0;
+  const el_cs = el('cashback-total-display');
+  if(el_cs) el_cs.textContent = fmtCurrency(total);
+}
+
+function updateReferralSummary(){
+  const data = getReferralData?.();
+  const el_rs = el('referral-total-display');
+  if(el_rs) el_rs.textContent = fmtCurrency(data?.cashback||0);
+}
+
+function setVendorTier(tierKey){
+  if(!state.session) return;
+  state.session.vendorTier = tierKey;
+  saveState();
+  localStorage.setItem('ememart_vendor_tier_renewal', new Date(Date.now()+30*864e5).toISOString());
+  renderVendorTierInfo && renderVendorTierInfo();
+}
+
+function toggleBalanceVisibility(){
+  _balanceHidden = !_balanceHidden;
+  localStorage.setItem('ememart_balance_hidden', _balanceHidden);
+  applyBalanceVisibility();
+}
+
+let _balanceHidden = localStorage.getItem('ememart_balance_hidden') === 'true';
+
+function applyBalanceVisibility(){
+  const actual = fmtCurrency(state.session?.balance || 0);
+  const display = _balanceHidden ? '₦ ••••••' : actual;
+  const eyeIcon = _balanceHidden ? '🙈' : '👁️';
+  const sb = el('session-balance'); if(sb) sb.textContent = display;
+  const whb = el('wallet-hub-balance'); if(whb) whb.textContent = display;
+  document.querySelectorAll('#balance-eye-btn').forEach(btn => btn.textContent = eyeIcon);
+}
+
+function completeGoogleSignInDemo(payload){
+  const demoUser = {
+    id: 'google_'+Date.now(), full_name: payload?.name||'Google User',
+    email: payload?.email||'', role:'user', balance:0,
+    town: state.session?.town||'', lga: state.session?.lga||'',
+    state: state.session?.state||'', avatar: payload?.picture||null,
+    google_id: payload?.sub||'demo', verified: true, isNew: true
+  };
+  state.session = demoUser;
+  saveState();
+  finishSignIn();
+  setTimeout(() => showGoogleNewUserSetup(payload), 1000);
+}
+
 </script>
 <!-- Order Checkout Modal -->
 <div id="order-checkout-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
@@ -10616,21 +11247,11 @@ checkAdminSession();
 <div id="otp-channel-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal-sheet flex flex-col gap-4">
     <div class="flex justify-between items-center">
-      <h3 class="text-base font-black text-white">📲 Choose OTP Channel</h3>
+      <h3 class="text-base font-black text-white">📧 Verify Your Email</h3>
       <button onclick="document.getElementById('otp-channel-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black">✕</button>
     </div>
-    <p class="text-xs text-gray-400">Your OTP is sent to your email automatically. Also choose one more:</p>
-    <div class="flex gap-3">
-      <label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-xl px-3 py-3 cursor-pointer flex-1 hover:border-emerald-500 transition">
-        <input type="radio" name="reg-otp-channel" value="sms" class="accent-emerald-500">
-        <div><div class="text-xs font-black text-white">📱 SMS</div><div class="text-[10px] text-gray-400">To your phone</div></div>
-      </label>
-      <label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-xl px-3 py-3 cursor-pointer flex-1 hover:border-emerald-500 transition">
-        <input type="radio" name="reg-otp-channel" value="whatsapp" class="accent-emerald-500">
-        <div><div class="text-xs font-black text-white">💬 WhatsApp</div><div class="text-[10px] text-gray-400">To your number</div></div>
-      </label>
-    </div>
-    <button id="send-otp-btn" onclick="sendRegistrationOTP()" class="btn-primary py-3">Send OTP</button>
+    <p class="text-xs text-gray-400">A 6-digit OTP will be sent to your email address to verify your account.</p>
+    <button id="send-otp-btn" onclick="sendRegistrationOTP()" class="btn-primary py-3">Send OTP to Email</button>
   </div>
 </div>
 
@@ -11543,6 +12164,7 @@ checkAdminSession();
 <!-- Flutterwave -->
 <script src="https://checkout.flutterwave.com/v3.js"></script>
 
+<script>
 // === RESTORED MISSING FUNCTIONS ===
 function buyerConfirmDelivery(){
   if(!_escrowOrderId || !_escrowPostId){ showPopupNotif('⚠️','No Active Order','No escrow order found.'); return; }
@@ -11728,7 +12350,7 @@ function renderGallerySlide(){
   img.style.transform = _galleryZoomed ? 'scale(2)' : 'scale(1)';
 
   setTimeout(() => {
-    img.src = _galleryImages[_galleryIdx] || '';
+    img.src = _galleryImages[_galleryIndex] || '';
     img.style.transition = 'opacity .25s, transform .25s';
     img.style.opacity = '1';
   }, 120);
@@ -11739,23 +12361,23 @@ function renderGallerySlide(){
   if(zBtn) zBtn.textContent = '🔍';
 
   // Counter
-  if(counter) counter.textContent = `${_galleryIdx + 1} / ${_galleryImages.length}`;
+  if(counter) counter.textContent = `${_galleryIndex + 1} / ${_galleryImages.length}`;
 
   // Dots
   if(dots){
     dots.innerHTML = '';
     _galleryImages.forEach((_, i) => {
       const d = document.createElement('div');
-      d.className = 'gallery-dot' + (i === _galleryIdx ? ' active' : '');
-      d.onclick = () => { _galleryIdx = i; renderGallerySlide(); };
+      d.className = 'gallery-dot' + (i === _galleryIndex ? ' active' : '');
+      d.onclick = () => { _galleryIndex = i; renderGallerySlide(); };
       dots.appendChild(d);
     });
   }
 
   // Highlight active thumb
   document.querySelectorAll('.gl-thumb').forEach((t,i) => {
-    t.classList.toggle('ring-2', i === _galleryIdx);
-    t.classList.toggle('ring-emerald-400', i === _galleryIdx);
+    t.classList.toggle('ring-2', i === _galleryIndex);
+    t.classList.toggle('ring-emerald-400', i === _galleryIndex);
   });
 
   // Arrows
@@ -11763,8 +12385,18 @@ function renderGallerySlide(){
   if(next) next.classList.toggle('hidden', _galleryImages.length <= 1);
 }
 
+function setupGallerySwipe(){
+  const modal = el('lightbox-modal'); if(!modal) return;
+  let startX=0;
+  modal.addEventListener('touchstart',e=>{ startX=e.touches[0].clientX; },{passive:true});
+  modal.addEventListener('touchend',e=>{
+    const diff = startX - e.changedTouches[0].clientX;
+    if(Math.abs(diff)>50){ diff>0 ? galleryNext() : galleryPrev(); }
+  },{passive:true});
+}
+
 function galleryNav(dir){
-  _galleryIdx = (_galleryIdx + dir + _galleryImages.length) % _galleryImages.length;
+  _galleryIndex = (_galleryIndex + dir + _galleryImages.length) % _galleryImages.length;
   renderGallerySlide();
 }
 
@@ -11777,8 +12409,13 @@ function galleryZoomToggle(){
 }
 
 function saveGalleryImage(){
-  const src = _galleryImages[_galleryIdx];
+  const src = _galleryImages[_galleryIndex];
   if(!src){ showPopupNotif('⚠️','No Image','No image to save.'); return; }
+function downloadGalleryImage(){
+  const src = typeof _galleryImages[_galleryIndex]==='string'
+    ? _galleryImages[_galleryIndex]
+    : (_galleryImages[_galleryIndex]?.src||'');
+  if(!src) return;
   const a = document.createElement('a');
   a.href     = src;
   a.download = `ememart-image-${Date.now()}.jpg`;
@@ -11787,7 +12424,7 @@ function saveGalleryImage(){
 }
 
 function shareGalleryImage(){
-  const src = _galleryImages[_galleryIdx];
+  const src = _galleryImages[_galleryIndex];
   if(!src){ showPopupNotif('⚠️','No Image','No image to share.'); return; }
   if(navigator.share){
     navigator.share({ title:'Ememart Post', text:'Check out this listing on Ememart!', url: 'https://ememart.ng' }).catch(()=>{});
@@ -11801,7 +12438,7 @@ function closeGallery(){
   el('gallery-lightbox').classList.add('hidden');
   document.body.style.overflow = '';
   _galleryImages = [];
-  _galleryIdx    = 0;
+  _galleryIndex    = 0;
   _galleryZoomed = false;
   const img = el('gl-main-img');
   if(img) img.style.transform = 'scale(1)';
@@ -11925,7 +12562,7 @@ function renderReferralTab(){
             <span class="text-xs font-black text-emerald-400 mono">+${fmtCurrency(r.earned)}</span>
             <span class="text-[8px] font-black text-emerald-400 border border-emerald-900/50 px-1.5 py-0.5 rounded-full">✅ Paid</span>
           </div>`;
-        histEl.appendChild(div);
+        w.appendChild(div);
       });
     }
   }
@@ -12424,7 +13061,6 @@ function renderAdminEarnings(){
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">KYC Fees</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.kyc)}</span></div>
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Boost Fees</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.boost)}</span></div>
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Subscriptions</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.subs)}</span></div>`;
-  }
   const txnLog=el('earnings-txn-log');
   if(txnLog){
     txnLog.innerHTML='';
@@ -12491,10 +13127,14 @@ function openStatusPicker(){
           </div>
         </div>
         ${opt.key === current ? '<span class="text-emerald-400 font-black text-sm">✓</span>' : ''}`;
-      btn.onclick = () => { setMyStatus(opt.key); modal.classList.add('hidden'); };
-      list.appendChild(btn);
+      w.appendChild(btn);
     });
-  }
+}
+
+function showStatusPicker(){
+  const modal = el('status-picker-modal');
+  if(!modal) return;
+  renderStatusPicker();
   modal.classList.remove('hidden');
 }
 
@@ -13221,7 +13861,7 @@ function renderRiderStats(){
 
 function openGalleryFromImages(images, startIdx, author, caption){
   _galleryImages = images;
-  _galleryIdx    = startIdx || 0;
+  _galleryIndex    = startIdx || 0;
   _galleryZoomed = false;
   _galleryPostId = null;
 
@@ -13251,12 +13891,15 @@ function buildGalleryThumbs(){
   if(!w) return;
   w.innerHTML = '';
   if(_galleryImages.length <= 1){ w.classList.add('hidden'); return; }
+function buildGalleryThumbs(){
+  const w = el('gallery-thumbs'); if(!w) return;
+  w.innerHTML='';
   w.classList.remove('hidden');
   _galleryImages.forEach((img, i) => {
     const t = document.createElement('img');
-    t.src = img;
-    t.className = `gl-thumb w-12 h-12 object-cover rounded-lg flex-shrink-0 cursor-pointer border-2 ${i===_galleryIdx?'border-emerald-400 ring-2 ring-emerald-400':'border-gray-700'} hover:border-emerald-500 transition`;
-    t.onclick = () => { _galleryIdx = i; renderGallerySlide(); };
+    t.src = typeof img==='string' ? img : img?.src||'';
+    t.className = `gl-thumb w-12 h-12 object-cover rounded-lg flex-shrink-0 cursor-pointer border-2 ${i===_galleryIndex?'border-emerald-400 ring-2 ring-emerald-400':'border-gray-700'} hover:border-emerald-500 transition`;
+    t.onclick = () => { _galleryIndex = i; renderGallerySlide(); };
     w.appendChild(t);
   });
 }
@@ -13334,6 +13977,11 @@ function renderMultiImageStrip(){
     return;
   }
 
+function renderMultiImageStrip(){
+  const strip = el('multi-image-strip');
+  const label = el('multi-image-count-label');
+  const uploadLabel = el('post-image-upload-label');
+  if(!strip) return;
   strip.classList.remove('hidden');
   strip.innerHTML = '';
   if(label) label.textContent = `${state.postImages.length}/5 added · tap to add more`;
@@ -13830,7 +14478,8 @@ function cancelPinVerify(){
 function clearRecentSearches(){localStorage.removeItem(RECENT_KEY);el('recent-searches-panel')?.classList.add('hidden');}
 
 function clearSearchFilters(){
-  _searchFilters={priceMin:0,priceMax:0,rating:0,delivery:''}function clearSearchFilters(){
+  _searchFilters={priceMin:0,priceMax:0,rating:0,delivery:''};
+function clearSearchFilters(){
   ['filter-price-min','filter-price-max'].forEach(id=>{const e=el(id);if(e)e.value='';});
   ['filter-rating','filter-delivery'].forEach(id=>{const e=el(id);if(e)e.value='';});
 }
@@ -14330,7 +14979,8 @@ function shareRiderReceipt(assignmentId){
 
 function showOrderReceipt(orderId){
   el('txn-receipt-modal')?.classList.remove('hidden');
-  const allOrders=state.posts.flatMap(p=>(p.orders||[]).map(o=>({...o,foodName:p.foodName,authorName:p.authorName}function showOrderReceipt(orderId){
+  const allOrders=state.posts.flatMap(p=>(p.orders||[]).map(o=>({...o,foodName:p.foodName,authorName:p.authorName})));
+function showOrderReceipt(orderId){
   const allOrders=(state.posts||[]).flatMap(p=>(p.orders||[]).map(o=>({...o,postId:p.id,foodName:p.foodName||p.text,authorName:p.authorName})));
   const o=allOrders.find(o=>o.id===orderId);
   if(o&&el('txn-receipt-text-holder')){
@@ -14495,6 +15145,14 @@ function verifyPinPress(digit){
     setTimeout(() => checkPinVerify(), 100);
   }
 }
+}
+}
+}
+}
+}
+}
+}
+</script>
 
 <div id="vendor-tier-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal-sheet flex flex-col gap-0 p-0 overflow-hidden" style="max-height:90vh;">
