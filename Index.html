@@ -810,11 +810,11 @@ document.addEventListener('click', function askOnce(){
   <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex justify-between items-center">
     <div>
       <div id="session-label" class="text-xs font-bold text-gray-400 mono">🔴 Guest</div>
-      <div class="flex items-center gap-2 mt-1">
+      <div id="balance-row" class="hidden flex items-center gap-2 mt-1">
         <div id="session-balance" class="text-xl font-black text-white mono">₦0.00</div>
         <button onclick="toggleBalanceVisibility()" id="balance-eye-btn" class="text-gray-500 hover:text-emerald-400 transition text-base leading-none" title="Show/hide balance">👁️</button>
       </div>
-      <div id="session-location" class="text-[10px] text-emerald-400 mt-0.5 flex items-center gap-1"><svg width="14" height="16" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;flex-shrink:0"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg> <span id="session-location-text">—</span></div>
+      <div id="session-location" class="hidden text-[10px] text-emerald-400 mt-0.5 flex items-center gap-1"><svg width="14" height="16" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;flex-shrink:0"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg> <span id="session-location-text">—</span></div>
     </div>
     <div class="flex flex-col gap-2 items-end">
       <span id="role-badge" class="hidden bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[9px] px-2 py-0.5 rounded-lg mono font-black uppercase"></span>
@@ -3347,8 +3347,11 @@ async function handleSignOut(){
   state.session = null;
   el('session-label').textContent = '🔴 Guest';
   el('session-balance').textContent = '₦0.00';
-  const _slEl = el('session-location'); if(_slEl){ const _slSpan = _slEl.querySelector('#session-location-text,span'); if(_slSpan) _slSpan.textContent = '—'; }
-  
+
+  // Hide balance and location when logged out
+  el('balance-row')?.classList.add('hidden');
+  el('session-location')?.classList.add('hidden');
+
   const guestBtn = el('guest-signin-btn');
   const walletActions = el('wallet-actions');
   if(guestBtn) guestBtn.classList.remove('hidden');
@@ -3365,6 +3368,13 @@ async function handleSignOut(){
 }
 
 function showPanel(name){
+  // Guard finance/wallet — require login
+  const protectedPanels = ['finance','wallet'];
+  if(protectedPanels.includes(name) && !state.session){
+    showPopupNotif('🔐','Sign In Required','Please sign in to access your wallet and finance.');
+    navTo('auth');
+    return;
+  }
   if(name==='admin'){
     document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
     el('admin-panel')?.classList.remove('hidden');
@@ -6536,9 +6546,54 @@ function checkLowBalanceAlert(){
 // ============================================================
 // SYNC ACCOUNT DISPLAY PATCH — add new role portals
 // ============================================================
-const _origSyncAccountDisplay = syncAccountDisplay;
 function syncAccountDisplay(){
-  _origSyncAccountDisplay();
+  if(!el('session-label')) return;
+  const s = state.session;
+  const loggedIn = !!s;
+
+  // Label
+  el('session-label').textContent = loggedIn
+    ? `🟢 ${s.full_name || s.name || 'User'}`
+    : '🔴 Guest';
+
+  // Balance row — only show when logged in
+  const balRow = el('balance-row');
+  if(balRow) balRow.classList.toggle('hidden', !loggedIn);
+  const sbEl = el('session-balance');
+  if(sbEl) sbEl.textContent = loggedIn ? fmtCurrency(s.balance||0) : '₦0.00';
+  applyBalanceVisibility && applyBalanceVisibility();
+
+  // Location — only show when logged in
+  const locEl = el('session-location');
+  if(locEl) locEl.classList.toggle('hidden', !loggedIn);
+  const locText = el('session-location-text');
+  if(locText) locText.textContent = loggedIn
+    ? [s.town, s.lga, s.state].filter(Boolean).join(', ') || '—'
+    : '—';
+
+  // Guest / wallet action buttons
+  const guestBtn = el('guest-signin-btn');
+  const walletActions = el('wallet-actions');
+  if(guestBtn) guestBtn.classList.toggle('hidden', loggedIn);
+  if(walletActions){
+    if(loggedIn){ walletActions.classList.remove('hidden'); walletActions.classList.add('flex'); }
+    else { walletActions.classList.remove('flex'); walletActions.classList.add('hidden'); }
+  }
+
+  // Role badge
+  const roleBadge = el('role-badge');
+  if(roleBadge){
+    if(loggedIn && s.role && s.role !== 'user'){
+      roleBadge.textContent = s.role.toUpperCase();
+      roleBadge.classList.remove('hidden');
+    } else {
+      roleBadge.classList.add('hidden');
+    }
+  }
+
+  // Wallet hub balance
+  const whbEl = el('wallet-hub-balance');
+  if(whbEl) whbEl.textContent = loggedIn ? fmtCurrency(s.balance||0) : '₦0.00';
   // Rider portal
   const rp = el('acc-rider-portal');
   if(rp) rp.classList.toggle('hidden', state.session?.role !== 'rider');
@@ -6994,7 +7049,7 @@ function checkBillReminders(){
     }
   });
 }
-checkBillReminders();
+try{ checkBillReminders(); }catch(e){}
 
 // ============================================================
 // ABANDONED CART REMINDER
@@ -8006,7 +8061,7 @@ function restoreActiveBoosts(){
   const overdue = getPromotedRecords().filter(r => r.status === 'active' && r.expiresAt <= Date.now());
   overdue.forEach(r => expireBoost(r.postId));
 }
-restoreActiveBoosts();
+try{ restoreActiveBoosts(); }catch(e){}
 
 // --- Patch vendor analytics to include boost analytics ---
 
@@ -9324,7 +9379,7 @@ function processAutoPay(){
 }
 // Run auto-pay check on load
 const runAutoPayReminders = processAutoPay;
-runAutoPayReminders();
+try{ runAutoPayReminders(); }catch(e){}
 
 
 // === FROM BLOCK 11 ===
@@ -9758,8 +9813,8 @@ function simulateReferral(){
 
 
 // Init on load
-updateCashbackSummary();
-updateReferralSummary();
+try{ updateCashbackSummary(); }catch(e){}
+try{ updateReferralSummary(); }catch(e){}
 
 
 // === FROM BLOCK 13 ===
@@ -10127,7 +10182,7 @@ function initPresenceSystem(){
 }
 
 // Run after session loads
-initPresenceSystem();
+try{ initPresenceSystem(); }catch(e){}
 
 
 // === FROM BLOCK 15 ===
@@ -10767,8 +10822,8 @@ el('notif-target')?.addEventListener('change', function(){
   const locWrap=el('notif-location-filter');
   if(locWrap) locWrap.classList.toggle('hidden', this.value!=='state'&&this.value!=='lga');
 });
-el('notif-title-inp')?.addEventListener('input', previewAdminNotif);
-el('notif-message-inp')?.addEventListener('input', previewAdminNotif);
+el('notif-title-inp')?.addEventListener('input', ()=>{ try{previewAdminNotif();}catch(e){} });
+el('notif-message-inp')?.addEventListener('input', ()=>{ try{previewAdminNotif();}catch(e){} });
 
 
 function renderAdminNotifLog(){
@@ -10833,9 +10888,64 @@ window.showPanel = function(name){
   if(_origShowPanelAdmin) _origShowPanelAdmin(name);
 }
 
+
+// ============================================================
+// CRITICAL MISSING FUNCTIONS
+// ============================================================
+
+function saveState(){
+  try{ localStorage.setItem('ememart_state', JSON.stringify({
+    session: state.session,
+    posts: state.posts,
+    notifications: state.notifications,
+    cart: state.cart,
+  })); } catch(e){ console.warn('saveState error', e); }
+}
+
+function galleryNext(){
+  if(!_galleryImages.length) return;
+  _galleryIndex = (_galleryIndex + 1) % _galleryImages.length;
+  renderGallerySlide();
+  updateGalleryUI && updateGalleryUI();
+}
+
+function galleryPrev(){
+  if(!_galleryImages.length) return;
+  _galleryIndex = (_galleryIndex - 1 + _galleryImages.length) % _galleryImages.length;
+  renderGallerySlide();
+  updateGalleryUI && updateGalleryUI();
+}
+
+function getPinHash(){ return localStorage.getItem(PIN_KEY) || null; }
+
+function getTrackingRecords(){ try{ return JSON.parse(localStorage.getItem(TRACKING_KEY)||'{}'); }catch(e){ return {}; } }
+function saveTrackingRecords(r){ localStorage.setItem(TRACKING_KEY, JSON.stringify(r)); }
+function getTrackingRecord(orderId){ return getTrackingRecords()[orderId] || null; }
+
+function getVendorSpoilCount(vendorId){ return getSpoilCount ? getSpoilCount(vendorId) : 0; }
+function isVendorSuspended(vendorId){ return (getSuspendedVendors?.() || []).includes(vendorId); }
+
+function getVendorTier(){ return state.session?.vendorTier || 'free'; }
+
+function getReferralRecords(){ return getReferralData?.()?.history || []; }
+function getTotalCashback(){ return getCashbackRecords?.()?.reduce((s,r)=>s+(r.earned||0),0) || 0; }
+function getThisMonthCashback(){
+  const now = new Date();
+  return (getCashbackRecords?.() || [])
+    .filter(r=>{ const d=new Date(r.ts); return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear(); })
+    .reduce((s,r)=>s+(r.earned||0), 0);
+}
+
+function getPlatformRevenue(){
+  const txns = getTransactions?.() || [];
+  return txns.filter(t=>t.category==='platform_fee'||t.category==='escrow_fee').reduce((s,t)=>s+(t.amount||0), 0);
+}
+
+function renderAdminUserModal(userId){ openAdminUserModal && openAdminUserModal(userId); }
+
 // Init
-function checkAdminSession(){ restoreAdminSession(); }
-checkAdminSession();
+function checkAdminSession(){ try{ restoreAdminSession(); }catch(e){} }
+try{ checkAdminSession(); }catch(e){}
 
 
 // ============================================================
