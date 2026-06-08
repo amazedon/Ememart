@@ -6,7 +6,7 @@
 <title>Ememart — Hyperlocal Wire</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght=400;500;700;900&family=JetBrains+Mono:wght=400;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   body{font-family:'Space Grotesk',sans-serif;}
   .mono{font-family:'JetBrains Mono',monospace;}
@@ -2650,7 +2650,7 @@ document.addEventListener('click', function askOnce(){
     </button>
     <button id="nav-account" onclick="navTo('account')" class="sticky-btn">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <span>Profile</span>
+      <span>Account</span>
     </button>
   </div>
 </footer>
@@ -3974,8 +3974,6 @@ function confirmPlaceOrder(){
 }
 
 function showOrderConfirmation(order, post){
-  _origShowOrderConfirmation(order, post);
-
   _escrowOrderId = order.id;
   _escrowPostId  = post.id;
 
@@ -7614,7 +7612,8 @@ function patchShowOrderConfirmation(){
   } else {
     panel.classList.add('hidden');
   }
-}
+  }; // end window.showOrderConfirmation assignment
+} // end patchShowOrderConfirmation
 
 // --- Register escrow in persistent storage ---
 function registerEscrow(order, post){
@@ -7792,8 +7791,9 @@ function checkFirstOrderDiscount(){
 
 // --- Show escrow status on buyer orders list ---
 function patchBuyerOrdersWithEscrow(){
-  const _orig = typeof renderBuyerOrders === 'function' ? renderBuyerOrders : null;
-
+  // Patch is a no-op: renderBuyerOrders is fully defined at line 8566.
+  // This stub is kept so any call sites don't throw.
+}
 
 // --- Escrow status badge on order cards in feed ---
 function getEscrowBadge(orderId){
@@ -7811,22 +7811,29 @@ function notifyVendorEscrowReleased(orderId, vendorId){
     showPopupNotif('✅','Vendor Notified',`${vendorId} has been notified that escrow has been released for order #${orderId}.`);
   }
 }
-}
 
 // --- Escrow history panel (inside Finance → Wallet tab) ---
-;
-  records.reverse().forEach(rec => {
+function renderEscrowHistory(w){
+  if(!w) return;
+  const records = getEscrowRecords().filter(r => r.buyerId === state.session?.id || r.vendorId === state.session?.id);
+  if(!records.length){
+    w.innerHTML = '<div class="text-xs text-gray-500 italic text-center py-4">No escrow transactions yet.</div>';
+    return;
+  }
+  const statusColors = { held:'text-amber-400', released:'text-emerald-400', disputed:'text-red-400', auto_released:'text-sky-400' };
+  w.innerHTML = '';
+  records.slice().reverse().forEach(rec => {
     const isBuyer = rec.buyerId === state.session?.id;
     const div = document.createElement('div');
     div.className = 'bg-gray-950 border border-gray-800 rounded-xl p-2.5 flex justify-between items-center';
     div.innerHTML = `
       <div>
-        <div class="text-xs font-black text-white">${rec.foodName}</div>
+        <div class="text-xs font-black text-white">${rec.foodName||'Order'}</div>
         <div class="text-[9px] text-gray-400">${isBuyer?'You bought from':'You sold to'} ${isBuyer?rec.vendorName:'a buyer'}</div>
-        <div class="text-[9px] text-gray-500 mono">${new Date(rec.createdAt).toLocaleDateString()}</div>
+        <div class="text-[9px] text-gray-500 mono">${new Date(rec.ts||rec.createdAt).toLocaleDateString()}</div>
       </div>
       <div class="flex flex-col items-end gap-1">
-        <span class="text-xs font-black mono ${isBuyer?'text-red-400':'text-emerald-400'}">${isBuyer?'-':'+'} ₦${fmt(isBuyer?rec.amount:rec.vendorAmount)}</span>
+        <span class="text-xs font-black mono ${isBuyer?'text-red-400':'text-emerald-400'}">${isBuyer?'-':'+'} ₦${fmt(isBuyer?rec.amount:(rec.vendorAmount||rec.amount))}</span>
         <span class="text-[9px] font-black ${statusColors[rec.status]||'text-gray-400'}">${rec.status.replace('_',' ').toUpperCase()}</span>
       </div>`;
     w.appendChild(div);
