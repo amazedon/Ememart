@@ -3368,23 +3368,34 @@ async function handleSignOut(){
 }
 
 function showPanel(name){
-  // Guard finance/wallet — require login
+  // Guard finance/wallet - require login
   const protectedPanels = ['finance','wallet'];
   if(protectedPanels.includes(name) && !state.session){
-    showPopupNotif('🔐','Sign In Required','Please sign in to access your wallet and finance.');
+    showPopupNotif('Sign In Required','Please sign in to access your wallet and finance.');
     navTo('auth');
     return;
   }
-  if(name==='admin'){
-    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  // Hide all panels
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  if(name === 'admin'){
     el('admin-panel')?.classList.remove('hidden');
     el('admin-panel')?.classList.add('active');
     checkAdminSession();
     return;
   }
+  // Hide admin panel when switching away
   el('admin-panel')?.classList.remove('active');
   el('admin-panel')?.classList.add('hidden');
-  _origShowPanelAdmin(name);
+  // Show the target panel
+  const target = el(name + '-panel');
+  if(target) target.classList.add('active');
+  // Post-show hooks
+  if(name === 'home')    try{ renderFeed(); }catch(e){}
+  if(name === 'account') try{ syncAccountDisplay(); }catch(e){}
+  if(name === 'chat')    try{ renderInbox(); }catch(e){}
+  if(name === 'saved')   try{ renderSavedItems ? renderSavedItems() : renderSaved && renderSaved(); }catch(e){}
+  if(name === 'finance') try{ syncAccountDisplay(); }catch(e){}
+  if(name === 'safety')  try{ renderSafetyPanel && renderSafetyPanel(); }catch(e){}
 }
 
 function navTo(panelId){
@@ -4865,6 +4876,7 @@ function updateSavedBadge(){
   }
 }
 
+function renderSaved(){ renderSavedItems(); } // alias
 function renderSavedItems(){
   const container = el('saved-items-container');
   const clearBtn = el('clear-saved-btn');
@@ -4891,6 +4903,7 @@ function clearAllSaved(){
   showPopupNotif('💾', 'Bookmarks Flushed', 'Saved item trace caches wiped cleanly.');
 }
 
+function renderSafetyPanel(){ try{ switchSafetyTab(state.activeSafetyTab||'sos'); }catch(e){} } // stub
 function switchSafetyTab(tab){
   state.activeSafetyTab = tab;
   document.querySelectorAll('.safety-tab').forEach(b => b.classList.remove('active'));
@@ -10887,11 +10900,9 @@ function onAdminTap(){
   }
 }
 
-// --- showPanel patch to handle admin ---
+// --- showPanel is fully self-contained above; admin overlay handled inside it ---
 const _origShowPanelAdmin = window.showPanel;
 window.showPanel = function(name){
-  el('admin-panel')?.classList.remove('active');
-  el('admin-panel')?.classList.add('hidden');
   if(_origShowPanelAdmin) _origShowPanelAdmin(name);
 }
 
@@ -15331,6 +15342,243 @@ function verifyPinPress(digit){
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════════════
+     MISSING HTML ELEMENTS — added to fix broken JS references
+     ═══════════════════════════════════════════════════════════════════════ -->
+
+<!-- ── Admin Login Modal ── -->
+<div id="admin-login-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal-sheet flex flex-col gap-4">
+    <div class="flex justify-between items-center">
+      <h2 class="text-base font-black text-white">🛡️ Admin Login</h2>
+      <button onclick="el('admin-login-modal').classList.add('hidden')" class="text-gray-400 text-xl leading-none">×</button>
+    </div>
+    <div id="admin-panel-content" class="flex flex-col gap-3">
+      <input type="password" id="admin-password-input" placeholder="Admin password" class="inp" />
+      <button onclick="adminLogin()" class="btn-primary py-3">Login</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Auth Modal (for inline sign-in triggers) ── -->
+<div id="auth-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal-sheet flex flex-col gap-4">
+    <div class="flex justify-between items-center">
+      <h2 class="text-sm font-black text-white">Sign In Required</h2>
+      <button onclick="el('auth-modal').classList.add('hidden')" class="text-gray-400 text-xl">×</button>
+    </div>
+    <p class="text-xs text-gray-400">Please sign in to continue.</p>
+    <button onclick="el('auth-modal').classList.add('hidden'); navTo('auth')" class="btn-primary py-3">Go to Sign In</button>
+  </div>
+</div>
+
+<!-- ── Lightbox / Gallery Modal ── -->
+<div id="lightbox-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeGallery()">
+  <div class="modal-sheet flex flex-col gap-3 p-0 overflow-hidden bg-gray-950" style="max-height:95vh;">
+    <!-- header -->
+    <div class="flex justify-between items-center p-3 border-b border-gray-800">
+      <span id="gallery-counter" class="text-xs text-gray-400 mono">1 / 1</span>
+      <div class="flex gap-2">
+        <button onclick="shareGalleryImage()" class="text-gray-400 hover:text-white text-sm">⬆️</button>
+        <button onclick="downloadGalleryImage()" class="text-gray-400 hover:text-white text-sm">⬇️</button>
+        <button onclick="closeGallery()" class="text-gray-400 hover:text-white text-lg leading-none">×</button>
+      </div>
+    </div>
+    <!-- main image area -->
+    <div id="gallery-main-img" class="flex-1 flex items-center justify-center overflow-hidden min-h-[240px] cursor-zoom-in bg-black">
+      <img src="" alt="" class="max-w-full max-h-[55vh] object-contain select-none" id="gallery-img-el" />
+    </div>
+    <!-- caption -->
+    <div id="gallery-caption" class="text-xs text-gray-400 text-center px-4 min-h-[20px]"></div>
+    <!-- dots navigation -->
+    <div id="gallery-dots" class="flex justify-center gap-1.5 py-1"></div>
+    <!-- thumbnails -->
+    <div id="gallery-thumbs" class="flex gap-2 overflow-x-auto px-3 pb-3"></div>
+  </div>
+</div>
+
+<!-- ── PIN Setup Modal ── -->
+<div id="pin-setup-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal-sheet flex flex-col gap-4">
+    <div class="flex justify-between items-center">
+      <h2 class="text-sm font-black text-white">🔒 Set Your PIN</h2>
+      <button onclick="el('pin-setup-modal').classList.add('hidden'); skipPinSetup()" class="text-gray-400 text-xl">×</button>
+    </div>
+    <p class="text-[10px] text-gray-400">Create a 4-digit PIN to secure your account.</p>
+    <div class="flex flex-col gap-2">
+      <input type="password" id="set-pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="Enter 4-digit PIN" class="inp text-center tracking-widest text-lg" />
+      <input type="password" id="set-pin-confirm" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="Confirm PIN" class="inp text-center tracking-widest text-lg" />
+    </div>
+    <button onclick="savePin()" class="btn-primary py-3">Set PIN</button>
+    <button onclick="skipPinSetup(); el('pin-setup-modal').classList.add('hidden')" class="text-xs text-gray-500 hover:text-gray-300 text-center">Skip for now</button>
+  </div>
+</div>
+
+<!-- ── Escrow Panel (order confirmation escrow status) ── -->
+<div id="escrow-panel" class="hidden flex flex-col gap-3 bg-purple-950/20 border border-purple-900/50 rounded-2xl p-4 mx-0">
+  <div class="flex items-center gap-2">
+    <span class="text-xl">🔐</span>
+    <div>
+      <div class="text-xs font-black text-white">Escrow Protection</div>
+      <div class="text-[10px] text-gray-400">Funds held safely until you confirm delivery</div>
+    </div>
+  </div>
+  <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex flex-col gap-1.5">
+    <div class="flex justify-between text-[10px]">
+      <span class="text-gray-400">Buyer fee (1%)</span>
+      <span id="escrow-buyer-fee" class="text-purple-300 font-black mono">₦0</span>
+    </div>
+  </div>
+  <!-- 3-step progress -->
+  <div class="flex flex-col gap-2">
+    <div id="escrow-step-a" class="flex items-center gap-2 text-[10px]">
+      <div class="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-[9px] font-black text-gray-900 shrink-0">✓</div>
+      <span id="escrow-label-a" class="text-gray-300">Payment held in escrow</span>
+    </div>
+    <div id="escrow-step-b" class="flex items-center gap-2 text-[10px]">
+      <div class="w-5 h-5 rounded-full bg-gray-700 border border-gray-600 shrink-0"></div>
+      <span id="escrow-label-b" class="text-gray-500">
+        <span id="escrow-step-b-label">Rider delivers to you</span>
+      </span>
+    </div>
+    <div id="escrow-step-c" class="flex items-center gap-2 text-[10px]">
+      <div class="w-5 h-5 rounded-full bg-gray-700 border border-gray-600 shrink-0"></div>
+      <span id="escrow-label-c" class="text-gray-500">You confirm → vendor paid</span>
+    </div>
+  </div>
+  <div id="disputes-section" class="hidden flex-col gap-2">
+    <button onclick="openDisputeFromEscrow()" class="w-full text-[10px] text-red-400 hover:text-red-300 font-bold border border-red-900/40 rounded-xl py-2">⚠️ Raise a Dispute</button>
+  </div>
+</div>
+
+<!-- ── Escrow Confirm Modal ── -->
+<div id="escrow-confirm-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal-sheet flex flex-col gap-4">
+    <div class="flex justify-between items-center">
+      <h2 class="text-sm font-black text-white">✅ Confirm Delivery</h2>
+      <button onclick="el('escrow-confirm-modal').classList.add('hidden')" class="text-gray-400 text-xl">×</button>
+    </div>
+    <p class="text-xs text-gray-300">Confirming delivery will release funds to the vendor. Only confirm if you have received your order in good condition.</p>
+    <div class="flex gap-2">
+      <button onclick="el('escrow-confirm-modal').classList.add('hidden')" class="flex-1 bg-gray-800 text-white rounded-xl py-3 text-xs font-black">Cancel</button>
+      <button onclick="buyerConfirmDelivery(); el('escrow-confirm-modal').classList.add('hidden')" class="flex-1 bg-emerald-500 text-gray-900 rounded-xl py-3 text-xs font-black">Yes, Release Funds</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SDM (Spoil Detail Modal) ── -->
+<div id="sdm-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal-sheet flex flex-col gap-3">
+    <div id="sdm-header" class="flex flex-col gap-0.5"></div>
+    <div class="flex items-center gap-2">
+      <div class="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
+        <div id="sdm-bar" class="h-full bg-amber-500 transition-all duration-500" style="width:0%"></div>
+      </div>
+      <span id="sdm-count" class="text-[10px] font-black mono text-gray-300">0 / 5</span>
+    </div>
+    <div id="sdm-status" class="text-[10px]"></div>
+    <div class="text-[10px] text-gray-400">Vendor: <span id="sdm-vendor-name" class="text-white font-black"></span></div>
+    <div id="sdm-body" class="flex flex-col gap-2 max-h-64 overflow-y-auto"></div>
+    <button onclick="el('sdm-modal').classList.add('hidden')" class="btn-primary py-2.5 text-xs">Close</button>
+  </div>
+</div>
+
+<!-- ── My Orders List container (inside account panel if not present) ── -->
+<div id="my-orders-list" class="hidden flex-col gap-2"></div>
+
+<!-- ── Available Orders List (Rider panel) ── -->
+<div id="available-orders-list" class="hidden flex-col gap-2"></div>
+
+<!-- ── Batch Orders List (Rider panel) ── -->
+<div id="batch-orders-list" class="hidden flex-col gap-2"></div>
+
+<!-- ── Rider tab buttons (if not present in rider panel) ── -->
+<div id="rider-tab-active" class="hidden"></div>
+<div id="rider-tab-history" class="hidden"></div>
+
+<!-- ── Boost Modal elements ── -->
+<div id="boost-balance-after" class="hidden text-[10px] text-gray-400"></div>
+<div id="boost-duration-display" class="hidden text-xs font-black text-white"></div>
+<div id="boost-fee-display" class="hidden text-xs font-black mono text-emerald-400"></div>
+<div id="boost-revenue-split" class="hidden text-[10px] text-gray-400"></div>
+
+<!-- ── Finance Fee Admin fields ── -->
+<input type="number" id="fee-boost-1h"  class="hidden" value="200" />
+<input type="number" id="fee-boost-6h"  class="hidden" value="700" />
+<input type="number" id="fee-boost-24h" class="hidden" value="1200" />
+<div id="fee-log-list" class="hidden flex-col gap-1"></div>
+<div id="earnings-summary" class="hidden flex-col gap-2"></div>
+
+<!-- ── Cashback elements ── -->
+<div id="cashback-list" class="hidden flex-col gap-2"></div>
+<div id="cashback-empty" class="hidden text-xs text-gray-500 italic text-center py-4">No cashback yet.</div>
+<div id="cashback-total-display" class="hidden text-xs font-black mono text-emerald-400">₦0.00</div>
+
+<!-- ── Notification bell count badge ── -->
+<span id="notif-bell-count" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center">0</span>
+
+<!-- ── Notification log list ── -->
+<div id="notif-log-list" class="hidden flex-col gap-2 max-h-64 overflow-y-auto"></div>
+
+<!-- ── Google Setup fields (extra location fields during Google sign-in) ── -->
+<input type="text" id="google-setup-state" class="hidden inp" placeholder="State" />
+<input type="text" id="google-setup-lga"   class="hidden inp" placeholder="LGA" />
+<input type="text" id="google-setup-town"  class="hidden inp" placeholder="Town / Area" />
+<select id="google-setup-role" class="hidden inp text-xs">
+  <option value="buyer">Buyer</option>
+  <option value="vendor">Vendor</option>
+  <option value="rider">Rider</option>
+</select>
+
+<!-- ── Online status indicators ── -->
+<span id="msg-online-dot"   class="hidden w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+<span id="msg-online-label" class="hidden text-[10px] text-emerald-400">Online</span>
+<span id="vp-online-dot"    class="hidden w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+<span id="vp-online-label"  class="hidden text-[10px] text-emerald-400">Online</span>
+<span id="vp-response-time" class="hidden text-[10px] text-gray-400"></span>
+
+<!-- ── My Status Button (vendor online/away toggle) ── -->
+<button id="my-status-btn" class="hidden text-[10px] border border-gray-700 rounded-xl px-3 py-1.5 text-gray-300 hover:border-emerald-500 hover:text-emerald-400 transition" onclick="toggleMyStatus()">🟢 Online</button>
+
+<!-- ── Multi-image upload strip (post panel) ── -->
+<div id="multi-image-strip" class="hidden flex gap-2 overflow-x-auto py-1"></div>
+<span id="multi-image-count-label" class="hidden text-[10px] text-gray-400">0 / 5 images</span>
+<label id="post-image-upload-label" class="hidden cursor-pointer text-[10px] text-emerald-400 font-bold">+ Add Images</label>
+
+<!-- ── Publish checklist ── -->
+<div id="publish-checklist" class="hidden flex-col gap-1.5 bg-gray-950 border border-gray-800 rounded-xl p-3 text-[10px] text-gray-400"></div>
+
+<!-- ── Support chat box ── -->
+<div id="support-chat-box" class="hidden flex flex-col gap-2 max-h-48 overflow-y-auto bg-gray-950 border border-gray-800 rounded-xl p-3"></div>
+
+<!-- ── Referral panel elements ── -->
+<div id="referral-list"          class="hidden flex-col gap-2"></div>
+<div id="referral-empty"         class="hidden text-xs text-gray-500 italic text-center py-4">No referrals yet.</div>
+<div id="referral-info-block"    class="hidden flex-col gap-1"></div>
+<div id="referral-total-display" class="hidden text-xs font-black mono text-emerald-400">₦0.00</div>
+
+<!-- ── Reminders elements ── -->
+<input type="hidden" id="reminder-edit-id" value="" />
+<div id="upcoming-reminders-list" class="hidden flex-col gap-2"></div>
+
+<!-- ── Terms/Privacy tab buttons (if not in DOM) ── -->
+<button id="terms-tab-btn"   class="hidden" onclick="switchTermsTab('terms')">Terms</button>
+<button id="privacy-tab-btn" class="hidden" onclick="switchTermsTab('privacy')">Privacy</button>
+
+<!-- ── Vendor tier icon ── -->
+<span id="vendor-tier-icon" class="hidden text-lg"></span>
+
+<!-- ── Vendor spoil warning badge ── -->
+<div id="vendor-spoil-warning" class="hidden text-[10px] text-amber-400 font-bold border border-amber-900/40 rounded-xl px-2 py-1">⚠️ Spoil complaints on record</div>
+
+<!-- ── Recent search chips ── -->
+<div id="recent-search-chips" class="hidden flex gap-1.5 flex-wrap"></div>
+
+<!-- ── Admin user modal body ── -->
+<div id="aum-body" class="hidden flex-col gap-3"></div>
+
+<!-- ── Pin setup banner (injected dynamically by JS, placeholder anchor) ── -->
+<div id="pin-setup-banner-anchor" class="hidden"></div>
 
 </body>
 </html>
