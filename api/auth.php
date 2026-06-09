@@ -1,17 +1,9 @@
 <?php
 // ============================================================
 // EMEMART — auth.php
-// Handles: register, send OTP, verify OTP,
-//          login (email/phone/username), logout,
-//          forgot password, reset password
 // ============================================================
 
 require_once __DIR__ . '/config.php';
-
-// PHPMailer (install via Composer or upload manually)
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
-require_once __DIR__ . '/vendor/autoload.php';
 
 setCORSHeaders();
 header('Content-Type: application/json');
@@ -40,20 +32,17 @@ switch ($action) {
 
         $db = getDB();
 
-        // Check duplicates
         $stmt = $db->prepare('SELECT id FROM users WHERE email = ? OR phone = ? LIMIT 1');
         $stmt->execute([$email, $phone]);
         if ($stmt->fetch())
             respond(false, 'An account with this email or phone already exists.');
 
-        // Generate and store OTP
         $otp = generateOTP();
         $db->prepare('DELETE FROM otp_codes WHERE email = ? AND purpose = ?')
            ->execute([$email, 'register']);
         $db->prepare('INSERT INTO otp_codes (email, code, purpose, expires_at) VALUES (?, ?, ?, ?)')
            ->execute([$email, $otp, 'register', date('Y-m-d H:i:s', time() + OTP_EXPIRY_MINUTES * 60)]);
 
-        // Send email
         if (!sendOTPEmail($email, $full_name, $otp, 'registration'))
             respond(false, 'Could not send OTP email. Please try again.');
 
@@ -79,7 +68,6 @@ switch ($action) {
 
         $db = getDB();
 
-        // Validate OTP
         $stmt = $db->prepare('
             SELECT id FROM otp_codes
             WHERE email = ? AND code = ? AND purpose = ? AND expires_at > NOW() AND used = 0
@@ -90,15 +78,12 @@ switch ($action) {
         if (!$otp)
             respond(false, 'Invalid or expired OTP. Please try again.');
 
-        // Mark OTP used
         $db->prepare('UPDATE otp_codes SET used = 1 WHERE id = ?')
            ->execute([$otp['id']]);
 
-        // Create username from name
         $username = strtolower(str_replace(' ', '_', $full_name)) . '_' . substr(uniqid(), -4);
+        $hash     = password_hash($password, PASSWORD_BCRYPT);
 
-        // Create user
-        $hash = password_hash($password, PASSWORD_BCRYPT);
         $db->prepare('
             INSERT INTO users (full_name, email, phone, username, password_hash, role, town, lga, state, verified)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
@@ -106,7 +91,10 @@ switch ($action) {
 
         $userId = (int) $db->lastInsertId();
 
-        // Create session
+        // Create wallet
+        $db->prepare('INSERT INTO wallets (user_id, balance) VALUES (?, 0.00)')
+           ->execute([$userId]);
+
         $token = generateToken();
         $db->prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)')
            ->execute([$token, $userId, date('Y-m-d H:i:s', time() + SESSION_EXPIRY_HOURS * 3600)]);
@@ -127,7 +115,7 @@ switch ($action) {
         break;
 
     // ----------------------------------------------------------
-    // LOGIN — accepts email, phone, or username
+    // LOGIN
     // ----------------------------------------------------------
     case 'login':
         $identifier = post('identifier');
@@ -149,7 +137,6 @@ switch ($action) {
         if (!$user || !password_verify($password, $user['password_hash']))
             respond(false, 'Invalid credentials. Please try again.');
 
-        // Create session
         $token = generateToken();
         $db->prepare('DELETE FROM sessions WHERE user_id = ?')->execute([$user['id']]);
         $db->prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)')
@@ -210,7 +197,7 @@ switch ($action) {
         break;
 
     // ----------------------------------------------------------
-    // FORGOT PASSWORD — verify OTP + set new password
+    // FORGOT PASSWORD — verify OTP + reset
     // ----------------------------------------------------------
     case 'forgot_verify_otp':
         $email    = post('email');
@@ -223,8 +210,7 @@ switch ($action) {
         if (strlen($password) < 6)
             respond(false, 'Password must be at least 6 characters.');
 
-        $db = getDB();
-
+        $db   = getDB();
         $stmt = $db->prepare('
             SELECT id FROM otp_codes
             WHERE email = ? AND code = ? AND purpose = ? AND expires_at > NOW() AND used = 0
@@ -236,7 +222,6 @@ switch ($action) {
             respond(false, 'Invalid or expired OTP.');
 
         $db->prepare('UPDATE otp_codes SET used = 1 WHERE id = ?')->execute([$otp['id']]);
-
         $hash = password_hash($password, PASSWORD_BCRYPT);
         $db->prepare('UPDATE users SET password_hash = ? WHERE email = ?')
            ->execute([$hash, $email]);
@@ -245,7 +230,7 @@ switch ($action) {
         break;
 
     // ----------------------------------------------------------
-    // GET CURRENT USER (from session)
+    // GET CURRENT USER
     // ----------------------------------------------------------
     case 'get_user':
         $user = requireAuth();
@@ -256,36 +241,33 @@ switch ($action) {
     // GOOGLE LOGIN
     // ----------------------------------------------------------
     case 'google_login':
-        $google_id  = post('google_id');
-        $email      = post('email');
-        $name       = post('name');
-        $picture    = post('picture');
+        $google_id = post('google_id');
+        $email     = post('email');
+        $name      = post('name');
+        $picture   = post('picture');
 
         if (!$google_id || !$email)
             respond(false, 'Invalid Google credentials.');
 
-        $db = getDB();
-
-        // Check if user exists
+        $db   = getDB();
         $stmt = $db->prepare('SELECT * FROM users WHERE google_id = ? OR email = ? LIMIT 1');
         $stmt->execute([$google_id, $email]);
         $user = $stmt->fetch();
 
         if ($user) {
-            // Update Google ID if missing
             if (!$user['google_id']) {
                 $db->prepare('UPDATE users SET google_id = ?, avatar = ? WHERE id = ?')
                    ->execute([$google_id, $picture, $user['id']]);
             }
         } else {
-            // Create new Google user
             $username = strtolower(str_replace(' ', '_', $name)) . '_' . substr(uniqid(), -4);
             $db->prepare('
                 INSERT INTO users (full_name, email, phone, username, password_hash, google_id, avatar, verified)
                 VALUES (?, ?, ?, ?, ?, ?, ?, 1)
             ')->execute([$name, $email, '', $username, '', $google_id, $picture]);
             $userId = (int) $db->lastInsertId();
-            $user   = fetchUserById($db, $userId);
+            $db->prepare('INSERT INTO wallets (user_id, balance) VALUES (?, 0.00)')->execute([$userId]);
+            $user = fetchUserById($db, $userId);
         }
 
         $token = generateToken();
@@ -324,37 +306,4 @@ function fetchUserById(PDO $db, int $id): array {
 function sanitizeUser(array $user): array {
     unset($user['password_hash']);
     return $user;
-}
-
-function sendOTPEmail(string $to, string $name, string $otp, string $purpose): bool {
-    $mail = new PHPMailer(true);
-    try {
-        $mail->isSMTP();
-        $mail->Host       = SMTP_HOST;
-        $mail->SMTPAuth   = true;
-        $mail->Username   = SMTP_USERNAME;
-        $mail->Password   = SMTP_PASSWORD;
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port       = SMTP_PORT;
-
-        $mail->setFrom(SMTP_FROM, SMTP_FROM_NAME);
-        $mail->addAddress($to, $name);
-        $mail->isHTML(true);
-        $mail->Subject = APP_NAME . ' — Your ' . ucfirst($purpose) . ' OTP';
-        $mail->Body    = "
-            <div style='font-family:sans-serif;max-width:480px;margin:auto;padding:32px;background:#0f172a;color:#f1f5f9;border-radius:16px;'>
-              <h2 style='color:#10b981;margin:0 0 8px'>Ememart</h2>
-              <p style='color:#94a3b8;margin:0 0 24px'>Hi {$name},</p>
-              <p style='color:#f1f5f9;margin:0 0 16px'>Your {$purpose} OTP is:</p>
-              <div style='font-size:40px;font-weight:900;letter-spacing:12px;color:#10b981;background:#1e293b;padding:20px 24px;border-radius:12px;text-align:center;margin:0 0 24px'>{$otp}</div>
-              <p style='color:#94a3b8;font-size:13px;margin:0'>This code expires in " . OTP_EXPIRY_MINUTES . " minutes. Do not share it with anyone.</p>
-            </div>
-        ";
-        $mail->AltBody = "Your Ememart {$purpose} OTP: {$otp}. Expires in " . OTP_EXPIRY_MINUTES . " minutes.";
-        $mail->send();
-        return true;
-    } catch (Exception $e) {
-        error_log('PHPMailer error: ' . $mail->ErrorInfo);
-        return false;
-    }
 }
