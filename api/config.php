@@ -178,3 +178,34 @@ function sendOTPEmail(string $to, string $name, string $otp, string $purpose): b
         return false;
     }
 }
+
+// ============================================================
+// SEND OTP EMAIL — using PHP mail() no library needed
+// ============================================================
+function sendOTPEmail(string $to, string $name, string $otp, string $purpose): bool {
+    $subject = APP_NAME . ' — Your ' . ucfirst($purpose) . ' OTP';
+
+    $message = "
+    <div style='font-family:sans-serif;max-width:480px;margin:auto;padding:32px;
+                background:#0f172a;color:#f1f5f9;border-radius:16px;'>
+      <h2 style='color:#10b981;margin:0 0 8px'>Ememart</h2>
+      <p style='color:#94a3b8;margin:0 0 24px'>Hi {$name},</p>
+      <p style='color:#f1f5f9;margin:0 0 16px'>Your {$purpose} OTP is:</p>
+      <div style='font-size:40px;font-weight:900;letter-spacing:12px;color:#10b981;
+                  background:#1e293b;padding:20px 24px;border-radius:12px;
+                  text-align:center;margin:0 0 24px'>{$otp}</div>
+      <p style='color:#94a3b8;font-size:13px;margin:0'>
+        This code expires in " . OTP_EXPIRY_MINUTES . " minutes.
+        Do not share it with anyone.
+      </p>
+    </div>
+    ";
+
+    $headers  = "MIME-Version: 1.0\r\n";
+    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $headers .= "From: " . SMTP_FROM_NAME . " <" . SMTP_FROM . ">\r\n";
+    $headers .= "Reply-To: " . SMTP_FROM . "\r\n";
+    $headers .= "X-Mailer: PHP/" . phpversion();
+
+    return mail($to, $subject, $message, $headers);
+}
