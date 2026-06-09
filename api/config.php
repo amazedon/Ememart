@@ -29,7 +29,7 @@ define('ESCROW_FEE_SELLER', 10);
 define('SMTP_HOST',     'smtp.hostinger.com');
 define('SMTP_PORT',     587);
 define('SMTP_USERNAME', 'noreply@ememart.com');
-define('SMTP_PASSWORD', 'your_email_password');
+define('SMTP_PASSWORD', 'Amarach50@');
 define('SMTP_FROM',     'noreply@ememart.com');
 define('SMTP_FROM_NAME','Ememart');
 
@@ -133,4 +133,48 @@ function addNotification(int $userId, string $title, string $body, string $type 
     $db->prepare('
         INSERT INTO notifications (user_id, title, body, type) VALUES (?, ?, ?, ?)
     ')->execute([$userId, $title, $body, $type]);
+}
+
+// ============================================================
+// SEND OTP EMAIL
+// ============================================================
+function sendOTPEmail(string $to, string $name, string $otp, string $purpose): bool {
+    require_once __DIR__ . '/vendor/autoload.php';
+
+    $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+    try {
+        $mail->isSMTP();
+        $mail->Host       = SMTP_HOST;
+        $mail->SMTPAuth   = true;
+        $mail->Username   = SMTP_USERNAME;
+        $mail->Password   = SMTP_PASSWORD;
+        $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port       = SMTP_PORT;
+
+        $mail->setFrom(SMTP_FROM, SMTP_FROM_NAME);
+        $mail->addAddress($to, $name);
+        $mail->isHTML(true);
+        $mail->Subject = APP_NAME . ' — Your ' . ucfirst($purpose) . ' OTP';
+        $mail->Body    = "
+            <div style='font-family:sans-serif;max-width:480px;margin:auto;padding:32px;
+                        background:#0f172a;color:#f1f5f9;border-radius:16px;'>
+              <h2 style='color:#10b981;margin:0 0 8px'>Ememart</h2>
+              <p style='color:#94a3b8;margin:0 0 24px'>Hi {$name},</p>
+              <p style='color:#f1f5f9;margin:0 0 16px'>Your {$purpose} OTP is:</p>
+              <div style='font-size:40px;font-weight:900;letter-spacing:12px;color:#10b981;
+                          background:#1e293b;padding:20px 24px;border-radius:12px;
+                          text-align:center;margin:0 0 24px'>{$otp}</div>
+              <p style='color:#94a3b8;font-size:13px;margin:0'>
+                This code expires in " . OTP_EXPIRY_MINUTES . " minutes.
+                Do not share it with anyone.
+              </p>
+            </div>
+        ";
+        $mail->AltBody = "Your Ememart {$purpose} OTP: {$otp}. Expires in " . OTP_EXPIRY_MINUTES . " minutes.";
+        $mail->send();
+        return true;
+    } catch (Exception $e) {
+        error_log('PHPMailer error: ' . $mail->ErrorInfo);
+        return false;
+    }
 }
