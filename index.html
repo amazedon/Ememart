@@ -5700,6 +5700,7 @@ function releaseEscrow(postId, orderId){
   }
   // Also push-notify the current buyer
   pushNotify('💰','Escrow Released',`Your payment for order #${orderId} has been released to the vendor.`, 'escrow-release');
+}
 
 // ===== RATINGS & REVIEWS =====
 let _reviewState = { postId: null, orderId: null, stars: 0, tags: [] };
@@ -6718,7 +6719,8 @@ async function setTransactionPin(){
 // ============================================================
 // EMOJI REACTIONS ON POSTS
 // ============================================================
-;
+function reactPost(postId, emoji){
+  const post = state.posts.find(p => p.id === postId); if(!post) return;
   if(!post._reactedBy) post._reactedBy = [];
   const uid = state.session?.id || 'guest';
   const key = emoji + '_' + uid;
@@ -10143,9 +10145,10 @@ function renderStatusPicker(){
           </div>
         </div>
         ${opt.key === current ? '<span class="text-emerald-400 font-black text-sm">✓</span>' : ''}`;
-      w.appendChild(btn);
+      btn.onclick = () => { setMyStatus(opt.key); el('status-picker-modal')?.classList.add('hidden'); };
+      list.appendChild(btn);
     });
-}
+  }
 
 function showStatusPicker(){
   const modal = el('status-picker-modal');
@@ -13191,7 +13194,7 @@ function renderAdminEarnings(){
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Escrow Fees</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.escrow)}</span></div>
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">KYC Fees</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.kyc)}</span></div>
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Boost Fees</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.boost)}</span></div>
-      <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Subscriptions</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.subs)}</span></div>`;
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Subscriptions</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.subs)}</span></div>`;`;
   const txnLog=el('earnings-txn-log');
   if(txnLog){
     txnLog.innerHTML='';
@@ -13204,6 +13207,7 @@ function renderAdminEarnings(){
       txnLog.appendChild(div);
     });
   }
+}
 }
 
 function sendAdminNotif(){
@@ -13258,10 +13262,8 @@ function openStatusPicker(){
           </div>
         </div>
         ${opt.key === current ? '<span class="text-emerald-400 font-black text-sm">✓</span>' : ''}`;
-      btn.onclick = () => { setMyStatus(opt.key); el('status-picker-modal')?.classList.add('hidden'); };
-      list.appendChild(btn);
+      w.appendChild(btn);
     });
-  }
 }
 
 function showStatusPicker(){
@@ -15556,17 +15558,14 @@ function verifyPinPress(digit){
 <!-- ── Pin setup banner (injected dynamically by JS, placeholder anchor) ── -->
 <div id="pin-setup-banner-anchor" class="hidden"></div>
 
-<!-- ── PIN setting button (Account settings) ── -->
-<button id="pin-setting-btn" class="bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition hidden" onclick="openChangePinFlow()">
+<!-- ── Missing PIN/status elements ── -->
+<button id="pin-setting-btn" class="hidden bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition" onclick="openChangePinFlow()">
   <span class="text-lg">🔑</span><span id="pin-setting-label">Set PIN</span>
 </button>
-
-<!-- ── set-pin-btn: submit button inside the server-side set-PIN modal ── -->
-<button id="set-pin-btn" class="hidden btn-primary py-3" onclick="setTransactionPin()">Set PIN</button>
-
-<!-- ── pin-setup-banner: nudge banner placeholder ── -->
+<button id="set-pin-btn" class="hidden btn-primary py-3 text-xs font-black" onclick="setTransactionPin()">Set PIN</button>
 <div id="pin-setup-banner" class="hidden bg-amber-950/30 border border-amber-900/40 rounded-xl p-3 text-[10px] text-amber-300 flex items-center gap-2">
-  <span>🔐</span><span>Secure your wallet — <button onclick="el('pin-setup-modal')?.classList.remove('hidden')" class="underline font-black">Set a PIN</button></span>
+  <span>🔐</span>
+  <span>Secure your wallet — <button onclick="el('pin-setup-modal')?.classList.remove('hidden')" class="underline font-black">Set a PIN</button></span>
 </div>
 
 </body>
@@ -15697,29 +15696,29 @@ function verifyPinPress(digit){
 <script>
 
 function savePin(){
-  const pin     = (el('set-pin-input')?.value  || '').trim();
-  const confirm = (el('set-pin-confirm')?.value || '').trim();
+  const pin  = (el('set-pin-input')?.value  || '').trim();
+  const conf = (el('set-pin-confirm')?.value || '').trim();
   if(!pin || !/^\d{4}$/.test(pin)){
-    showPopupNotif('⚠️','Invalid PIN','PIN must be exactly 4 digits.');
-    return;
+    showPopupNotif('⚠️','Invalid PIN','PIN must be exactly 4 digits.'); return;
   }
-  if(pin !== confirm){
-    showPopupNotif('⚠️','Mismatch','The two PINs do not match. Try again.');
-    return;
+  if(pin !== conf){
+    showPopupNotif('⚠️','Mismatch','The two PINs do not match. Try again.'); return;
   }
   localStorage.setItem('ememart_pin_v1', btoa(pin));
-  localStorage.setItem('ememart_pin_set', '1');
+  localStorage.setItem('ememart_pin_set','1');
   el('pin-setup-modal')?.classList.add('hidden');
-  el('set-pin-input') && (el('set-pin-input').value = '');
-  el('set-pin-confirm') && (el('set-pin-confirm').value = '');
+  if(el('set-pin-input'))   el('set-pin-input').value   = '';
+  if(el('set-pin-confirm')) el('set-pin-confirm').value = '';
   showPopupNotif('✅','PIN Set!','Your 4-digit PIN is now active. Keep it safe!');
-  syncPinButtonLabel && syncPinButtonLabel();
+  try{ syncPinButtonLabel(); }catch(e){}
 }
 
 function toggleMyStatus(){
   if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in first.'); return; }
-  showStatusPicker ? showStatusPicker() : openStatusPicker();
+  if(typeof showStatusPicker === 'function') showStatusPicker();
+  else if(typeof openStatusPicker === 'function') openStatusPicker();
 }
+
 function acceptBatchOrders(){
   showPopupNotif('✅','Batch Accepted!','Orders accepted for batch delivery.');
   el('batch-order-modal')?.classList.add('hidden');
