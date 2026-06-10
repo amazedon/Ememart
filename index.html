@@ -243,19 +243,22 @@
   body.light .txn-row:hover             { background:#f8fafc !important; }
   body.light .split-friend              { background:#f1f5f9 !important; border-color:#e2e8f0 !important; }
   body.light #onboarding-overlay        { background:#f8fafc !important; }
+  #onboarding-overlay                   { display:flex; flex-direction:column; width:100%; height:100%; }
+  #onboarding-overlay.ob-hidden         { display:none; }
 
   /* Keep emerald/amber/red/sky accent colors the same in both modes */
   body.light [class*="text-emerald-"]   { /* inherit — keep as is */ }
   body.light [class*="text-amber-"]     { /* inherit — keep as is */ }
   body.light [class*="text-red-"]       { /* inherit — keep as is */ }
   body.light [class*="bg-emerald-5"]    { /* keep buttons */ }
-  .onboard-slide{display:none;flex-direction:column;align-items:center;justify-content:center;gap:0;text-align:center;padding:32px 24px 24px;min-height:100%;animation:fadeSlide .35s ease;}
+  .onboard-slide{display:none;flex-direction:column;align-items:center;justify-content:flex-start;gap:0;text-align:center;padding:32px 24px 24px;min-height:100%;animation:fadeSlide .35s ease forwards;}
   .onboard-slide.active{display:flex;}
   @keyframes fadeSlide{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
   .onboard-dot{width:8px;height:8px;border-radius:50%;background:#1f2937;transition:all .2s;}
   .onboard-dot.active{background:#10b981;width:22px;border-radius:4px;}
   .onboard-icon-wrap{width:110px;height:110px;border-radius:32px;display:flex;align-items:center;justify-content:center;font-size:52px;margin-bottom:8px;flex-shrink:0;}
-  .ob-role-card{display:flex;align-items:center;gap:12px;background:#111827;border:2px solid #374151;border-radius:16px;padding:14px 12px;cursor:pointer;transition:all .2s;width:100%;max-width:320px;text-align:left;}
+  .ob-role-card{display:flex;align-items:center;gap:12px;background:#111827;border:2px solid #1f2937;border-radius:16px;padding:14px 12px;cursor:pointer;transition:all .2s;width:100%;max-width:320px;text-align:left;}
   .ob-role-card:hover{border-color:#10b981;background:rgba(16,185,129,.06);}
 </style>
 <script>
@@ -373,7 +376,7 @@ document.addEventListener('click', function askOnce(){
 <body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col pb-20">
 
 <!-- ===== ONBOARDING OVERLAY ===== -->
-<div id="onboarding-overlay" class="hidden fixed inset-0 z-[500] bg-gray-950 flex flex-col max-w-md mx-auto">
+<div id="onboarding-overlay" class="ob-hidden fixed inset-0 z-[500] bg-gray-950 flex-col max-w-md mx-auto">
 
   <!-- Top bar: progress + skip -->
   <div class="flex items-center justify-between px-5 pt-5 pb-2 flex-shrink-0">
@@ -384,11 +387,11 @@ document.addEventListener('click', function askOnce(){
   </div>
 
   <!-- Slides wrapper -->
-  <div class="flex-1 overflow-y-auto relative" id="ob-slides-wrap">
+  <div class="flex-1 overflow-y-auto overflow-x-hidden relative" id="ob-slides-wrap" style="min-height:0;">
 
     <!-- SLIDE 1: Welcome -->
     <div class="onboard-slide active" id="ob-slide-1">
-      <div class="onboard-icon-wrap bg-gradient-to-br from-emerald-900 to-gray-900 border border-emerald-800" style="animation:pulse 2s infinite;">🏪</div>
+      <div class="onboard-icon-wrap bg-gradient-to-br from-emerald-900 to-gray-900 border border-emerald-800" style="animation:pulse-ring 2s ease-out infinite;">🏪</div>
       <h2 class="text-2xl font-black text-white mt-3 leading-tight">Welcome to<br><span class="text-emerald-400">Ememart</span></h2>
       <p class="text-sm text-gray-400 mt-2 leading-relaxed max-w-xs">Nigeria's hyperlocal marketplace for <strong class="text-white">food, services, and deliveries</strong> right in your street.</p>
       <div class="mt-5 flex flex-col gap-2.5 w-full max-w-xs">
@@ -640,7 +643,7 @@ document.addEventListener('click', function askOnce(){
     <button id="ob-next-btn" onclick="onboardNext()" class="w-full max-w-xs btn-primary py-4 text-sm font-black rounded-2xl">
       Get Started →
     </button>
-    <button onclick="skipOnboarding(); navTo('account');" class="text-[11px] text-gray-500 hover:text-emerald-400 transition font-bold">Already have an account? Sign In</button>
+    <button onclick="skipOnboarding(); navTo('auth');" class="text-[11px] text-gray-500 hover:text-emerald-400 transition font-bold">Already have an account? Sign In</button>
   </div>
 
 </div>
@@ -2860,8 +2863,8 @@ function checkOnboarding(){
   if(!localStorage.getItem(ONBOARD_KEY)){
     _obSlide = 1;
     _obSelectedRole = 'user';
-    el('onboarding-overlay').classList.remove('hidden');
-    el('onboarding-overlay').classList.add('flex');
+    const overlay = el('onboarding-overlay');
+    overlay.classList.remove('ob-hidden');
     buildObProgressBars();
     updateObSlide();
   }
@@ -2884,7 +2887,8 @@ function selectObRole(role, card){
   _obSelectedRole = role;
   document.querySelectorAll('.ob-role-card').forEach(c => {
     c.classList.remove('border-emerald-500','bg-emerald-950/20');
-    c.classList.add('border-gray-700');
+    c.classList.add('border-gray-800');
+    c.classList.remove('border-gray-700');
     const chk = c.querySelector('.ob-role-check');
     if(chk) chk.classList.add('hidden');
   });
@@ -2900,7 +2904,11 @@ function selectObRole(role, card){
 function onboardNext(){
   // Slide 2 role must be selected
   if(_obSlide === 2 && !_obSelectedRole){
-    showPopupNotif('⚠️','Choose a Role','Please select your role to continue.');
+    if(typeof showPopupNotif === 'function')
+      showPopupNotif('⚠️','Choose a Role','Please select your role to continue.');
+    // Shake the role cards as visual cue
+    const cards = document.getElementById('ob-role-cards');
+    if(cards){ cards.style.animation='none'; requestAnimationFrame(()=>{ cards.style.animation='shake .4s ease'; }); }
     return;
   }
   if(_obSlide < OB_TOTAL){
@@ -2937,7 +2945,18 @@ function updateObSlide(){
     const exIcon  = el('ob-s3-extra-icon');
     const exTitle = el('ob-s3-extra-title');
     const exBody  = el('ob-s3-extra-body');
+    // Update icon character
     if(s3icon)  s3icon.textContent  = meta.icon;
+    // Update icon wrapper colour per role
+    const roleColors = {
+      user:    'bg-gradient-to-br from-emerald-900 to-gray-900 border border-emerald-800',
+      vendor:  'bg-gradient-to-br from-amber-900 to-gray-900 border border-amber-800',
+      rider:   'bg-gradient-to-br from-sky-900 to-gray-900 border border-sky-800',
+      artisan: 'bg-gradient-to-br from-purple-900 to-gray-900 border border-purple-800',
+    };
+    if(s3icon){
+      s3icon.className = 'onboard-icon-wrap ' + (roleColors[_obSelectedRole] || roleColors.user);
+    }
     if(s3title) s3title.innerHTML   = meta.title.replace('\n', '<br>');
     if(s3body)  s3body.innerHTML    = meta.body;
     if(exIcon)  exIcon.textContent  = meta.extraIcon;
@@ -2998,14 +3017,12 @@ function skipOnboarding(){
 
 function finishOnboarding(){
   localStorage.setItem(ONBOARD_KEY, '1');
-  // Save selected role preference
   if(_obSelectedRole) localStorage.setItem('ememart_ob_role', _obSelectedRole);
   const overlay = el('onboarding-overlay');
   overlay.style.opacity = '0';
   overlay.style.transition = 'opacity .4s ease';
   setTimeout(() => {
-    overlay.classList.add('hidden');
-    overlay.classList.remove('flex');
+    overlay.classList.add('ob-hidden');
     overlay.style.opacity = '';
     overlay.style.transition = '';
   }, 400);
@@ -3270,7 +3287,7 @@ async function verifyOTP() {
         syncAccountDisplay();
         showPopupNotif('🎉','Account Created!',`Welcome, ${u.full_name.split(' ')[0]}! Set your transaction PIN.`);
         navTo('home');
-        setTimeout(() => el('set-pin-modal').classList.remove('hidden'), 1500);
+        setTimeout(() => el('pin-setup-modal').classList.remove('hidden'), 1500);
       } else {
         el('reset-password-modal').classList.remove('hidden');
       }
@@ -9875,6 +9892,8 @@ function initGoogleSignIn(){
 
 // --- Handle Google button click ---
 async function handleGoogleSignIn(){
+  const btn = el('google-signin-btn');
+  const txt = el('google-btn-text');
   try{
     if(typeof google !== 'undefined' && google.accounts){
       google.accounts.id.prompt((notification) => {
@@ -9897,6 +9916,8 @@ async function handleGoogleSignIn(){
 
 // --- Handle Google credential response ---
 async function handleGoogleCredentialResponse(response){
+  const btn = el('google-signin-btn');
+  const txt = el('google-btn-text');
   try {
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
 
@@ -10364,10 +10385,10 @@ function openSpoilDetailModal(vendorId){
       </div>` : '<div class="text-[10px] text-gray-500 italic text-center py-3">No formal dispute tickets for this vendor yet.</div>'}
 
     <!-- Admin actions -->
-    ${suspended ? `
+    ${isSus ? `
       <button onclick="unsuspendVendor('${vendorId}'); el('spoil-detail-modal').classList.add('hidden');" class="w-full mt-3 py-2.5 rounded-xl text-xs font-black text-emerald-400 border border-emerald-900 hover:bg-emerald-950 transition">✅ Lift Suspension (Admin)</button>
     ` : count > 0 ? `
-      <button onclick="suspendVendor('${vendorId}','${vendorName}'); el('spoil-detail-modal').classList.add('hidden'); renderVendorSpoilWarning('${vendorId}');" class="w-full mt-3 py-2.5 rounded-xl text-xs font-black text-red-400 border border-red-900 hover:bg-red-950 transition">🚫 Manually Suspend Vendor (Admin)</button>
+      <button onclick="suspendVendor('${vendorId}','${name}'); el('spoil-detail-modal').classList.add('hidden'); renderVendorSpoilWarning('${vendorId}');" class="w-full mt-3 py-2.5 rounded-xl text-xs font-black text-red-400 border border-red-900 hover:bg-red-950 transition">🚫 Manually Suspend Vendor (Admin)</button>
     ` : ''}`;
   modal.classList.remove('hidden');
 }
@@ -15257,7 +15278,6 @@ function verifyPinPress(digit){
     setTimeout(() => checkPinVerify(), 100);
   }
 }
-}
 </script>
 
 <div id="vendor-tier-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
@@ -15331,14 +15351,16 @@ function verifyPinPress(digit){
       <h2 class="text-base font-black text-white">🛡️ Admin Login</h2>
       <button onclick="el('admin-login-modal').classList.add('hidden')" class="text-gray-400 text-xl leading-none">×</button>
     </div>
-    <div id="admin-panel-content" class="flex flex-col gap-3">
-      <input type="password" id="admin-password-input" placeholder="Admin password" class="inp" />
+    <div class="flex flex-col gap-3">
+      <input type="text" id="admin-user-inp" placeholder="Username" class="inp" />
+      <input type="password" id="admin-pass-inp" placeholder="Admin password" class="inp" />
       <button onclick="adminLogin()" class="btn-primary py-3">Login</button>
     </div>
   </div>
 </div>
 
 <!-- ── Auth Modal (for inline sign-in triggers) ── -->
+<div id="admin-panel-content" class="hidden"></div>
 <div id="auth-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal-sheet flex flex-col gap-4">
     <div class="flex justify-between items-center">
