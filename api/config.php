@@ -7,7 +7,7 @@
 define('DB_HOST',     'localhost');
 define('DB_NAME',     'u287672430_ememartt');
 define('DB_USER',     'u287672430_ememartt');
-define('DB_PASS',     'Amarach50');
+define('DB_PASS',     'Ememart2024!');
 define('DB_CHARSET',  'utf8mb4');
 
 // App settings
