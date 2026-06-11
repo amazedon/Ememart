@@ -244,7 +244,8 @@
   body.light .split-friend              { background:#f1f5f9 !important; border-color:#e2e8f0 !important; }
   body.light #onboarding-overlay        { background:#f8fafc !important; }
   #onboarding-overlay                   { display:flex; flex-direction:column; width:100%; height:100%; }
-  #onboarding-overlay.ob-hidden         { display:none; }
+  #onboarding-overlay                   { display:flex; flex-direction:column; }
+  #onboarding-overlay.ob-hidden         { display:none !important; }
 
   /* Keep emerald/amber/red/sky accent colors the same in both modes */
   body.light [class*="text-emerald-"]   { /* inherit — keep as is */ }
@@ -2864,8 +2865,10 @@ function checkOnboarding(){
     _obSlide = 1;
     _obSelectedRole = 'user';
     const overlay = el('onboarding-overlay');
+    if(!overlay) return;
     overlay.classList.remove('ob-hidden');
-    buildObProgressBars();
+    overlay.style.display = 'flex';
+    try{ buildObProgressBars(); }catch(e){}
     updateObSlide();
   }
 }
@@ -3022,7 +3025,7 @@ function finishOnboarding(){
   overlay.style.opacity = '0';
   overlay.style.transition = 'opacity .4s ease';
   setTimeout(() => {
-    overlay.classList.add('ob-hidden');
+    overlay.classList.add('ob-hidden'); overlay.style.display = 'none';
     overlay.style.opacity = '';
     overlay.style.transition = '';
   }, 400);
@@ -3388,7 +3391,7 @@ function showPanel(name){
   // Guard finance/wallet - require login
   const protectedPanels = ['finance','wallet'];
   if(protectedPanels.includes(name) && !state.session){
-    showPopupNotif('Sign In Required','Please sign in to access your wallet and finance.');
+    showPopupNotif('🔐','Sign In Required','Please sign in to access your wallet and finance.');
     navTo('auth');
     return;
   }
@@ -3735,11 +3738,264 @@ function relistPost(postId){
   showPopupNotif('🔄', 'Listing Relisted!', `"${post.foodName}" is now live again for 4 hours.`);
 }
 
+
+function startChat(userId){
+  if(!state.session){
+    showPopupNotif('🔐','Sign In','Please sign in to chat with vendors and riders.');
+    navTo('auth'); return;
+  }
+  const partner = state.users.find(u => u.id === userId);
+  if(!partner){ showPopupNotif('⚠️','Not Found','User not found.'); return; }
+  const pairId = [state.session.id, userId].sort().join('-');
+  if(!state.chats[pairId]) state.chats[pairId] = [];
+  navTo('chat');
+  setTimeout(() => openChatWith(pairId, partner.name, partner.role), 120);
+}
+
+function sharePost(postId){
+  const post = state.posts.find(p => p.id === postId);
+  if(!post) return;
+  const url = `https://ememart.ng/post/${postId}`;
+  if(navigator.share){
+    navigator.share({ title: post.foodName || post.authorName, text: post.text?.slice(0,80), url })
+      .catch(() => {});
+  } else {
+    navigator.clipboard?.writeText(url).catch(() => {});
+    showPopupNotif('🔗','Link Copied!','Post link copied to clipboard.');
+  }
+}
+
+function openPostOptions(postId){
+  const post = state.posts.find(p => p.id === postId);
+  if(!post) return;
+  const isMine = state.session && state.session.id === post.authorId;
+  if(!isMine) return;
+  // Simple inline options via confirm
+  const choice = confirm(`Post: "${(post.foodName||post.text||'').slice(0,40)}"
+
+Tap OK to delete this post, or Cancel to keep it.`);
+  if(choice){
+    state.posts = state.posts.filter(p => p.id !== postId);
+    saveState();
+    renderFeed();
+    showPopupNotif('🗑️','Deleted','Your post has been removed.');
+  }
+}
+
+function timeAgo(ts){
+  if(!ts) return '';
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff/60000);
+  if(m < 1)  return 'just now';
+  if(m < 60) return m + 'm ago';
+  const h = Math.floor(m/60);
+  if(h < 24) return h + 'h ago';
+  return Math.floor(h/24) + 'd ago';
+}
+
+function buildPostCard(post){
+  const isFood     = post.isFood || post.businessCategory === 'food';
+  const isRider    = post.bizType === 'rider' || post.authorRole === 'rider';
+  const isArtisan  = post.bizType === 'artisan' || (post.authorRole === 'artisan' && !isFood);
+  const isBusiness = post.type === 'business';
+  const isMine     = state.session && state.session.id === post.authorId;
+  const rating     = avgPostRating(post);
+  const likeCount  = (post.likes||[]).length;
+  const cmtCount   = (post.comments||[]).length;
+  const userLiked  = state.session && (post.likes||[]).includes(state.session.id);
+  const isOpen     = isFood ? isVendorOpen(post) : true;
+  const soldOut    = (post.qty !== undefined && post.qty <= 0);
+  const expired    = post.expired || (post.expiresAt && post.expiresAt < Date.now());
+
+  // Role badge
+  const roleBadge = isFood    ? '<span class="text-[8px] font-black text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded-full border border-emerald-900/40">🍲 VENDOR</span>'
+                  : isRider   ? '<span class="text-[8px] font-black text-sky-400 bg-sky-950/60 px-1.5 py-0.5 rounded-full border border-sky-900/40">🏍️ RIDER</span>'
+                  : isArtisan ? '<span class="text-[8px] font-black text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded-full border border-amber-900/40">🔧 ARTISAN</span>'
+                  : '';
+
+  // Stars
+  const starsHtml = rating > 0
+    ? `<span class="text-amber-400 text-[10px]">${'★'.repeat(Math.round(rating))}${'☆'.repeat(5-Math.round(rating))}</span><span class="text-[9px] text-gray-400">${rating.toFixed(1)} (${(post.reviews||[]).length})</span>`
+    : '';
+
+  // Price display
+  let priceHtml = '';
+  if(isFood && post.price > 0){
+    const disc = post.originalPrice && post.originalPrice > post.price;
+    priceHtml = `<div class="flex items-baseline gap-1.5 flex-wrap">
+      <span class="text-emerald-400 font-black text-base mono">₦${fmt(post.price)}</span>
+      ${disc ? `<span class="text-gray-500 line-through text-xs mono">₦${fmt(post.originalPrice)}</span>` : ''}
+      ${post.flashSale ? '<span class="text-[8px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded-full">⚡ FLASH</span>' : ''}
+    </div>`;
+  } else if(isBusiness && post.bizPrice > 0){
+    priceHtml = `<div class="flex items-baseline gap-1.5">
+      <span class="text-emerald-400 font-black text-base mono">₦${fmt(post.bizPrice)}</span>
+      <span class="text-[9px] text-gray-400">per service</span>
+    </div>`;
+  }
+
+  // Availability
+  let availHtml = '';
+  if(isFood){
+    availHtml = expired ? '<span class="text-[9px] text-red-400 font-black">⏰ EXPIRED</span>'
+              : soldOut ? '<span class="text-[9px] text-red-400 font-black">❌ SOLD OUT</span>'
+              : isOpen  ? '<span class="text-[9px] text-emerald-400 font-black">🟢 OPEN</span>'
+              : '<span class="text-[9px] text-gray-400 font-black">🔴 CLOSED</span>';
+    if(post.qty > 0 && !expired && !soldOut) availHtml += `<span class="text-[9px] text-gray-400">${post.qty} left</span>`;
+  } else if(post.bizAvail){
+    availHtml = `<span class="text-[9px] text-gray-400">${post.bizAvail}</span>`;
+  }
+
+  // Order/contact button
+  let actionBtn = '';
+  if(isFood && !expired && !soldOut && isOpen && !isMine){
+    actionBtn = `<button onclick="placeOrder('${post.id}')" class="btn-primary flex-1 py-2.5 rounded-xl text-xs">🛒 Order Now</button>`;
+  } else if((isRider || isArtisan) && !isMine){
+    actionBtn = `<button onclick="startChat('${post.authorId}')" class="btn-primary flex-1 py-2.5 rounded-xl text-xs">💬 Contact</button>`;
+  } else if(isMine){
+    actionBtn = `<button onclick="openVendorProfile('${post.authorId}')" class="flex-1 py-2.5 rounded-xl text-xs font-black bg-gray-800 border border-gray-700 text-gray-300">👁️ View Profile</button>`;
+  }
+
+  // Escrow badge
+  const escrowBadge = (isFood && post.escrow)
+    ? '<span class="text-[8px] font-black text-purple-400 bg-purple-950/50 px-1.5 py-0.5 rounded-full border border-purple-900/40">🔐 ESCROW</span>'
+    : '';
+
+  // Extras / service info
+  const extrasHtml = post.foodExtras
+    ? `<div class="text-[10px] text-gray-400">Includes: <span class="text-gray-300">${post.foodExtras}</span></div>`
+    : post.bizServiceName
+    ? `<div class="text-[10px] text-emerald-300 font-black">${post.bizServiceName}</div>`
+    : '';
+
+  const card = document.createElement('div');
+  card.className = 'bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden fade-up';
+  card.dataset.postId = post.id;
+
+  card.innerHTML = `
+    ${post.image ? `<div class="relative w-full overflow-hidden" style="height:180px">
+      <img src="${post.image}" alt="${(post.foodName||post.text||'').slice(0,40)}"
+           class="w-full h-full object-cover cursor-pointer"
+           onclick="openGallery('${post.id}',0)"
+           onerror="this.parentElement.style.display='none'">
+      <div class="absolute top-2 left-2 flex gap-1 flex-wrap">${roleBadge}${escrowBadge}</div>
+      ${post.nearExpiry ? '<div class="absolute top-2 right-2 text-[8px] font-black bg-amber-600 text-white px-1.5 py-0.5 rounded-full">⏰ NEAR EXPIRY</div>' : ''}
+    </div>` : ''}
+    <div class="p-3 flex flex-col gap-2">
+      <!-- Header -->
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            ${!post.image ? roleBadge : ''}
+            ${!post.image ? escrowBadge : ''}
+          </div>
+          <div class="font-black text-white text-sm leading-tight mt-0.5 cursor-pointer"
+               onclick="openVendorProfile('${post.authorId}')">
+            ${post.foodName || post.bizServiceName || post.authorName}
+          </div>
+          <div class="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
+            <span class="cursor-pointer hover:text-emerald-400" onclick="openVendorProfile('${post.authorId}')">${post.authorName}</span>
+            <span>·</span>
+            <span>📍 ${(post.location||'').split(',')[0]}</span>
+            <span>·</span>
+            <span>${timeAgo(post.ts)}</span>
+          </div>
+          ${starsHtml ? `<div class="flex items-center gap-1 mt-1">${starsHtml}</div>` : ''}
+        </div>
+        ${isMine ? `<button onclick="openPostOptions('${post.id}')" class="text-gray-500 hover:text-white text-lg leading-none px-1">⋯</button>` : ''}
+      </div>
+
+      <!-- Text -->
+      <div class="text-[11px] text-gray-300 leading-relaxed line-clamp-3">${post.text||''}</div>
+
+      ${extrasHtml}
+
+      <!-- Price + Availability -->
+      ${priceHtml ? `<div class="flex items-center justify-between flex-wrap gap-1">
+        ${priceHtml}
+        <div class="flex items-center gap-1.5 flex-wrap">${availHtml}</div>
+      </div>` : availHtml ? `<div class="flex gap-1.5 flex-wrap">${availHtml}</div>` : ''}
+
+      <!-- Actions row -->
+      <div class="flex items-center gap-2 pt-1 border-t border-gray-800">
+        <button onclick="reactPost('${post.id}','❤️')" class="flex items-center gap-1 text-[10px] ${userLiked ? 'text-red-400' : 'text-gray-500'} hover:text-red-400 transition font-bold">
+          ${userLiked ? '❤️' : '🤍'} <span id="like-count-${post.id}">${likeCount}</span>
+        </button>
+        <button onclick="openCommentsModal('${post.id}')" class="flex items-center gap-1 text-[10px] text-gray-500 hover:text-sky-400 transition font-bold">
+          💬 <span>${cmtCount}</span>
+        </button>
+        <button onclick="sharePost('${post.id}')" class="text-[10px] text-gray-500 hover:text-emerald-400 transition font-bold ml-auto">↗️ Share</button>
+        ${actionBtn ? `<div class="flex gap-2 w-full mt-1">${actionBtn}</div>` : ''}
+      </div>
+      ${actionBtn ? '' : ''}
+    </div>`;
+
+  return card;
+}
+
 function renderFeed(){
+  // Mark suspended vendors
   state.posts.forEach(p => {
-    if(isVendorSuspended(p.authorId)) p.vendorSuspended = true;
+    try{ if(isVendorSuspended(p.authorId)) p.vendorSuspended = true; }catch(e){}
   });
-  _origRenderFeedSpoil();
+
+  const container = el('feed-container');
+  if(!container) return;
+
+  const tab  = state.activeFeedTab || 'general';
+  const search = (state.searchQuery || '').toLowerCase().trim();
+
+  // Filter posts by active tab
+  let posts = state.posts.filter(p => !p.vendorSuspended);
+
+  if(tab === 'vendor')    posts = posts.filter(p => p.isFood || p.businessCategory === 'food');
+  else if(tab === 'rider')    posts = posts.filter(p => p.bizType === 'rider' || p.authorRole === 'rider');
+  else if(tab === 'artisan')  posts = posts.filter(p => (p.bizType === 'artisan' || p.authorRole === 'artisan') && !p.isFood);
+  else if(tab === 'following'){
+    const following = state.session?.following || [];
+    posts = posts.filter(p => following.includes(p.authorId));
+  }
+  else if(tab === 'nearby'){
+    const myTown = (state.session?.town || '').toLowerCase();
+    if(myTown) posts = posts.filter(p => (p.location||'').toLowerCase().includes(myTown));
+  }
+  else if(tab === 'general'){
+    // General = all posts (community + business)
+  }
+
+  // Search filter
+  if(search){
+    posts = posts.filter(p =>
+      (p.foodName||'').toLowerCase().includes(search) ||
+      (p.text||'').toLowerCase().includes(search) ||
+      (p.authorName||'').toLowerCase().includes(search) ||
+      (p.location||'').toLowerCase().includes(search) ||
+      (p.bizServiceName||'').toLowerCase().includes(search)
+    );
+  }
+
+  // Sort: newest first, boost boosted posts
+  posts = posts.slice().sort((a, b) => {
+    const aBoost = a.boostedUntil && a.boostedUntil > Date.now() ? 1 : 0;
+    const bBoost = b.boostedUntil && b.boostedUntil > Date.now() ? 1 : 0;
+    if(bBoost !== aBoost) return bBoost - aBoost;
+    return (b.ts||0) - (a.ts||0);
+  });
+
+  container.innerHTML = '';
+
+  if(!posts.length){
+    container.innerHTML = `<div class="text-center py-12 flex flex-col items-center gap-3">
+      <span class="text-4xl">🔍</span>
+      <div class="text-sm text-gray-400 font-black">No posts here yet</div>
+      <div class="text-[11px] text-gray-500">${search ? 'Try a different search term' : 'Be the first to post in your area!'}</div>
+    </div>`;
+    return;
+  }
+
+  posts.forEach(post => {
+    try{ container.appendChild(buildPostCard(post)); }catch(e){ console.warn('Card error', e); }
+  });
 }
 
 function createPostCardHTML(post, expanded){
@@ -7004,14 +7260,7 @@ function confirmDelivery(){
 }
 
 // ============================================================
-// TERMS & PRIVACY
-// ============================================================
-function switchTermsTab(tab){
-  const tBtn=el('terms-tab-btn'); const pBtn=el('privacy-tab-btn');
-  const tContent=el('terms-content'); const pContent=el('privacy-content');
-  if(tBtn){tBtn.classList.toggle('bg-emerald-500',tab==='terms');tBtn.classList.toggle('text-gray-900',tab==='terms');tBtn.classList.toggle('text-gray-400',tab!=='terms');tBtn.classList.toggle('bg-transparent',tab!=='terms');}
-  if(pBtn){pBtn.classList.toggle('bg-emerald-500',tab==='privacy');pBtn.classList.toggle('text-gray-900',tab==='privacy');pBtn.classList.toggle('text-gray-400',tab!=='privacy');pBtn.classList.toggle('bg-transparent',tab!=='privacy');}
-}
+// TERMS & PRIVACY — handled by switchTermsTab below
 
 // ============================================================
 // BUYER PROTECTION PAGE handled inline in HTML
@@ -10454,10 +10703,7 @@ function addSuspendedBadgeToCard(card, post){
 }
 
 // Patch renderFeed to mark suspended posts
-const _origRenderFeedSpoil = window.renderFeed;
-window.renderFeed = function(){
-  if(_origRenderFeedSpoil) _origRenderFeedSpoil();
-}
+// renderFeed is fully defined above — wrapper removed to prevent circular call
 
 
 // === FROM BLOCK 16 ===
@@ -13283,8 +13529,10 @@ function openStatusPicker(){
           </div>
         </div>
         ${opt.key === current ? '<span class="text-emerald-400 font-black text-sm">✓</span>' : ''}`;
-      w.appendChild(btn);
+      btn.onclick = () => { setMyStatus(opt.key); el('status-picker-modal')?.classList.add('hidden'); };
+      list.appendChild(btn);
     });
+  }
 }
 
 function showStatusPicker(){
@@ -15147,11 +15395,29 @@ function startVoiceSearch(){
 }
 
 function switchTermsTab(tab){
-  el('terms-content')?.classList.toggle('hidden',tab!=='terms');
-  el('privacy-content')?.classList.toggle('hidden',tab!=='privacy');
-  const tBtn=el('tt-terms'),pBtn=el('tt-privacy');
-  if(tBtn){tBtn.classList.toggle('bg-emerald-500',tab==='terms');tBtn.classList.toggle('text-gray-900',tab==='terms');tBtn.classList.toggle('text-gray-400',tab!=='terms');tBtn.classList.toggle('bg-transparent',tab!=='terms');}
-  if(pBtn){pBtn.classList.toggle('bg-emerald-500',tab==='privacy');pBtn.classList.toggle('text-gray-900',tab==='privacy');pBtn.classList.toggle('text-gray-400',tab!=='privacy');pBtn.classList.toggle('bg-transparent',tab!=='privacy');}
+  // Show/hide content panels
+  const tContent = el('terms-content');
+  const pContent = el('privacy-content');
+  if(tContent) tContent.classList.toggle('hidden', tab !== 'terms');
+  if(pContent) pContent.classList.toggle('hidden', tab !== 'privacy');
+
+  // Update tab button active styles
+  const tBtn = el('tt-terms');
+  const pBtn = el('tt-privacy');
+  if(tBtn){
+    tBtn.classList.toggle('bg-emerald-500', tab === 'terms');
+    tBtn.classList.toggle('text-gray-900',  tab === 'terms');
+    tBtn.classList.toggle('text-gray-400',  tab !== 'terms');
+  }
+  if(pBtn){
+    pBtn.classList.toggle('bg-emerald-500', tab === 'privacy');
+    pBtn.classList.toggle('text-gray-900',  tab === 'privacy');
+    pBtn.classList.toggle('text-gray-400',  tab !== 'privacy');
+  }
+
+  // Update modal title
+  const title = el('terms-modal-title');
+  if(title) title.textContent = tab === 'terms' ? '📋 Terms of Service' : '🔒 Privacy Policy';
 }
 
 function toggleBuyerOrders(){
