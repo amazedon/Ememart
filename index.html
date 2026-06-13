@@ -3309,6 +3309,57 @@ async function resendOTP() {
 }
 
 // ============================================================
+// REQUEST REGISTRATION OTP (external API helper)
+// ============================================================
+async function requestRegistrationOTP(userEmail, userName) {
+  try {
+    const response = await fetch('https://www.ememart.com/api/otp.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: userEmail, name: userName })
+    });
+    const data = await response.json();
+    if (data.success) {
+      showPopupNotif('✅', 'OTP Sent', data.message);
+    } else {
+      showPopupNotif('❌', 'OTP Error', data.message);
+    }
+  } catch (error) {
+    console.error('OTP Network Error:', error);
+    showPopupNotif('❌', 'Connection Error', 'Could not connect to the registration server.');
+  }
+}
+
+// ============================================================
+// LOGIN — API-backed sign-in
+// ============================================================
+async function loginEmemartAccount(email, password) {
+  try {
+    const response = await fetch('https://www.ememart.com/api/login.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await response.json();
+    if (data.success) {
+      // Persist user profile to localStorage
+      localStorage.setItem('ememart_user', JSON.stringify(data.user));
+      // Sync into app state and refresh UI
+      state.session = data.user;
+      syncAccountDisplay();
+      showPopupNotif('🎉', 'Welcome back!', `Signed in as ${data.user.full_name || data.user.name || email}`);
+      navTo('home');
+      console.log('Logged in user details:', data.user);
+    } else {
+      showPopupNotif('❌', 'Login Failed', data.message);
+    }
+  } catch (error) {
+    console.error('Login Network Error:', error);
+    showPopupNotif('❌', 'Connection Error', 'Could not reach the login server.');
+  }
+}
+
+// ============================================================
 // FORGOT PASSWORD
 // ============================================================
 function handleForgotPassword() {
@@ -6925,6 +6976,31 @@ function syncAccountDisplay(){
   if(whb) whb.textContent = fmtCurrency(state.session?.balance || 0);
   // Check low balance
   checkLowBalanceAlert();
+}
+
+// ============================================================
+// REFRESH WALLET UI — fetch live balance from server
+// ============================================================
+async function refreshWalletUI() {
+  const storedUser = localStorage.getItem('ememart_user');
+  if (!storedUser) return;
+  const user = JSON.parse(storedUser);
+  try {
+    const response = await fetch('https://www.ememart.com/api/wallet.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'balance', user_id: user.id })
+    });
+    const data = await response.json();
+    if (data.success) {
+      // Update live balance in app state and re-render account display
+      if (state.session) state.session.balance = data.balance;
+      syncAccountDisplay();
+      console.log('Wallet Balance Status:', data);
+    }
+  } catch (error) {
+    console.error('Wallet Fetch Error:', error);
+  }
 }
 
 // ============================================================
