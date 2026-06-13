@@ -2867,8 +2867,8 @@ function checkOnboarding(){
     const overlay = el('onboarding-overlay');
     if(!overlay) return;
     overlay.classList.remove('ob-hidden');
-    overlay.style.display = 'flex';
-    try{ buildObProgressBars(); }catch(e){}
+    overlay.style.display='flex';
+    try{buildObProgressBars();}catch(e){}
     updateObSlide();
   }
 }
@@ -3025,7 +3025,7 @@ function finishOnboarding(){
   overlay.style.opacity = '0';
   overlay.style.transition = 'opacity .4s ease';
   setTimeout(() => {
-    overlay.classList.add('ob-hidden'); overlay.style.display = 'none';
+    overlay.classList.add('ob-hidden');
     overlay.style.opacity = '';
     overlay.style.transition = '';
   }, 400);
@@ -3391,7 +3391,7 @@ function showPanel(name){
   // Guard finance/wallet - require login
   const protectedPanels = ['finance','wallet'];
   if(protectedPanels.includes(name) && !state.session){
-    showPopupNotif('🔐','Sign In Required','Please sign in to access your wallet and finance.');
+    showPopupNotif('Sign In Required','Please sign in to access your wallet and finance.');
     navTo('auth');
     return;
   }
@@ -3738,268 +3738,152 @@ function relistPost(postId){
   showPopupNotif('🔄', 'Listing Relisted!', `"${post.foodName}" is now live again for 4 hours.`);
 }
 
-
-function startChat(userId){
-  if(!state.session){
-    showPopupNotif('🔐','Sign In','Please sign in to chat with vendors and riders.');
-    navTo('auth'); return;
-  }
-  const partner = state.users.find(u => u.id === userId);
-  if(!partner){ showPopupNotif('⚠️','Not Found','User not found.'); return; }
-  const pairId = [state.session.id, userId].sort().join('-');
-  if(!state.chats[pairId]) state.chats[pairId] = [];
-  navTo('chat');
-  setTimeout(() => openChatWith(pairId, partner.name, partner.role), 120);
+function timeAgo(ts){
+  if(!ts) return '';
+  const diff=Date.now()-ts, m=Math.floor(diff/60000);
+  if(m<1) return 'just now';
+  if(m<60) return m+'m ago';
+  const h=Math.floor(m/60);
+  if(h<24) return h+'h ago';
+  return Math.floor(h/24)+'d ago';
 }
 
-function sharePost(postId){
-  const post = state.posts.find(p => p.id === postId);
-  if(!post) return;
-  const url = `https://ememart.ng/post/${postId}`;
-  if(navigator.share){
-    navigator.share({ title: post.foodName || post.authorName, text: post.text?.slice(0,80), url })
-      .catch(() => {});
-  } else {
-    navigator.clipboard?.writeText(url).catch(() => {});
-    showPopupNotif('🔗','Link Copied!','Post link copied to clipboard.');
-  }
+function startChatWith(userId,name,role){
+  if(!state.session){showPopupNotif('🔐','Sign In','Please sign in to chat.');navTo('auth');return;}
+  if(userId===state.session.id) return;
+  const pairId=[state.session.id,userId].sort().join('-');
+  if(!state.chats[pairId]) state.chats[pairId]=[];
+  saveState(); navTo('chat');
+  setTimeout(()=>{try{openChatWith(pairId,name,role);}catch(e){}},150);
 }
 
-function openPostOptions(postId){
-  const post = state.posts.find(p => p.id === postId);
-  if(!post) return;
-  const isMine = state.session && state.session.id === post.authorId;
-  if(!isMine) return;
-  // Simple inline options via confirm
-  const choice = confirm(`Post: "${(post.foodName||post.text||'').slice(0,40)}"
-
-Tap OK to delete this post, or Cancel to keep it.`);
-  if(choice){
-    state.posts = state.posts.filter(p => p.id !== postId);
-    saveState();
-    renderFeed();
+function openPostMenu(postId){
+  const post=state.posts.find(p=>p.id===postId);
+  if(!post||!state.session||post.authorId!==state.session.id) return;
+  if(confirm('Delete this post?
+OK = delete, Cancel = keep')){
+    state.posts=state.posts.filter(p=>p.id!==postId);
+    saveState(); renderFeed();
     showPopupNotif('🗑️','Deleted','Your post has been removed.');
   }
 }
 
-function timeAgo(ts){
-  if(!ts) return '';
-  const diff = Date.now() - ts;
-  const m = Math.floor(diff/60000);
-  if(m < 1)  return 'just now';
-  if(m < 60) return m + 'm ago';
-  const h = Math.floor(m/60);
-  if(h < 24) return h + 'h ago';
-  return Math.floor(h/24) + 'd ago';
-}
-
 function buildPostCard(post){
-  const isFood     = post.isFood || post.businessCategory === 'food';
-  const isRider    = post.bizType === 'rider' || post.authorRole === 'rider';
-  const isArtisan  = post.bizType === 'artisan' || (post.authorRole === 'artisan' && !isFood);
-  const isBusiness = post.type === 'business';
-  const isMine     = state.session && state.session.id === post.authorId;
-  const rating     = avgPostRating(post);
-  const likeCount  = (post.likes||[]).length;
-  const cmtCount   = (post.comments||[]).length;
-  const userLiked  = state.session && (post.likes||[]).includes(state.session.id);
-  const isOpen     = isFood ? isVendorOpen(post) : true;
-  const soldOut    = (post.qty !== undefined && post.qty <= 0);
-  const expired    = post.expired || (post.expiresAt && post.expiresAt < Date.now());
+  const isFood=post.isFood||post.businessCategory==='food';
+  const isRider=post.bizType==='rider'||post.authorRole==='rider';
+  const isArtisan=(post.bizType==='artisan'||(post.authorRole==='artisan'&&!isFood));
+  const isMine=state.session&&state.session.id===post.authorId;
+  const rating=avgPostRating(post);
+  const likeCount=(post.likes||[]).length;
+  const cmtCount=(post.comments||[]).length;
+  const userLiked=state.session&&(post.likes||[]).includes(state.session.id);
+  const isOpen=isFood?isVendorOpen(post):true;
+  const soldOut=post.qty!==undefined&&post.qty<=0;
+  const expired=post.expired||(post.expiresAt&&post.expiresAt<Date.now());
 
-  // Role badge
-  const roleBadge = isFood    ? '<span class="text-[8px] font-black text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded-full border border-emerald-900/40">🍲 VENDOR</span>'
-                  : isRider   ? '<span class="text-[8px] font-black text-sky-400 bg-sky-950/60 px-1.5 py-0.5 rounded-full border border-sky-900/40">🏍️ RIDER</span>'
-                  : isArtisan ? '<span class="text-[8px] font-black text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded-full border border-amber-900/40">🔧 ARTISAN</span>'
-                  : '';
+  const roleBadge=isFood?'<span class="text-[8px] font-black text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded-full border border-emerald-900/40">🍲 VENDOR</span>'
+    :isRider?'<span class="text-[8px] font-black text-sky-400 bg-sky-950/60 px-1.5 py-0.5 rounded-full border border-sky-900/40">🏍️ RIDER</span>'
+    :isArtisan?'<span class="text-[8px] font-black text-amber-400 bg-amber-950/60 px-1.5 py-0.5 rounded-full border border-amber-900/40">🔧 ARTISAN</span>':'';
 
-  // Stars
-  const starsHtml = rating > 0
-    ? `<span class="text-amber-400 text-[10px]">${'★'.repeat(Math.round(rating))}${'☆'.repeat(5-Math.round(rating))}</span><span class="text-[9px] text-gray-400">${rating.toFixed(1)} (${(post.reviews||[]).length})</span>`
-    : '';
+  const starsHtml=rating>0?`<span class="text-amber-400 text-[10px]">${'★'.repeat(Math.round(rating))}${'☆'.repeat(5-Math.round(rating))}</span><span class="text-[9px] text-gray-400 ml-1">${rating.toFixed(1)} (${(post.reviews||[]).length})</span>`:'';
 
-  // Price display
-  let priceHtml = '';
-  if(isFood && post.price > 0){
-    const disc = post.originalPrice && post.originalPrice > post.price;
-    priceHtml = `<div class="flex items-baseline gap-1.5 flex-wrap">
-      <span class="text-emerald-400 font-black text-base mono">₦${fmt(post.price)}</span>
-      ${disc ? `<span class="text-gray-500 line-through text-xs mono">₦${fmt(post.originalPrice)}</span>` : ''}
-      ${post.flashSale ? '<span class="text-[8px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded-full">⚡ FLASH</span>' : ''}
-    </div>`;
-  } else if(isBusiness && post.bizPrice > 0){
-    priceHtml = `<div class="flex items-baseline gap-1.5">
-      <span class="text-emerald-400 font-black text-base mono">₦${fmt(post.bizPrice)}</span>
-      <span class="text-[9px] text-gray-400">per service</span>
-    </div>`;
+  let priceHtml='';
+  if(isFood&&post.price>0){
+    priceHtml=`<span class="text-emerald-400 font-black text-base mono">₦${fmt(post.price)}</span>`;
+    if(post.originalPrice&&post.originalPrice>post.price) priceHtml+=`<span class="text-gray-500 line-through text-xs mono ml-1">₦${fmt(post.originalPrice)}</span>`;
+    if(post.flashSale) priceHtml+='<span class="text-[8px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded-full ml-1">⚡ FLASH</span>';
+  } else if(post.bizPrice>0){
+    priceHtml=`<span class="text-emerald-400 font-black text-base mono">₦${fmt(post.bizPrice)}</span><span class="text-[9px] text-gray-400 ml-1">/ service</span>`;
   }
 
-  // Availability
-  let availHtml = '';
+  let availHtml='';
   if(isFood){
-    availHtml = expired ? '<span class="text-[9px] text-red-400 font-black">⏰ EXPIRED</span>'
-              : soldOut ? '<span class="text-[9px] text-red-400 font-black">❌ SOLD OUT</span>'
-              : isOpen  ? '<span class="text-[9px] text-emerald-400 font-black">🟢 OPEN</span>'
-              : '<span class="text-[9px] text-gray-400 font-black">🔴 CLOSED</span>';
-    if(post.qty > 0 && !expired && !soldOut) availHtml += `<span class="text-[9px] text-gray-400">${post.qty} left</span>`;
+    availHtml=expired?'<span class="text-[9px] text-red-400 font-black">⏰ EXPIRED</span>'
+      :soldOut?'<span class="text-[9px] text-red-400 font-black">❌ SOLD OUT</span>'
+      :isOpen?'<span class="text-[9px] text-emerald-400 font-black">🟢 OPEN</span>'
+      :'<span class="text-[9px] text-gray-400 font-black">🔴 CLOSED</span>';
+    if(post.qty>0&&!expired&&!soldOut) availHtml+=`<span class="text-[9px] text-gray-500 ml-1">${post.qty} left</span>`;
   } else if(post.bizAvail){
-    availHtml = `<span class="text-[9px] text-gray-400">${post.bizAvail}</span>`;
+    availHtml=`<span class="text-[9px] text-gray-400">${post.bizAvail}</span>`;
   }
 
-  // Order/contact button
-  let actionBtn = '';
-  if(isFood && !expired && !soldOut && isOpen && !isMine){
-    actionBtn = `<button onclick="placeOrder('${post.id}')" class="btn-primary flex-1 py-2.5 rounded-xl text-xs">🛒 Order Now</button>`;
-  } else if((isRider || isArtisan) && !isMine){
-    actionBtn = `<button onclick="startChat('${post.authorId}')" class="btn-primary flex-1 py-2.5 rounded-xl text-xs">💬 Contact</button>`;
-  } else if(isMine){
-    actionBtn = `<button onclick="openVendorProfile('${post.authorId}')" class="flex-1 py-2.5 rounded-xl text-xs font-black bg-gray-800 border border-gray-700 text-gray-300">👁️ View Profile</button>`;
+  let actionBtn='';
+  if(isFood&&!expired&&!soldOut&&isOpen&&!isMine)
+    actionBtn=`<button onclick="placeOrder('${post.id}')" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-black text-xs py-2.5 rounded-xl transition">🛒 Order Now</button>`;
+  else if((isRider||isArtisan)&&!isMine){
+    const safeName=(post.authorName||'').replace(/'/g,"\'");
+    actionBtn=`<button onclick="startChatWith('${post.authorId}','${safeName}','${post.authorRole||''}')" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-gray-900 font-black text-xs py-2.5 rounded-xl transition">💬 Contact</button>`;
   }
 
-  // Escrow badge
-  const escrowBadge = (isFood && post.escrow)
-    ? '<span class="text-[8px] font-black text-purple-400 bg-purple-950/50 px-1.5 py-0.5 rounded-full border border-purple-900/40">🔐 ESCROW</span>'
-    : '';
+  const escrowBadge=(isFood&&post.escrow)?'<span class="text-[8px] font-black text-purple-400 bg-purple-950/50 px-1.5 py-0.5 rounded-full border border-purple-900/40">🔐 ESCROW</span>':'';
+  const imgSrc=post.image||(post.images&&post.images[0])||'';
+  const postName=post.foodName||post.bizServiceName||'';
 
-  // Extras / service info
-  const extrasHtml = post.foodExtras
-    ? `<div class="text-[10px] text-gray-400">Includes: <span class="text-gray-300">${post.foodExtras}</span></div>`
-    : post.bizServiceName
-    ? `<div class="text-[10px] text-emerald-300 font-black">${post.bizServiceName}</div>`
-    : '';
-
-  const card = document.createElement('div');
-  card.className = 'bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden fade-up';
-  card.dataset.postId = post.id;
-
-  card.innerHTML = `
-    ${post.image ? `<div class="relative w-full overflow-hidden" style="height:180px">
-      <img src="${post.image}" alt="${(post.foodName||post.text||'').slice(0,40)}"
-           class="w-full h-full object-cover cursor-pointer"
-           onclick="openGallery('${post.id}',0)"
-           onerror="this.parentElement.style.display='none'">
-      <div class="absolute top-2 left-2 flex gap-1 flex-wrap">${roleBadge}${escrowBadge}</div>
-      ${post.nearExpiry ? '<div class="absolute top-2 right-2 text-[8px] font-black bg-amber-600 text-white px-1.5 py-0.5 rounded-full">⏰ NEAR EXPIRY</div>' : ''}
-    </div>` : ''}
+  const card=document.createElement('div');
+  card.className='bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden fade-up';
+  card.dataset.postId=post.id;
+  card.innerHTML=`
+    ${imgSrc?`<div class="relative w-full" style="height:180px"><img src="${imgSrc}" alt="${postName.slice(0,40).replace(/"/g,'&quot;')}" class="w-full h-full object-cover cursor-pointer" onclick="openGallery('${post.id}',0)" onerror="this.parentElement.style.display='none'"><div class="absolute top-2 left-2 flex gap-1 flex-wrap">${roleBadge}${escrowBadge}</div></div>`:''}
     <div class="p-3 flex flex-col gap-2">
-      <!-- Header -->
       <div class="flex items-start justify-between gap-2">
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-1.5 flex-wrap">
-            ${!post.image ? roleBadge : ''}
-            ${!post.image ? escrowBadge : ''}
+          ${!imgSrc?`<div class="flex gap-1 flex-wrap mb-1">${roleBadge}${escrowBadge}</div>`:''}
+          <div class="font-black text-white text-sm leading-tight cursor-pointer" onclick="openVendorProfile('${post.authorId}')">${postName||post.authorName||''}</div>
+          <div class="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5 flex-wrap">
+            <span class="cursor-pointer hover:text-emerald-400" onclick="openVendorProfile('${post.authorId}')">${post.authorName||''}</span>
+            <span>·</span><span>📍 ${((post.location||post.town||'').split(',')[0]).trim()}</span>
+            <span>·</span><span>${timeAgo(post.ts)}</span>
           </div>
-          <div class="font-black text-white text-sm leading-tight mt-0.5 cursor-pointer"
-               onclick="openVendorProfile('${post.authorId}')">
-            ${post.foodName || post.bizServiceName || post.authorName}
-          </div>
-          <div class="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
-            <span class="cursor-pointer hover:text-emerald-400" onclick="openVendorProfile('${post.authorId}')">${post.authorName}</span>
-            <span>·</span>
-            <span>📍 ${(post.location||'').split(',')[0]}</span>
-            <span>·</span>
-            <span>${timeAgo(post.ts)}</span>
-          </div>
-          ${starsHtml ? `<div class="flex items-center gap-1 mt-1">${starsHtml}</div>` : ''}
+          ${starsHtml?`<div class="flex items-center gap-1 mt-1">${starsHtml}</div>`:''}
         </div>
-        ${isMine ? `<button onclick="openPostOptions('${post.id}')" class="text-gray-500 hover:text-white text-lg leading-none px-1">⋯</button>` : ''}
+        ${isMine?`<button onclick="openPostMenu('${post.id}')" class="text-gray-500 hover:text-white text-xl leading-none px-1">⋯</button>`:''}
       </div>
-
-      <!-- Text -->
-      <div class="text-[11px] text-gray-300 leading-relaxed line-clamp-3">${post.text||''}</div>
-
-      ${extrasHtml}
-
-      <!-- Price + Availability -->
-      ${priceHtml ? `<div class="flex items-center justify-between flex-wrap gap-1">
-        ${priceHtml}
-        <div class="flex items-center gap-1.5 flex-wrap">${availHtml}</div>
-      </div>` : availHtml ? `<div class="flex gap-1.5 flex-wrap">${availHtml}</div>` : ''}
-
-      <!-- Actions row -->
-      <div class="flex items-center gap-2 pt-1 border-t border-gray-800">
-        <button onclick="reactPost('${post.id}','❤️')" class="flex items-center gap-1 text-[10px] ${userLiked ? 'text-red-400' : 'text-gray-500'} hover:text-red-400 transition font-bold">
-          ${userLiked ? '❤️' : '🤍'} <span id="like-count-${post.id}">${likeCount}</span>
-        </button>
-        <button onclick="openCommentsModal('${post.id}')" class="flex items-center gap-1 text-[10px] text-gray-500 hover:text-sky-400 transition font-bold">
-          💬 <span>${cmtCount}</span>
-        </button>
-        <button onclick="sharePost('${post.id}')" class="text-[10px] text-gray-500 hover:text-emerald-400 transition font-bold ml-auto">↗️ Share</button>
-        ${actionBtn ? `<div class="flex gap-2 w-full mt-1">${actionBtn}</div>` : ''}
+      ${post.text?`<div class="text-[11px] text-gray-300 leading-relaxed line-clamp-3">${post.text}</div>`:''}
+      ${post.foodExtras?`<div class="text-[10px] text-gray-400">Includes: <span class="text-gray-300">${post.foodExtras}</span></div>`:''}
+      ${priceHtml||availHtml?`<div class="flex items-center justify-between flex-wrap gap-1">${priceHtml?`<div class="flex items-baseline gap-1">${priceHtml}</div>`:'<span></span>'}<div class="flex items-center gap-1.5">${availHtml}</div></div>`:''}
+      <div class="flex items-center gap-3 pt-1 border-t border-gray-800">
+        <button onclick="likePost('${post.id}')" class="flex items-center gap-1 text-[10px] ${userLiked?'text-red-400':'text-gray-500'} hover:text-red-400 transition font-bold">${userLiked?'❤️':'🤍'} <span id="lc-${post.id}">${likeCount}</span></button>
+        <button onclick="openCommentsModal('${post.id}')" class="flex items-center gap-1 text-[10px] text-gray-500 hover:text-sky-400 transition font-bold">💬 ${cmtCount}</button>
+        <button onclick="sharePostWire('${post.id}')" class="text-[10px] text-gray-500 hover:text-emerald-400 transition font-bold ml-auto">↗️ Share</button>
       </div>
-      ${actionBtn ? '' : ''}
+      ${actionBtn?`<div class="flex gap-2 mt-1">${actionBtn}</div>`:''}
     </div>`;
-
+  if(post.vendorSuspended||isVendorSuspended(post.authorId)){
+    const ov=document.createElement('div');
+    ov.className='absolute inset-0 bg-red-950/20 border border-red-900/50 rounded-2xl flex items-end p-2';
+    ov.innerHTML='<div class="bg-red-950 border border-red-800 rounded-xl px-3 py-1.5 text-xs text-red-400 font-black w-full text-center">🚫 Vendor Suspended</div>';
+    card.style.position='relative'; card.appendChild(ov);
+  }
   return card;
 }
 
 function renderFeed(){
-  // Mark suspended vendors
-  state.posts.forEach(p => {
-    try{ if(isVendorSuspended(p.authorId)) p.vendorSuspended = true; }catch(e){}
-  });
-
-  const container = el('feed-container');
+  state.posts.forEach(p=>{try{if(isVendorSuspended(p.authorId))p.vendorSuspended=true;}catch(e){}});
+  const container=el('feed-container');
   if(!container) return;
-
-  const tab  = state.activeFeedTab || 'general';
-  const search = (state.searchQuery || '').toLowerCase().trim();
-
-  // Filter posts by active tab
-  let posts = state.posts.filter(p => !p.vendorSuspended);
-
-  if(tab === 'vendor')    posts = posts.filter(p => p.isFood || p.businessCategory === 'food');
-  else if(tab === 'rider')    posts = posts.filter(p => p.bizType === 'rider' || p.authorRole === 'rider');
-  else if(tab === 'artisan')  posts = posts.filter(p => (p.bizType === 'artisan' || p.authorRole === 'artisan') && !p.isFood);
-  else if(tab === 'following'){
-    const following = state.session?.following || [];
-    posts = posts.filter(p => following.includes(p.authorId));
-  }
-  else if(tab === 'nearby'){
-    const myTown = (state.session?.town || '').toLowerCase();
-    if(myTown) posts = posts.filter(p => (p.location||'').toLowerCase().includes(myTown));
-  }
-  else if(tab === 'general'){
-    // General = all posts (community + business)
-  }
-
-  // Search filter
-  if(search){
-    posts = posts.filter(p =>
-      (p.foodName||'').toLowerCase().includes(search) ||
-      (p.text||'').toLowerCase().includes(search) ||
-      (p.authorName||'').toLowerCase().includes(search) ||
-      (p.location||'').toLowerCase().includes(search) ||
-      (p.bizServiceName||'').toLowerCase().includes(search)
-    );
-  }
-
-  // Sort: newest first, boost boosted posts
-  posts = posts.slice().sort((a, b) => {
-    const aBoost = a.boostedUntil && a.boostedUntil > Date.now() ? 1 : 0;
-    const bBoost = b.boostedUntil && b.boostedUntil > Date.now() ? 1 : 0;
-    if(bBoost !== aBoost) return bBoost - aBoost;
-    return (b.ts||0) - (a.ts||0);
+  const tab=state.activeFeedTab||'general';
+  const search=(state.searchQuery||'').toLowerCase().trim();
+  let posts=state.posts.filter(p=>!p.vendorSuspended);
+  if(tab==='vendor') posts=posts.filter(p=>p.isFood||p.businessCategory==='food');
+  else if(tab==='rider') posts=posts.filter(p=>p.bizType==='rider'||p.authorRole==='rider');
+  else if(tab==='artisan') posts=posts.filter(p=>(p.bizType==='artisan'||p.authorRole==='artisan')&&!p.isFood);
+  else if(tab==='following'){const fl=state.session?.following||[];posts=posts.filter(p=>fl.includes(p.authorId));}
+  else if(tab==='nearby'){const mt=(state.session?.town||'').toLowerCase();if(mt)posts=posts.filter(p=>(p.location||p.town||'').toLowerCase().includes(mt));}
+  if(search) posts=posts.filter(p=>(p.foodName||'').toLowerCase().includes(search)||(p.text||'').toLowerCase().includes(search)||(p.authorName||'').toLowerCase().includes(search)||(p.location||'').toLowerCase().includes(search)||(p.bizServiceName||'').toLowerCase().includes(search));
+  posts=posts.slice().sort((a,b)=>{
+    const ab=a.boostedUntil&&a.boostedUntil>Date.now()?1:0,bb=b.boostedUntil&&b.boostedUntil>Date.now()?1:0;
+    if(bb!==ab)return bb-ab; return(b.ts||0)-(a.ts||0);
   });
-
-  container.innerHTML = '';
-
+  container.innerHTML='';
   if(!posts.length){
-    container.innerHTML = `<div class="text-center py-12 flex flex-col items-center gap-3">
-      <span class="text-4xl">🔍</span>
-      <div class="text-sm text-gray-400 font-black">No posts here yet</div>
-      <div class="text-[11px] text-gray-500">${search ? 'Try a different search term' : 'Be the first to post in your area!'}</div>
-    </div>`;
+    container.innerHTML=`<div class="text-center py-12 flex flex-col items-center gap-3"><span class="text-4xl">${search?'🔍':'📭'}</span><div class="text-sm text-gray-400 font-black">${search?'No results':'No posts yet'}</div><div class="text-[11px] text-gray-500">${search?'Try a different search':'Be the first to post in your area!'}</div></div>`;
     return;
   }
-
-  posts.forEach(post => {
-    try{ container.appendChild(buildPostCard(post)); }catch(e){ console.warn('Card error', e); }
-  });
+  posts.forEach(post=>{try{container.appendChild(buildPostCard(post));}catch(e){console.warn('Card err',e);}});
 }
 
 function createPostCardHTML(post, expanded){
-  const card = _origCreatePostCardSpoil(post, expanded);
+  const card = buildPostCard(post);
   // Add suspended overlay if needed
   if(post.vendorSuspended || isVendorSuspended(post.authorId)){
     const overlay = document.createElement('div');
@@ -4621,8 +4505,56 @@ function clearMediaPreview(){
 }
 
 function submitPost(){
-  if(state.session?.role === 'vendor' && !checkVendorPostLimit()) return;
-  _origSubmitPostTier();
+  if(!state.session){showPopupNotif('🔐','Sign In','Please sign in to post.');return;}
+  if(state.session.role==='vendor'&&!checkVendorPostLimit()) return;
+  const text=el('post-text')?.value.trim()||'';
+  const isFood=state.postType==='business'&&state.businessCategory==='food';
+  const isBiz=state.postType==='business'&&!isFood;
+  if(!text&&!state.postImageBase64&&!isFood&&!isBiz){showPopupNotif('⚠️','Empty Post','Write something or add a photo.');return;}
+  const post={
+    id:'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    authorId:state.session.id,
+    authorName:state.session.full_name||state.session.username||'User',
+    authorRole:state.session.role||'user',
+    authorAvatar:state.session.avatar||null,
+    verified:state.session.verified||false,
+    location:[state.session.town,state.session.lga,state.session.state].filter(Boolean).join(', '),
+    town:state.session.town||'',lga:state.session.lga||'',state:state.session.state||'',
+    text,image:state.postImageBase64||null,
+    images:state.postImages?.length?[...state.postImages]:[],
+    type:state.postType||'normal',
+    businessCategory:state.postType==='business'?state.businessCategory:null,
+    escrow:el('post-escrow')?.checked||false,isFood,
+    likes:[],comments:[],reactions:{},reviews:[],orders:[],
+    ts:Date.now(),
+  };
+  if(isFood){
+    post.foodName=el('food-name')?.value.trim()||'Untitled Food';
+    post.price=parseFloat(el('food-price')?.value)||0;
+    post.originalPrice=post.price;
+    post.qty=parseInt(el('food-qty')?.value)||10;
+    post.foodCategory=el('food-cat-tag')?.value||'';
+    post.foodExtras=el('food-extras')?.value.trim()||'';
+    post.ingredients=Array.from(state.selectedIngredients||[]);
+    post.flashSale=el('post-flash-sale')?.checked||false;
+    post.expiresAt=Date.now()+8*3600000;post.expired=false;
+    if(!post.foodName){showPopupNotif('⚠️','Food Name Required','Enter a food name.');return;}
+    if(!post.price){showPopupNotif('⚠️','Price Required','Enter a price.');return;}
+  } else if(isBiz){
+    post.bizServiceName=el('biz-service-name')?.value.trim()||'';
+    post.bizType=el('biz-artisan-type')?.value||'artisan';
+    post.bizPrice=parseFloat(el('biz-price')?.value)||0;
+    post.bizAvail=el('biz-avail')?.value.trim()||'Available';
+  }
+  state.posts.unshift(post); saveState();
+  if(el('post-text')) el('post-text').value='';
+  state.postImageBase64=null; state.postImages=[];
+  state.postType='normal'; state.businessCategory=null;
+  state.selectedIngredients=new Set();
+  try{renderMultiImageStrip();}catch(e){}
+  try{setPostType('normal');}catch(e){}
+  renderFeed(); navTo('home');
+  showPopupNotif('✅','Posted!','Your post is now live in your area.');
 }
 
 function renderInbox(){
@@ -7260,7 +7192,14 @@ function confirmDelivery(){
 }
 
 // ============================================================
-// TERMS & PRIVACY — handled by switchTermsTab below
+// TERMS & PRIVACY
+// ============================================================
+function switchTermsTab(tab){
+  const tBtn=el('terms-tab-btn'); const pBtn=el('privacy-tab-btn');
+  const tContent=el('terms-content'); const pContent=el('privacy-content');
+  if(tBtn){tBtn.classList.toggle('bg-emerald-500',tab==='terms');tBtn.classList.toggle('text-gray-900',tab==='terms');tBtn.classList.toggle('text-gray-400',tab!=='terms');tBtn.classList.toggle('bg-transparent',tab!=='terms');}
+  if(pBtn){pBtn.classList.toggle('bg-emerald-500',tab==='privacy');pBtn.classList.toggle('text-gray-900',tab==='privacy');pBtn.classList.toggle('text-gray-400',tab!=='privacy');pBtn.classList.toggle('bg-transparent',tab!=='privacy');}
+}
 
 // ============================================================
 // BUYER PROTECTION PAGE handled inline in HTML
@@ -10703,7 +10642,7 @@ function addSuspendedBadgeToCard(card, post){
 }
 
 // Patch renderFeed to mark suspended posts
-// renderFeed is fully defined above — wrapper removed to prevent circular call
+// renderFeed fully defined above — circular wrapper removed
 
 
 // === FROM BLOCK 16 ===
@@ -13529,7 +13468,7 @@ function openStatusPicker(){
           </div>
         </div>
         ${opt.key === current ? '<span class="text-emerald-400 font-black text-sm">✓</span>' : ''}`;
-      btn.onclick = () => { setMyStatus(opt.key); el('status-picker-modal')?.classList.add('hidden'); };
+      btn.onclick=()=>{setMyStatus(opt.key);el('status-picker-modal')?.classList.add('hidden');};
       list.appendChild(btn);
     });
   }
@@ -15395,29 +15334,11 @@ function startVoiceSearch(){
 }
 
 function switchTermsTab(tab){
-  // Show/hide content panels
-  const tContent = el('terms-content');
-  const pContent = el('privacy-content');
-  if(tContent) tContent.classList.toggle('hidden', tab !== 'terms');
-  if(pContent) pContent.classList.toggle('hidden', tab !== 'privacy');
-
-  // Update tab button active styles
-  const tBtn = el('tt-terms');
-  const pBtn = el('tt-privacy');
-  if(tBtn){
-    tBtn.classList.toggle('bg-emerald-500', tab === 'terms');
-    tBtn.classList.toggle('text-gray-900',  tab === 'terms');
-    tBtn.classList.toggle('text-gray-400',  tab !== 'terms');
-  }
-  if(pBtn){
-    pBtn.classList.toggle('bg-emerald-500', tab === 'privacy');
-    pBtn.classList.toggle('text-gray-900',  tab === 'privacy');
-    pBtn.classList.toggle('text-gray-400',  tab !== 'privacy');
-  }
-
-  // Update modal title
-  const title = el('terms-modal-title');
-  if(title) title.textContent = tab === 'terms' ? '📋 Terms of Service' : '🔒 Privacy Policy';
+  el('terms-content')?.classList.toggle('hidden',tab!=='terms');
+  el('privacy-content')?.classList.toggle('hidden',tab!=='privacy');
+  const tBtn=el('tt-terms'),pBtn=el('tt-privacy');
+  if(tBtn){tBtn.classList.toggle('bg-emerald-500',tab==='terms');tBtn.classList.toggle('text-gray-900',tab==='terms');tBtn.classList.toggle('text-gray-400',tab!=='terms');tBtn.classList.toggle('bg-transparent',tab!=='terms');}
+  if(pBtn){pBtn.classList.toggle('bg-emerald-500',tab==='privacy');pBtn.classList.toggle('text-gray-900',tab==='privacy');pBtn.classList.toggle('text-gray-400',tab!=='privacy');pBtn.classList.toggle('bg-transparent',tab!=='privacy');}
 }
 
 function toggleBuyerOrders(){
