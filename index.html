@@ -1195,9 +1195,10 @@ document.addEventListener('click', function askOnce(){
         <div class="flex flex-col gap-1">
           <label class="label-sm">Service Type / Specialty</label>
           <select id="biz-artisan-type" class="inp">
-            <option value="artisan">Artisan / Handyman</option>
-            <option value="freelancer">Freelancer / Designer / Developer</option>
-            <option value="shop">Physical Shop / Retailer</option>
+            <option value="artisan">🔧 Artisan / Handyman</option>
+            <option value="rider">🏍️ Dispatch Rider / Logistics</option>
+            <option value="freelancer">💻 Freelancer / Designer / Developer</option>
+            <option value="shop">🏪 Physical Shop / Retailer</option>
           </select>
         </div>
         <div class="grid grid-cols-2 gap-2">
@@ -3171,6 +3172,148 @@ async function checkBackendSession(){
 }
 
 // ============================================================
+// REQUEST REGISTRATION OTP (API helper)
+// ============================================================
+async function requestRegistrationOTP(userEmail, userName) {
+  try {
+    const response = await fetch('https://www.ememart.com/api/otp.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: userEmail, name: userName })
+    });
+    const data = await response.json();
+    if (data.success) {
+      showPopupNotif('✅', 'OTP Sent', data.message);
+    } else {
+      showPopupNotif('❌', 'OTP Error', data.message);
+    }
+  } catch (error) {
+    console.error('OTP Network Error:', error);
+    showPopupNotif('❌', 'Connection Error', 'Could not connect to the registration server.');
+  }
+}
+
+// ============================================================
+// LOGIN — API-backed sign-in
+// ============================================================
+async function loginEmemartAccount(email, password) {
+  try {
+    const response = await fetch('https://www.ememart.com/api/login.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await response.json();
+    if (data.success) {
+      localStorage.setItem('ememart_user', JSON.stringify(data.user));
+      state.session = data.user;
+      syncAccountDisplay();
+      showPopupNotif('🎉', 'Welcome back!', `Signed in as ${data.user.full_name || data.user.name || email}`);
+      navTo('home');
+    } else {
+      showPopupNotif('❌', 'Login Failed', data.message);
+    }
+  } catch (error) {
+    console.error('Login Network Error:', error);
+    showPopupNotif('❌', 'Connection Error', 'Could not reach the login server.');
+  }
+}
+
+// ============================================================
+// REFRESH WALLET UI — fetch live balance from server
+// ============================================================
+async function refreshWalletUI() {
+  const storedUser = localStorage.getItem('ememart_user');
+  if (!storedUser) return;
+  const user = JSON.parse(storedUser);
+  try {
+    const response = await fetch('https://www.ememart.com/api/wallet.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'balance', user_id: user.id })
+    });
+    const data = await response.json();
+    if (data.success) {
+      if (state.session) state.session.balance = data.balance;
+      syncAccountDisplay();
+    }
+  } catch (error) {
+    console.error('Wallet Fetch Error:', error);
+  }
+}
+
+// ============================================================
+// SEND SUPPORT CHAT MESSAGE (alias for sendSupportMessage)
+// ============================================================
+function sendSupportChatMessage(){ sendSupportMessage(); }
+
+// ============================================================
+// DELETE POST
+// ============================================================
+function deletePost(postId){
+  if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in first.'); return; }
+  const idx = state.posts.findIndex(p => p.id === postId);
+  if(idx === -1){ showPopupNotif('❌','Not Found','Post not found.'); return; }
+  const post = state.posts[idx];
+  if(post.authorId !== state.session.id && state.session.role !== 'admin'){
+    showPopupNotif('❌','Permission Denied','You can only delete your own posts.');
+    return;
+  }
+  if(!confirm('Delete this post permanently?')) return;
+  state.posts.splice(idx, 1);
+  try { localStorage.setItem('ememart_posts', JSON.stringify(state.posts)); } catch(e){}
+  renderFeed();
+  showPopupNotif('🗑️','Deleted','Post has been removed.');
+}
+
+// ============================================================
+// RENDER KYC STATUS
+// ============================================================
+function renderKYCStatus(){
+  const w = el('kyc-status-display');
+  if(!w || !state.session) return;
+  const kyc = state.session.kycStatus || 'unverified';
+  const labels = { unverified:'❌ Not Verified', pending:'⏳ Pending Review', verified:'✅ Verified' };
+  const colors = { unverified:'text-red-400', pending:'text-amber-400', verified:'text-emerald-400' };
+  w.textContent = labels[kyc] || labels.unverified;
+  w.className = `text-xs font-black ${colors[kyc] || colors.unverified}`;
+}
+
+// ============================================================
+// SWITCH ACCOUNT TAB
+// ============================================================
+function switchAccountTab(tab){
+  document.querySelectorAll('.acc-tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.acc-tab-btn').forEach(el => el.classList.remove('active'));
+  const panel = el('acc-tab-' + tab);
+  const btn   = el('acc-tab-btn-' + tab);
+  if(panel) panel.classList.remove('hidden');
+  if(btn)   btn.classList.add('active');
+}
+
+// ============================================================
+// ADD EMERGENCY CONTACT
+// ============================================================
+function addEmergencyContact(){
+  const name  = el('emergency-contact-name')?.value.trim();
+  const phone = el('emergency-contact-phone')?.value.trim();
+  if(!name || !phone){ showPopupNotif('⚠️','Fill All Fields','Enter both name and phone number.'); return; }
+  const contacts = JSON.parse(localStorage.getItem('ememart_emergency_contacts') || '[]');
+  contacts.push({ id: 'ec_' + Date.now(), name, phone });
+  localStorage.setItem('ememart_emergency_contacts', JSON.stringify(contacts));
+  if(el('emergency-contact-name'))  el('emergency-contact-name').value  = '';
+  if(el('emergency-contact-phone')) el('emergency-contact-phone').value = '';
+  renderCustomEmergencyContacts();
+  showPopupNotif('✅','Contact Added',`${name} added as emergency contact.`);
+}
+
+// ============================================================
+// LOGOUT (alias for handleSignOut)
+// ============================================================
+function logout(){ handleSignOut(); }
+
+
+// ============================================================
 // HANDLE AUTH
 // ============================================================
 async function handleAuth(e) {
@@ -3459,7 +3602,6 @@ function navTo(panelId){
 let _prevPanel = 'home'; // track where to go back to
 
 function openVendorProfile(userId){
-  _origOpenVendorProfileSpoil(userId);
   setTimeout(() => renderVendorSpoilWarning(userId), 150);
 }
 
@@ -3801,6 +3943,7 @@ function buildPostCard(post){
   const isArtisan  = post.bizType === 'artisan' || (post.authorRole === 'artisan' && !isFood);
   const isBusiness = post.type === 'business';
   const isMine     = state.session && state.session.id === post.authorId;
+  const isSaved    = (getSavedItems()||[]).some(x => x.id === post.id);
   const rating     = avgPostRating(post);
   const likeCount  = (post.likes||[]).length;
   const cmtCount   = (post.comments||[]).length;
@@ -3937,6 +4080,8 @@ function buildPostCard(post){
       ${actionBtn ? `<div class="flex gap-2 w-full">${actionBtn}</div>` : ''}
     </div>`;
 
+  // Apply suspended overlay and spoil warnings
+  createPostCardHTML(post, card);
   return card;
 }
 
@@ -3955,9 +4100,9 @@ function renderFeed(){
   // Filter posts by active tab
   let posts = state.posts.filter(p => !p.vendorSuspended);
 
-  if(tab === 'vendor')    posts = posts.filter(p => p.isFood || p.businessCategory === 'food');
-  else if(tab === 'rider')    posts = posts.filter(p => p.bizType === 'rider' || p.authorRole === 'rider');
-  else if(tab === 'artisan')  posts = posts.filter(p => (p.bizType === 'artisan' || p.authorRole === 'artisan') && !p.isFood);
+  if(tab === 'vendor')    posts = posts.filter(p => p.isFood || p.businessCategory === 'food' || p.authorRole === 'vendor');
+  else if(tab === 'rider')    posts = posts.filter(p => p.bizType === 'rider' || p.authorRole === 'rider' || p.businessCategory === 'logistics');
+  else if(tab === 'artisan')  posts = posts.filter(p => (['artisan','freelancer','shop'].includes(p.bizType) || p.authorRole === 'artisan' || p.businessCategory === 'artisan') && !p.isFood);
   else if(tab === 'following'){
     const following = state.session?.following || [];
     posts = posts.filter(p => following.includes(p.authorId));
@@ -4005,28 +4150,25 @@ function renderFeed(){
   });
 }
 
-function createPostCardHTML(post, expanded){
-  const card = _origCreatePostCardSpoil(post, expanded);
+function createPostCardHTML(post, card){
   // Add suspended overlay if needed
+  if(!card) return;
   if(post.vendorSuspended || isVendorSuspended(post.authorId)){
     const overlay = document.createElement('div');
     overlay.className = 'absolute inset-0 bg-red-950/20 border border-red-900/50 rounded-2xl flex items-center justify-center pointer-events-none';
     overlay.innerHTML = '<div class="bg-red-950 border border-red-800 rounded-xl px-3 py-1.5 text-xs font-black text-red-400">🚫 Vendor Suspended</div>';
     card.style.position = 'relative';
     card.appendChild(overlay);
-    // Disable order button
     card.querySelectorAll('.btn-sm-primary').forEach(b => { b.disabled = true; b.classList.add('opacity-40','cursor-not-allowed'); });
   } else {
     const count = getVendorSpoilCount(post.authorId);
     if(count >= 3 && post.isFood){
-      // Add caution strip at bottom of card
       const strip = document.createElement('div');
       strip.className = `text-[8px] font-black text-center py-1 ${count>=4?'bg-red-950/60 text-red-400':'bg-amber-950/60 text-amber-400'} border-t ${count>=4?'border-red-900/40':'border-amber-900/40'}`;
       strip.textContent = count >= 4 ? '🚨 High Risk — 4 quality complaints on file' : '⚠️ 3 quality complaints on file';
       card.appendChild(strip);
     }
   }
-  return card;
 }
 
 function expandPost(postId){
@@ -4037,7 +4179,7 @@ function expandPost(postId){
   const cardBox = document.createElement('div');
   cardBox.className = 'w-full max-w-md bg-gray-950 rounded-2xl border border-gray-800 overflow-hidden relative shadow-2xl';
   
-  const innerCard = createPostCardHTML(post, true);
+  const innerCard = buildPostCard(post);
   cardBox.appendChild(innerCard);
   overlay.appendChild(cardBox);
   
@@ -4621,7 +4763,6 @@ function previewPostImage(e){
 }
 
 function clearMediaPreview(){
-  _origClearMedia && _origClearMedia();
   state.postImages = [];
   state.postImageBase64 = null;
   renderMultiImageStrip();
@@ -4629,7 +4770,7 @@ function clearMediaPreview(){
 
 function submitPost(){
   if(state.session?.role === 'vendor' && !checkVendorPostLimit()) return;
-  _origSubmitPostTier();
+  _origSubmitPost?.();
 }
 
 function renderInbox(){
@@ -5309,7 +5450,6 @@ function previewDisputeEvidence(e){
 
 // --- Submit new dispute ticket ---
 function submitDispute(){
-  _origSubmitDispute();
   // After submission, check if vendor should be suspended
   const sel = el('dispute-order-select');
   if(!sel || !sel.value) return;
@@ -7126,6 +7266,7 @@ _sessionTimer=setInterval(()=>{
 // BETTING 18+ WARNING
 // ============================================================
 async function handleVtuWithBettingCheck(service){
+  const _origVtuAction = vtuAction;
   if(service==='betting'){
     if(!localStorage.getItem('ememart_betting_ack')){
       showPopupNotif('⚠️','18+ Only','Betting services are for adults only. You must be 18+ to proceed.');
@@ -8029,6 +8170,9 @@ function buildPreviewPost(){
     post.bizType        = el('biz-artisan-type')?.value || '';
     post.bizPrice       = parseFloat(el('biz-price')?.value) || 0;
     post.bizAvail       = el('biz-avail')?.value.trim() || 'Available';
+    // Sync authorRole so feed tab filters work
+    if(post.bizType === 'rider') post.authorRole = 'rider';
+    else if(['artisan','freelancer','shop'].includes(post.bizType)) post.authorRole = 'artisan';
   }
 
   return post;
@@ -11567,8 +11711,64 @@ function renderSpoilLog(){
 
 
 function openSpoilDetailModal(vendorId){
-  el('spoil-detail-modal')?.classList.remove('hidden');
-  renderSpoilDetailModal(vendorId);
+  const modal = el('spoil-detail-modal'); if(!modal) return;
+  const count   = getSpoilCount(vendorId);
+  const post    = state.posts.find(p=>p.authorId===vendorId);
+  const name    = post?.authorName||'This Vendor';
+  const isSus   = getSuspendedVendors().includes(vendorId);
+  const headEl  = el('sdm-vendor-name');
+  const countEl = el('sdm-count');
+  const barEl   = el('sdm-bar');
+  const statusEl= el('sdm-status');
+  if(headEl) headEl.textContent = name;
+  if(countEl) countEl.textContent = `${count} / 5`;
+  if(barEl)   barEl.style.width = `${Math.min(100,(count/5)*100)}%`;
+  if(statusEl) statusEl.innerHTML = isSus
+    ? '<span class="text-red-400 font-black">🚫 SUSPENDED</span>'
+    : `<span class="${count>=4?'text-red-400':count>=3?'text-orange-400':'text-amber-400'} font-black">${count>=5?'Suspension Imminent':count>=3?'High Risk':'Under Watch'}</span>`;
+  const sdmHead = el('sdm-header');
+  if(sdmHead) sdmHead.innerHTML = '<div class="font-black text-white">' + name + '</div><div class="text-[10px] text-gray-400">Spoiled food complaint history</div>';
+  const bodyEl = el('sdm-body');
+  const disputes = [];
+  const pct = Math.min(100,(count/5)*100);
+  if(bodyEl) bodyEl.innerHTML = `
+    <!-- What happens at each level -->
+    <div class="flex flex-col gap-1.5 mb-3">
+      ${[1,2,3,4,5].map(n => `
+        <div class="flex items-center gap-2 text-[10px] ${count >= n ? 'opacity-100' : 'opacity-40'}">
+          <div class="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0 ${count >= n ? (n>=5?'bg-red-500':n>=4?'bg-orange-500':'bg-amber-500') : 'bg-gray-800'} ${count >= n ? 'text-gray-900' : 'text-gray-600'}">${n}</div>
+          <span class="${count>=n?'text-gray-300':'text-gray-600'}">${
+            n===1?'1-star rating for vendor':
+            n===2?'2nd complaint — visible warning on profile':
+            n===3?'3rd complaint — Caution badge shown to buyers':
+            n===4?'4th complaint — High Risk warning, vendor alerted':
+            'Vendor automatically suspended + ₦10,000 penalty'
+          }</span>
+          ${count>=n?'<span class="text-emerald-400 font-black text-[9px] ml-auto">✓</span>':''}
+        </div>`).join('')}
+    </div>
+
+    <!-- Dispute history -->
+    ${disputes.length ? `
+      <div class="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">Complaint History</div>
+      <div class="flex flex-col gap-1.5">
+        ${disputes.map(d => `
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 flex justify-between items-center">
+            <div>
+              <div class="text-[10px] font-black text-white">${d.foodName}</div>
+              <div class="text-[9px] text-gray-500">${new Date(d.createdAt).toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric'})}</div>
+            </div>
+            <span class="text-[9px] font-black ${d.status==='resolved'?'text-emerald-400':d.status==='escalated'?'text-red-400':'text-amber-400'}">${d.status.toUpperCase()}</span>
+          </div>`).join('')}
+      </div>` : '<div class="text-[10px] text-gray-500 italic text-center py-3">No formal dispute tickets for this vendor yet.</div>'}
+
+    <!-- Admin actions -->
+    ${isSus ? `
+      <button onclick="unsuspendVendor('${vendorId}'); el('spoil-detail-modal').classList.add('hidden');" class="w-full mt-3 py-2.5 rounded-xl text-xs font-black text-emerald-400 border border-emerald-900 hover:bg-emerald-950 transition">✅ Lift Suspension (Admin)</button>
+    ` : count > 0 ? `
+      <button onclick="suspendVendor('${vendorId}','${name}'); el('spoil-detail-modal').classList.add('hidden'); renderVendorSpoilWarning('${vendorId}');" class="w-full mt-3 py-2.5 rounded-xl text-xs font-black text-red-400 border border-red-900 hover:bg-red-950 transition">🚫 Manually Suspend Vendor (Admin)</button>
+    ` : ''}`;
+  modal.classList.remove('hidden');
 }
 
 function renderSpoilDetailModal(vendorId){
@@ -12379,6 +12579,19 @@ function switchRiderTab(tab){
   if(tab==='history')   renderRiderHistory();
 }
 
+function renderAvailableOrdersList(){
+  const assignments=getRiderAssignments();
+  const w=el('available-orders-list'); if(!w)return;
+  const available=assignments.filter(a=>a.status==='available');
+  w.innerHTML='';
+  available.forEach(a=>{
+    const div=document.createElement('div');
+    div.className='bg-gray-950 border border-gray-800 rounded-xl p-3 text-xs';
+    div.innerHTML=`<div class="font-black text-white">${a.foodName||'Food Order'}</div><div class="text-gray-400">${a.from||'Vendor'} → ${a.to||'Buyer'}</div><div class="flex justify-between mt-2"><span class="text-emerald-400 font-black">₦${fmt(a.fee||500)}</span><button onclick="acceptRiderOrder('${a.id}')" class="btn-sm-primary text-[10px] py-1 px-3">Accept</button></div>`;
+    w.appendChild(div);
+  });
+}
+
 function refreshAvailableOrders(){
   const w = el('rider-available-list');
   if(!w) return;
@@ -12912,7 +13125,7 @@ function confirmAndPublish(){
 
 function renderBuyerOrdersWithEscrow(){
   // Call original
-  if(_origRenderBuyerOrders) _origRenderBuyerOrders();
+  renderBuyerOrders();
   // Enhance delivered+escrow rows with confirm button (already in renderBuyerOrders)
 }
 
@@ -13414,10 +13627,47 @@ function msgRiderFromTracking(){
 
 function openAdminUserModal(userId){
   const users = getDemoUsers();
-  const u     = users.find(x => x.id === userId);
-  if(!u) return;
-  el('admin-user-modal')?.classList.remove('hidden');
-  renderAdminUserModal(u);
+  const u = users.find(u=>u.id===userId); if(!u) return;
+  const modal = el('admin-user-modal'); if(!modal) return;
+  const body = el('aum-body');
+  if(body) body.innerHTML = `
+    <div class="flex items-center gap-3 mb-4">
+      <div class="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center font-black text-lg text-white">${u.name[0]}</div>
+      <div><div class="text-sm font-black text-white">${u.name}</div><div class="text-[10px] text-gray-400">${u.role} · ${u.id}</div></div>
+    </div>
+    <!-- Role change -->
+    <div class="flex flex-col gap-1 mb-3">
+      <label class="label-sm">Change Role</label>
+      <div class="flex gap-2">
+        <select id="aum-role-${u.id}" class="inp text-xs flex-1">
+          <option value="user" ${u.role==='user'?'selected':''}>Buyer</option>
+          <option value="vendor" ${u.role==='vendor'?'selected':''}>Vendor</option>
+          <option value="rider" ${u.role==='rider'?'selected':''}>Rider</option>
+          <option value="artisan" ${u.role==='artisan'?'selected':''}>Artisan</option>
+        </select>
+        <button onclick="adminChangeRole('${u.id}')" class="btn-sm-primary text-[9px] px-3">Save</button>
+      </div>
+    </div>
+    <!-- Admin notes -->
+    <div class="flex flex-col gap-1 mb-3">
+      <label class="label-sm">Admin Note (private)</label>
+      <div class="flex gap-2">
+        <input type="text" id="aum-note-${u.id}" value="${u.notes}" placeholder="Internal note..." class="inp text-xs flex-1">
+        <button onclick="adminSaveNote('${u.id}')" class="btn-sm-outline text-[9px] px-3">Save</button>
+      </div>
+    </div>
+    <!-- Actions -->
+    <div class="flex flex-col gap-2">
+      ${u.kycStatus==='pending' ? `
+        <div class="flex gap-2">
+          <button onclick="adminApproveKYC('${u.id}')" class="btn-primary flex-1 py-2.5 text-xs">✅ Approve KYC</button>
+          <button onclick="adminRejectKYC('${u.id}')" class="btn-sm-outline flex-1 py-2.5 text-xs text-red-400 border-red-900">❌ Reject KYC</button>
+        </div>` : ''}
+      ${u.suspended
+        ? `<button onclick="adminUnsuspendUser('${u.id}'); el('admin-user-modal').classList.add('hidden');" class="w-full py-2.5 rounded-xl text-xs font-black text-emerald-400 border border-emerald-900 hover:bg-emerald-950 transition">✅ Lift Suspension</button>`
+        : `<button onclick="adminSuspendUser('${u.id}'); el('admin-user-modal').classList.add('hidden');" class="w-full py-2.5 rounded-xl text-xs font-black text-red-400 border border-red-900 hover:bg-red-950 transition">🚫 Suspend User</button>`
+      }
+    </div>`;
 }
 
 function openBoostFromAnalytics(){
