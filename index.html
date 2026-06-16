@@ -3408,20 +3408,37 @@ async function sendRegistrationOTP() {
   if(btn){ btn.textContent = 'Sending...'; btn.disabled = true; }
   try {
     const d = window._pendingReg;
-    const res = await apiPost('auth.php','register_send_otp', {
-      full_name: d.full_name, email: d.email, phone: d.phone,
-      password: d.password, otp_channel: 'email'
+    if(!d || !d.email){ showPopupNotif('❌','Error','Please fill in your details first.'); return; }
+
+    // Step 1: Send OTP via otp.php
+    const otpRes = await fetch('https://www.ememart.com/api/otp.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: d.email, name: d.full_name })
     });
-    if (res.success) {
-      _otpPurpose = 'register';
-      el('otp-channel-modal').classList.add('hidden');
-      el('otp-verify-info').textContent = `OTP sent to ${d.email}. Enter the 6-digit code.`;
-      el('otp-verify-modal').classList.remove('hidden');
-    } else {
-      showPopupNotif('❌','Error', res.message);
+    const otpData = await otpRes.json();
+
+    if (!otpData.success) {
+      showPopupNotif('❌', 'OTP Error', otpData.message);
+      return;
     }
-  } catch(e) { showPopupNotif('❌','Error','Connection failed.'); }
-  finally { if(btn){ btn.textContent = 'Send OTP to Email'; btn.disabled = false; } }
+
+    // Step 2: Also register the pending user data in auth.php session
+    await apiPost('auth.php','register_pending', {
+      full_name: d.full_name, email: d.email, phone: d.phone, password: d.password
+    });
+
+    _otpPurpose = 'register';
+    el('otp-channel-modal')?.classList.add('hidden');
+    el('otp-verify-info').textContent = `OTP sent to ${d.email}. Enter the 6-digit code.`;
+    el('otp-verify-modal').classList.remove('hidden');
+
+  } catch(e) {
+    console.error('OTP Error:', e);
+    showPopupNotif('❌','Error','Connection failed. Check your internet and try again.');
+  } finally {
+    if(btn){ btn.textContent = 'Send OTP to Email'; btn.disabled = false; }
+  }
 }
 
 async function verifyOTP() {
