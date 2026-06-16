@@ -3449,12 +3449,30 @@ async function verifyOTP() {
   btn.textContent = 'Verifying...'; btn.disabled = true;
 
   try {
-    const action = _otpPurpose === 'register' ? 'register_verify_otp' : 'forgot_verify_otp';
-    const res = await apiPost('auth.php', action, { otp });
+    let res;
+    if (_otpPurpose === 'register') {
+      // Call register.php directly with full pending registration data + OTP
+      const d = window._pendingReg;
+      if (!d) { showPopupNotif('❌','Error','Registration data lost. Please start again.'); return; }
+      const regRes = await fetch('https://www.ememart.com/api/register.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: d.full_name, email: d.email, password: d.password,
+          phone: d.phone, role: d.role, state: d.state,
+          lga: d.lga, town: d.town, otp_code: otp
+        })
+      });
+      res = await regRes.json();
+      res.data = res.data || {}; // normalise shape
+    } else {
+      res = await apiPost('auth.php', 'forgot_verify_otp', { otp });
+    }
+
     if (res.success) {
       el('otp-verify-modal').classList.add('hidden');
       if (_otpPurpose === 'register') {
-        const u = res.data.user;
+        const u = res.user || res.data?.user;
         state.session = {
           id: u.id, name: u.full_name, email: u.email,
           phone: u.phone, role: u.role||'user', balance: 0,
