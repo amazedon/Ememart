@@ -348,7 +348,7 @@ switch ($action) {
         if (empty($id_token)) respond(false, "Google token is required.");
 
         // Verify token with Google
-        $google_client_id = "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
+        $google_client_id = "972386732120-jeflemnhcm58cgr49mpk4vekp647p2k4.apps.googleusercontent.com";
         $ch = curl_init(
             "https://oauth2.googleapis.com/tokeninfo?id_token=" . urlencode($id_token)
         );
