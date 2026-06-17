@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Ememart — Hyperlocal Wire</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -9105,7 +9106,7 @@ try{ updateReferralSummary(); }catch(e){}
 // ============================================================
 
 // Your Google OAuth Client ID — replace with real one before going live
-const GOOGLE_CLIENT_ID = '843456789012-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '972386732120-jeflemnhcm58cgr49mpk4vekp647p2k4.apps.googleusercontent.com';
 
 // --- Initialize Google Identity Services on load ---
 window.addEventListener('load', () => {
@@ -9121,7 +9122,7 @@ window.addEventListener('load', () => {
 function initGoogleSignIn(){
   try{
     google.accounts.id.initialize({
-      client_id: 'YOUR_GOOGLE_CLIENT_ID',
+      client_id: GOOGLE_CLIENT_ID,
       callback: handleGoogleCredentialResponse
     });
     google.accounts.id.renderButton(
@@ -9143,28 +9144,17 @@ async function handleGoogleCredentialResponse(response){
   try {
     const payload = JSON.parse(atob(response.credential.split('.')[1]));
 
-    // Try to authenticate with backend
-    try {
-      const res = await apiPost('auth.php', 'google_login', {
-        google_id   : payload.sub,
-        email       : payload.email,
-        name        : payload.name,
-        given_name  : payload.given_name,
-        family_name : payload.family_name,
-        picture     : payload.picture,
-        credential  : response.credential
-      });
+    // Authenticate with backend — sends the raw Google ID token for server-side verification
+    const res = await apiPost('auth.php', 'google_login', {
+      id_token : response.credential
+    });
 
-      if(res.success && res.data?.user){
-        completeGoogleSignIn(res.data.user, payload);
-        return;
-      }
-    } catch(backendErr){
-      // Backend not available — use demo mode
+    if(res.success && res.data?.user){
+      completeGoogleSignIn(res.data.user, payload);
+      return;
+    } else {
+      showPopupNotif('❌','Google Sign-In Failed', res.message || 'Could not verify your Google account.');
     }
-
-    // Demo mode — create session from Google profile
-    completeGoogleSignInDemo(payload);
 
   } catch(e) {
     showPopupNotif('❌','Google Sign-In Failed','Could not complete Google sign-in. Please try email/password.');
