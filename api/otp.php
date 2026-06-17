@@ -76,10 +76,8 @@ $sent = false;
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     // --- PHPMailer (recommended) ---
     require __DIR__ . '/vendor/autoload.php';
-    use PHPMailer\PHPMailer\PHPMailer;
-    use PHPMailer\PHPMailer\Exception;
 
-    $mail = new PHPMailer(true);
+    $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
     try {
         $mail->isSMTP();
         $mail->Host       = 'smtp.hostinger.com';
@@ -97,7 +95,7 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 
         $mail->send();
         $sent = true;
-    } catch (Exception $e) {
+    } catch (\PHPMailer\PHPMailer\Exception $e) {
         // Fall through to mail() fallback
     }
 }
