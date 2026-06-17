@@ -24,9 +24,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // DATABASE CREDENTIALS
 // ============================================================
 define('DB_HOST', 'localhost');
-define('DB_USER', 'u287672430_Ememart');
+define('DB_USER', 'ememartt');
 define('DB_PASS', 'Ememart2024!!');
-define('DB_NAME', 'u287672430_Ememart');
+define('DB_NAME', 'ememartt');
 
 // ============================================================
 // PDO CONNECTION
