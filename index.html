@@ -8472,12 +8472,37 @@ window.clearMediaPreview = function(){
   renderMultiImageStrip();
 };
 
-// After submitPost creates the post, inject images
+// Upload images to Cloudinary BEFORE creating the post, then save real URLs
 const _origSubmitPost = window.submitPost;
 window.submitPost = async function(){
+  // Upload images first if any were attached
+  if(state.postImages && state.postImages.length){
+    try {
+      const uploadRes = await apiPost('media.php', 'upload', {
+        images: state.postImages,
+        folder: 'ememart/posts'
+      });
+      if(uploadRes.success && uploadRes.data?.images){
+        const urls = uploadRes.data.images.map(img => img.url);
+        // Replace base64 with real Cloudinary URLs before the post is saved
+        state.postImages = urls;
+        state.postImageBase64 = urls[0] || null;
+      } else {
+        showPopupNotif('⚠️','Image Upload Issue','Could not upload images. Post will be saved without photos.');
+        state.postImages = [];
+        state.postImageBase64 = null;
+      }
+    } catch(e){
+      console.error('Cloudinary upload failed:', e);
+      showPopupNotif('⚠️','Image Upload Failed','Connection issue uploading photos. Post will be saved without photos.');
+      state.postImages = [];
+      state.postImageBase64 = null;
+    }
+  }
+
   if(_origSubmitPost) await _origSubmitPost();
-  // Images already attached via state.postImageBase64 and state.postImages
-  // Reset multi-images
+
+  // Reset multi-images after post is created
   state.postImages = [];
   renderMultiImageStrip();
 }
