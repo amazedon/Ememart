@@ -16,7 +16,7 @@ if (!$user_id) {
 // Get these from your Bigisub dashboard
 // ============================================================
 define('BIGISUB_BASE_URL', 'https://bigisub.com/api');
-define('BIGISUB_API_KEY',  'YOUR_BIGISUB_API_KEY');  // replace with your key
+define('BIGISUB_API_KEY',  '9b0069d04cc75b91d4c552f8b5a71a84e01c367a');
 define('CASHBACK_RATE',    0.01);                     // 1% cashback
 
 // ============================================================
