@@ -3336,12 +3336,12 @@ async function handleAuth(e) {
     try {
       const res = await apiPost('auth.php', 'login', { identifier: emailInput, password: passwordInput });
       if (res.success) {
-        const u = res.data.user;
+        const u = res.data?.user || res.user;
         state.session = {
           id: u.id, name: u.full_name, email: u.email,
           phone: u.phone, role: u.role || 'user',
-          balance: parseFloat((u.wallet_balance||'0').replace(/,/g,'')),
-          town: '', lga: '', state: '', accountNum: 'EM-' + u.id
+          balance: parseFloat(String(u.wallet_balance ?? u.balance ?? 0).replace(/,/g,'')),
+          town: u.town || '', lga: u.lga || '', state: u.state || '', accountNum: 'EM-' + u.id
         };
         if (rememberMeChecked) localStorage.setItem('ememart_saved_email', emailInput);
         syncAccountDisplay();
