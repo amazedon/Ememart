@@ -60,11 +60,31 @@ function respond($success, $message, $data = []) {
 }
 
 // ============================================================
-// HELPER: Get and decode JSON request body
+// HELPER: Get request body — supports both JSON and form-encoded POST
 // ============================================================
 function getBody() {
     $raw = file_get_contents('php://input');
-    return json_decode($raw, true) ?? [];
+
+    // Try JSON first
+    $json = json_decode($raw, true);
+    if (is_array($json)) {
+        return $json;
+    }
+
+    // Fall back to standard form-encoded POST data ($_POST)
+    if (!empty($_POST)) {
+        return $_POST;
+    }
+
+    // Last resort: manually parse raw urlencoded body
+    if (!empty($raw)) {
+        parse_str($raw, $parsed);
+        if (!empty($parsed)) {
+            return $parsed;
+        }
+    }
+
+    return [];
 }
 
 // ============================================================
