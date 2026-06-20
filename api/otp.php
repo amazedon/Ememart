@@ -82,12 +82,12 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
         $mail->isSMTP();
         $mail->Host       = 'smtp.hostinger.com';
         $mail->SMTPAuth   = true;
-        $mail->Username   = 'noreply@ememart.com';    // your Hostinger email
-        $mail->Password   = 'Amarach50@';    // your Hostinger email password
+        $mail->Username   = SMTP_EMAIL;
+        $mail->Password   = SMTP_PASSWORD;
         $mail->SMTPSecure = 'ssl';
         $mail->Port       = 465;
 
-        $mail->setFrom('noreply@ememart.com', 'Ememart');
+        $mail->setFrom(SMTP_EMAIL, 'Ememart');
         $mail->addAddress($email, $name);
         $mail->isHTML(true);
         $mail->Subject = "$otp is your Ememart Verification Code";
@@ -105,7 +105,7 @@ if (!$sent) {
     $subject  = "$otp is your Ememart Verification Code";
     $headers  = "MIME-Version: 1.0\r\n";
     $headers .= "Content-type: text/html; charset=UTF-8\r\n";
-    $headers .= "From: Ememart <noreply@ememart.com>\r\n";
+    $headers .= "From: Ememart <" . SMTP_EMAIL . ">\r\n";
     $sent = mail($email, $subject, getEmailTemplate($otp, $name), $headers);
 }
 
