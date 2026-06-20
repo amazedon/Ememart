@@ -158,7 +158,7 @@ try {
 
     $headers  = "MIME-Version: 1.0\r\n";
     $headers .= "Content-type: text/html; charset=UTF-8\r\n";
-    $headers .= "From: Ememart <noreply@ememart.com>\r\n";
+    $headers .= "From: Ememart <" . SMTP_EMAIL . ">\r\n";
     @mail($email, $welcome_subject, $welcome_body, $headers);
 
     // ============================================================
