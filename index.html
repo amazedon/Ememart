@@ -9202,15 +9202,18 @@ async function handleGoogleCredentialResponse(response){
       id_token : response.credential
     });
 
-    if(res.success && res.data?.user){
-      completeGoogleSignIn(res.data.user, payload);
+    console.log('GOOGLE LOGIN RAW RESPONSE:', JSON.stringify(res));
+    const u = res.user || res.data?.user;
+    if(res.success && u){
+      completeGoogleSignIn(u, payload);
       return;
     } else {
-      showPopupNotif('❌','Google Sign-In Failed', res.message || 'Could not verify your Google account.');
+      showPopupNotif('❌','DEBUG: ' + JSON.stringify(res).slice(0,150), res.message || 'Could not verify your Google account.');
     }
 
   } catch(e) {
-    showPopupNotif('❌','Google Sign-In Failed','Could not complete Google sign-in. Please try email/password.');
+    console.error('GOOGLE LOGIN CRASH:', e);
+    showPopupNotif('❌','Google Sign-In Crash', String(e.message || e));
   }
 }
 
