@@ -111,7 +111,7 @@ switch ($action) {
 
         respond(true, "Payment initiated.", [
             "reference"  => $reference,
-            "public_key" => "FLWPUBK-202e7692c501e3d9eee7b1a548ab5e6c-X", // replace with your Flutterwave public key
+            "public_key" => FLW_PUBLIC_KEY,
             "email"      => $user['email'],
             "phone"      => $user['phone'],
             "name"       => $user['full_name'],
@@ -140,8 +140,8 @@ switch ($action) {
         if (!$pending) respond(false, "Invalid or already processed reference.");
 
         // Verify with Flutterwave API
-        $flw_secret = "FLWSECK-b51b432c80dcb21201ba02f118db22ef-19e729c1bc8vt-X";
-        $flw_encryption_key = "b51b432c80dccbf5932daf47"; // used for encrypted card payments if needed
+        $flw_secret = FLW_SECRET_KEY;
+        $flw_encryption_key = FLW_ENCRYPTION_KEY;
         $ch = curl_init("https://api.flutterwave.com/v3/transactions/$transaction_id/verify");
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
