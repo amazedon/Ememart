@@ -7023,9 +7023,34 @@ function checkLowBalanceAlert(){
 // SYNC ACCOUNT DISPLAY PATCH — add new role portals
 // ============================================================
 function syncAccountDisplay(){
-  if(!el('session-label')) return;
   const s = state.session;
   const loggedIn = !!s;
+
+  // Toggle guest vs signed-in account view
+  const guestView = el('account-guest-view');
+  const signedInView = el('account-signed-in-view');
+  if(guestView) guestView.classList.toggle('hidden', loggedIn);
+  if(signedInView){
+    if(loggedIn){ signedInView.classList.remove('hidden'); signedInView.classList.add('flex'); }
+    else { signedInView.classList.remove('flex'); signedInView.classList.add('hidden'); }
+  }
+
+  // Populate signed-in account fields
+  if(loggedIn){
+    const nameEl  = el('acc-name');     if(nameEl)  nameEl.textContent  = s.full_name || s.name || 'User';
+    const emailEl = el('acc-email');    if(emailEl) emailEl.textContent = s.email || '—';
+    const phoneEl = el('acc-phone');    if(phoneEl) phoneEl.textContent = s.phone || '—';
+    const townEl  = el('acc-town');     if(townEl)  townEl.textContent  = s.town  || '—';
+    const lgaEl   = el('acc-lga');      if(lgaEl)   lgaEl.textContent   = s.lga   || '—';
+    const stateEl = el('acc-state');    if(stateEl) stateEl.textContent = s.state || '—';
+    const numEl   = el('acc-num');      if(numEl)   numEl.textContent   = s.accountNum || ('EM-' + s.id);
+    const balEl   = el('acc-balance');  if(balEl)   balEl.textContent   = fmtCurrency(s.balance||0);
+    const avatarEl= el('acc-avatar');   if(avatarEl) avatarEl.textContent = (s.full_name||s.name||'U').charAt(0).toUpperCase();
+    const roleLbl = el('acc-role-label'); if(roleLbl) roleLbl.textContent = (s.role||'user') + ' profile';
+    const vendorPortal = el('acc-vendor-portal'); if(vendorPortal) vendorPortal.classList.toggle('hidden', s.role !== 'vendor');
+  }
+
+  if(!el('session-label')) return;
 
   // Label
   el('session-label').textContent = loggedIn
