@@ -15,9 +15,7 @@ if (!$user_id) {
 // ============================================================
 // CLOUDINARY CREDENTIALS
 // ============================================================
-define('CLOUDINARY_CLOUD_NAME', 'untitled');                              // your Cloudinary cloud name
-define('CLOUDINARY_API_KEY',    '562979931394534');
-define('CLOUDINARY_API_SECRET', 'H2-1c7wKAltKlT4WOU7BDrKxlPE');
+// Cloudinary credentials now loaded from .env via config.php
 
 // ============================================================
 // HELPER: Upload a base64 image to Cloudinary
