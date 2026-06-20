@@ -4051,6 +4051,39 @@ function buildPostCard(post){
     ? `<div class="text-[10px] text-emerald-300 font-black">${post.bizServiceName}</div>`
     : '';
 
+  // Countdown / expiry timer bar (food listings only)
+  let expiryHtml = '';
+  if(isFood && post.expiresAt){
+    const totalDuration = post.expiresAt - (post.ts || Date.now());
+    const remaining = post.expiresAt - Date.now();
+    let timerPct = totalDuration > 0 ? Math.max(0, Math.min(100, (remaining / totalDuration) * 100)) : 0;
+    if(expired) timerPct = 0;
+
+    const barColor = timerPct > 50 ? 'bg-emerald-500' : timerPct > 25 ? 'bg-amber-500' : 'bg-red-500';
+    let timeLeftStr = '';
+    if(remaining > 0){
+      const remMins = Math.floor(remaining / 60000);
+      timeLeftStr = remMins >= 60 ? `${Math.floor(remMins/60)}h ${remMins%60}m` : `${remMins}m`;
+    }
+
+    expiryHtml = `
+      <div class="px-0 py-1 flex items-center gap-2">
+        <div class="timer-bar flex-1"><div class="${barColor} h-full rounded-full transition-all" style="width:${timerPct}%"></div></div>
+        <span class="text-[10px] mono font-black ${expired?'text-red-400':'text-gray-400'}">${expired?'⛔ Expired':timeLeftStr+' left'}</span>
+      </div>`;
+
+    if(expired && isMine){
+      expiryHtml += `
+        <div class="bg-red-950/40 border border-red-900/60 p-2.5 rounded-xl flex items-center justify-between gap-2">
+          <div>
+            <div class="text-[11px] font-black text-red-300">This listing has expired</div>
+            <div class="text-[9px] text-gray-500 mt-0.5">Buyers can no longer see or order this item</div>
+          </div>
+          <button onclick="relistPost('${post.id}')" class="btn-sm-primary bg-amber-500 hover:bg-amber-400 text-gray-900 whitespace-nowrap text-[9px]">🔄 Relist</button>
+        </div>`;
+    }
+  }
+
   const card = document.createElement('div');
   card.className = 'bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden fade-up';
   card.dataset.postId = post.id;
@@ -4079,7 +4112,7 @@ function buildPostCard(post){
           <div class="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
             <span class="cursor-pointer hover:text-emerald-400" onclick="openVendorProfile('${post.authorId}')">${post.authorName}</span>
             <span>·</span>
-            <span>${pinIcon(11)} ${(post.location||'').split(',')[0]}</span>
+            <span>${pinIcon(11)} ${post.location || ''}</span>
             <span>·</span>
             <span>${timeAgo(post.ts)}</span>
           </div>
@@ -4099,11 +4132,19 @@ function buildPostCard(post){
         <div class="flex items-center gap-1.5 flex-wrap">${availHtml}</div>
       </div>` : availHtml ? `<div class="flex gap-1.5 flex-wrap">${availHtml}</div>` : ''}
 
+      ${expiryHtml}
+
       <!-- Actions row -->
       <div class="flex items-center gap-2 pt-1 border-t border-gray-800 flex-wrap">
         <button onclick="reactPost('${post.id}','❤️')" class="flex items-center gap-1 text-[10px] ${userLiked ? 'text-red-400' : 'text-gray-500'} hover:text-red-400 transition font-bold">
           ${userLiked ? '❤️' : '🤍'} <span id="like-count-${post.id}">${likeCount}</span>
         </button>
+        <div class="flex items-center gap-0.5">
+          ${['👍','🔥','😂','😮'].map(e => {
+            const c = (post.reactions && post.reactions[e]) || 0;
+            return `<button onclick="reactPost('${post.id}','${e}')" class="text-xs hover:scale-125 transition-transform px-0.5" title="React ${e}">${e}${c?`<span class="text-[8px] text-gray-400 font-black ml-0.5">${c}</span>`:''}</button>`;
+          }).join('')}
+        </div>
         <button onclick="openCommentsModal('${post.id}')" class="flex items-center gap-1 text-[10px] text-gray-500 hover:text-sky-400 transition font-bold">
           💬 <span>${cmtCount}</span>
         </button>
@@ -4988,9 +5029,10 @@ async function vtuSelectProvider(p){
     list.innerHTML = '<div class="text-center py-4 text-xs text-gray-500">Loading plans...</div>';
     try {
       const res = await apiGet('vtu.php',{ action:'get_plans', service_id: p.id, category: _vtu.service });
-      if(res.success && res.data.plans.length){
+      const plansArr = res.plans || res.data?.plans || [];
+      if(res.success && plansArr.length){
         list.innerHTML = '';
-        res.data.plans.forEach(plan => {
+        plansArr.forEach(plan => {
           const btn = document.createElement('button');
           btn.className = 'w-full flex justify-between items-center p-3 bg-gray-950 border border-gray-800 rounded-xl hover:border-emerald-500 transition text-left mb-1';
           btn.innerHTML = `<div><div class="text-xs font-black text-white">${plan.name}</div><div class="text-[10px] text-gray-400">${plan.validity||''}</div></div><div class="text-sm font-black text-emerald-400 mono">₦${parseFloat(plan.amount||plan.variation_amount||0).toLocaleString()}</div>`;
@@ -5039,9 +5081,10 @@ async function vtuValidateCustomer(){
   try {
     const res = await apiPost('vtu.php','validate_customer',{ service_id: _vtu.providerId, account_no: accountNo });
     if(res.success){
-      el('vtu-customer-name').textContent = res.data.customer_name;
+      const customerName = res.customer_name || res.data?.customer_name;
+      el('vtu-customer-name').textContent = customerName;
       el('vtu-customer-verified').classList.remove('hidden');
-      showPopupNotif('✅','Verified!', res.data.customer_name);
+      showPopupNotif('✅','Verified!', customerName);
     } else { showPopupNotif('❌','Not Found', res.message); }
   } catch(e){ showPopupNotif('❌','Error','Connection failed.'); }
   finally { btn.textContent = '🔍 Verify Account'; btn.disabled = false; }
@@ -5143,7 +5186,8 @@ async function confirmDeposit(){
     const res = await apiPost('wallet.php','initiate_funding',{ amount: amt });
     if(!res.success){ showPopupNotif('❌','Error', res.message); btn.textContent='💳 Pay with Flutterwave'; btn.disabled=false; return; }
 
-    const { reference, public_key, email, phone, name } = res.data;
+    const fundData = res.data || res;
+    const { reference, public_key, email, phone, name } = fundData;
 
     FlutterwaveCheckout({
       public_key,
@@ -5159,7 +5203,8 @@ async function confirmDeposit(){
             transaction_id: data.transaction_id, reference
           });
           if(verify.success){
-            state.session.balance = parseFloat(verify.data.new_balance.replace(/,/g,''));
+            const newBal = verify.new_balance || verify.data?.new_balance || '0';
+            state.session.balance = parseFloat(String(newBal).replace(/,/g,''));
             syncAccountDisplay();
             addTransaction({ type:'credit', category:'deposit', userId: state.session.id, amount: amt, desc: 'Wallet funded via Flutterwave' });
             el('deposit-modal').classList.add('hidden');
@@ -8509,8 +8554,9 @@ window.submitPost = async function(){
         images: state.postImages,
         folder: 'ememart/posts'
       });
-      if(uploadRes.success && uploadRes.data?.images){
-        const urls = uploadRes.data.images.map(img => img.url);
+      const uploadedImages = uploadRes.images || uploadRes.data?.images;
+      if(uploadRes.success && uploadedImages){
+        const urls = uploadedImages.map(img => img.url);
         // Replace base64 with real Cloudinary URLs before the post is saved
         state.postImages = urls;
         state.postImageBase64 = urls[0] || null;
