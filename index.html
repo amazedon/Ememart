@@ -26,6 +26,8 @@
   ::-webkit-scrollbar-thumb{background:#374151;border-radius:4px}
   .chip{display:inline-flex;align-items:center;gap:4px;background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.25);font-size:10px;font-weight:700;padding:3px 10px;border-radius:8px}
   .timer-bar{height:3px;background:#1f2937;border-radius:2px;overflow:hidden}
+  .reaction-picker{animation:reactionPop .15s ease-out}
+  @keyframes reactionPop{from{opacity:0;transform:translateY(4px) scale(0.9)}to{opacity:1;transform:translateY(0) scale(1)}}
   .timer-bar-fill{height:100%;background:linear-gradient(90deg,#10b981,#f59e0b);border-radius:2px;transition:width .5s linear}
   .flash-badge{background:linear-gradient(135deg,#ef4444,#f97316);color:#fff;font-size:9px;font-weight:900;padding:2px 7px;border-radius:20px;letter-spacing:.05em;text-transform:uppercase}
   .escrow-badge{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:9px;font-weight:900;padding:2px 7px;border-radius:20px}
@@ -1234,7 +1236,10 @@ document.addEventListener('click', function askOnce(){
     <!-- Keep legacy single-image elements for backward compat -->
     <div id="media-preview" class="hidden"><img id="img-preview-el" class="hidden"></div>
 
-    <button onclick="previewPost()" class="btn-primary mt-1">👁️ Preview Before Posting</button>
+    <div class="flex gap-2 mt-1">
+      <button onclick="previewPost()" class="btn-sm-outline flex-1">👁️ Preview</button>
+      <button onclick="submitPost()" class="btn-primary flex-1">🚀 Publish Now</button>
+    </div>
 
     <!-- Advanced Options -->
     <div class="border border-gray-800 rounded-xl overflow-hidden">
@@ -1619,6 +1624,28 @@ document.addEventListener('click', function askOnce(){
       </div>
       <div id="buyer-orders-list" class="hidden flex flex-col gap-2 max-h-64 overflow-y-auto">
         <div class="text-center py-6 text-xs text-gray-500 italic">No orders yet. Start ordering from the Feed!</div>
+      </div>
+    </div>
+
+    <!-- Security / Transaction PIN -->
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-lg">🔒</span>
+        <div class="text-sm font-black text-white">Security</div>
+      </div>
+      <div class="flex items-center justify-between bg-gray-950 border border-gray-800 rounded-xl p-3">
+        <div>
+          <div class="text-xs font-bold text-white">Transaction PIN</div>
+          <div id="acc-pin-status" class="text-[9px] text-gray-500 mt-0.5">Protects withdrawals, transfers & VTU purchases</div>
+        </div>
+        <button id="acc-pin-btn" onclick="openChangePinFlow()" class="btn-sm-outline text-[9px] whitespace-nowrap">Set PIN</button>
+      </div>
+      <div class="flex items-center justify-between bg-gray-950 border border-gray-800 rounded-xl p-3">
+        <div>
+          <div class="text-xs font-bold text-white">Change Password</div>
+          <div class="text-[9px] text-gray-500 mt-0.5">Update your sign-in password</div>
+        </div>
+        <button onclick="handleForgotPassword()" class="btn-sm-outline text-[9px] whitespace-nowrap">Change</button>
       </div>
     </div>
 
@@ -2815,6 +2842,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if(inp) inp.addEventListener('input', () => inp.classList.remove('error'));
   });
 
+  // 2.5 Restore previously published posts so they appear immediately on first render
+  try {
+    const storedPosts = localStorage.getItem("ememart_posts");
+    if(storedPosts){
+      const parsedPosts = JSON.parse(storedPosts);
+      if(Array.isArray(parsedPosts) && parsedPosts.length){
+        state.posts = parsedPosts;
+      }
+    }
+  } catch(e){
+    console.warn("Posts restore failed:", e);
+  }
+
   // 3. Render everything
   renderFeed();
   loadNotificationsFromStorage();
@@ -3346,6 +3386,7 @@ async function handleAuth(e) {
           town: u.town || '', lga: u.lga || '', state: u.state || '', accountNum: 'EM-' + u.id
         };
         if (rememberMeChecked) localStorage.setItem('ememart_saved_email', emailInput);
+        localStorage.setItem('ememart_user', JSON.stringify(state.session));
         syncAccountDisplay();
         showPopupNotif('🔓', 'Signed In!', `Welcome back, ${u.full_name.split(' ')[0]}!`);
         navTo('home');
@@ -3506,7 +3547,7 @@ async function resendOTP() {
 // FORGOT PASSWORD
 // ============================================================
 function handleForgotPassword() {
-  const emailInput = document.getElementById('inp-email').value.trim();
+  const emailInput = state.session?.email || document.getElementById('inp-email')?.value.trim() || '';
   if (!emailInput) {
     showPopupNotif('⚠️','Email Required','Enter your email address first, then click Forgot Password.');
     return;
@@ -3516,7 +3557,7 @@ function handleForgotPassword() {
 }
 
 async function sendForgotOTP() {
-  const email = el('inp-email').value.trim();
+  const email = state.session?.email || el('inp-email')?.value.trim() || '';
   const channel = document.querySelector('input[name="forgot-otp-channel"]:checked')?.value;
   if (!channel) { showPopupNotif('⚠️','Choose Channel','Select Email or WhatsApp.'); return; }
 
@@ -3559,6 +3600,7 @@ async function submitNewPassword() {
 async function handleSignOut(){
   try { await apiPost('auth.php','logout',{}); } catch(e){}
   state.session = null;
+  localStorage.removeItem('ememart_user');
   el('session-label').textContent = '🔴 Guest';
   el('session-balance').textContent = '₦0.00';
 
@@ -4041,7 +4083,7 @@ function buildPostCard(post){
 
   // Escrow badge
   const escrowBadge = (isFood && post.escrow)
-    ? '<span class="text-[8px] font-black text-purple-400 bg-purple-950/50 px-1.5 py-0.5 rounded-full border border-purple-900/40">🔐 ESCROW</span>'
+    ? `<span onclick="event.stopPropagation(); openEscrowInfo('${post.id}')" class="text-[8px] font-black text-purple-400 bg-purple-950/50 px-1.5 py-0.5 rounded-full border border-purple-900/40 cursor-pointer hover:bg-purple-900/50 transition">🔐 ESCROW</span>`
     : '';
 
   // Extras / service info
@@ -4135,29 +4177,47 @@ function buildPostCard(post){
       ${expiryHtml}
 
       <!-- Actions row -->
-      <div class="flex items-center gap-2 pt-1 border-t border-gray-800 flex-wrap">
-        <button onclick="reactPost('${post.id}','❤️')" class="flex items-center gap-1 text-[10px] ${userLiked ? 'text-red-400' : 'text-gray-500'} hover:text-red-400 transition font-bold">
-          ${userLiked ? '❤️' : '🤍'} <span id="like-count-${post.id}">${likeCount}</span>
-        </button>
-        <div class="flex items-center gap-0.5">
-          ${['👍','🔥','😂','😮'].map(e => {
-            const c = (post.reactions && post.reactions[e]) || 0;
-            return `<button onclick="reactPost('${post.id}','${e}')" class="text-xs hover:scale-125 transition-transform px-0.5" title="React ${e}">${e}${c?`<span class="text-[8px] text-gray-400 font-black ml-0.5">${c}</span>`:''}</button>`;
-          }).join('')}
-        </div>
-        <button onclick="openCommentsModal('${post.id}')" class="flex items-center gap-1 text-[10px] text-gray-500 hover:text-sky-400 transition font-bold">
-          💬 <span>${cmtCount}</span>
-        </button>
-        <div class="flex items-center gap-2 ml-auto">
-          ${isFood && post.escrow && !isMine ? `<button onclick="openEscrowInfo('${post.id}')" class="flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300 transition font-bold border border-purple-900/50 px-2 py-0.5 rounded-full">🔐 Escrow</button>` : ''}
-          <button onclick="toggleSavePost('${post.id}')" class="text-[10px] ${isSaved ? 'text-amber-400' : 'text-gray-500'} hover:text-amber-400 transition font-bold" title="${isSaved ? 'Remove from saved' : 'Save post'}">
-            ${isSaved ? '🔖' : '🔖'}
+      <div class="flex items-center justify-between gap-1 pt-1 border-t border-gray-800 relative">
+        <div class="relative flex-1">
+          <button onclick="if(!_likeHoldFired){ reactPost('${post.id}','❤️') } _likeHoldFired=false;"
+                  onpointerdown="startLikeHold('${post.id}', this)"
+                  onpointerup="endLikeHold()"
+                  onpointerleave="endLikeHold()"
+                  oncontextmenu="return false;"
+                  class="like-main-btn flex items-center gap-1.5 text-[10px] ${userLiked ? 'text-red-400' : 'text-gray-500'} hover:text-red-400 transition font-bold py-1.5 px-1 w-full justify-center select-none">
+            <span class="text-sm">${userLiked ? '❤️' : '🤍'}</span>
+            <span>Like</span>
+            ${likeCount > 0 ? `<span id="like-count-${post.id}" class="text-gray-500">${likeCount}</span>` : ''}
           </button>
-          <button onclick="sharePost('${post.id}')" class="text-[10px] text-gray-500 hover:text-emerald-400 transition font-bold">↗️</button>
+          <!-- Long-press reaction picker -->
+          <div id="reaction-picker-${post.id}" class="reaction-picker hidden absolute bottom-full left-0 mb-1 bg-gray-800 border border-gray-700 rounded-full px-2 py-1.5 flex items-center gap-1.5 shadow-xl z-20">
+            ${['❤️','👍','🔥','😂','😮'].map(e =>
+              `<button onclick="reactPost('${post.id}','${e}'); hideReactionPicker('${post.id}')" class="text-xl hover:scale-150 transition-transform" title="React ${e}">${e}</button>`
+            ).join('')}
+          </div>
         </div>
+        <button onclick="openCommentsModal('${post.id}')" class="flex-1 flex items-center gap-1.5 justify-center text-[10px] text-gray-500 hover:text-sky-400 transition font-bold py-1.5 px-1">
+          <span class="text-sm">💬</span>
+          <span>Comment</span>
+          ${cmtCount > 0 ? `<span class="text-gray-500">${cmtCount}</span>` : ''}
+        </button>
+        <button onclick="sharePost('${post.id}')" class="flex-1 flex items-center gap-1.5 justify-center text-[10px] text-gray-500 hover:text-emerald-400 transition font-bold py-1.5 px-1">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          <span>Share</span>
+        </button>
+        <button onclick="toggleSavePost('${post.id}')" class="flex items-center justify-center text-[13px] ${isSaved ? 'text-amber-400' : 'text-gray-500'} hover:text-amber-400 transition py-1.5 px-2" title="${isSaved ? 'Remove from saved' : 'Save post'}">
+          ${isSaved ? '🔖' : '🔖'}
+        </button>
       </div>
       ${actionBtn ? `<div class="flex gap-2 w-full">${actionBtn}</div>` : ''}
     </div>`;
+
+  // Close any open reaction picker when tapping elsewhere on the card
+  card.addEventListener('click', (e) => {
+    if(!e.target.closest('.like-main-btn') && !e.target.closest('.reaction-picker')){
+      hideReactionPicker(post.id);
+    }
+  });
 
   // Apply suspended overlay and spoil warnings
   createPostCardHTML(post, card);
@@ -4848,8 +4908,60 @@ function clearMediaPreview(){
 }
 
 function submitPost(){
+  if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in first.'); return; }
   if(state.session?.role === 'vendor' && !checkVendorPostLimit()) return;
-  _origSubmitPost?.();
+
+  const text   = el('post-text')?.value.trim() || '';
+  const isFood = state.postType === 'business' && state.businessCategory === 'food';
+  const isBiz  = state.postType === 'business' && state.businessCategory === 'other';
+
+  // Validation (mirrors previewPost)
+  if(!text && !state.postImageBase64 && !isFood && !isBiz){
+    showPopupNotif('⚠️','Empty Post','Add some text, a photo, or fill in your listing details.');
+    return;
+  }
+  if(isFood){
+    const fn = el('food-name')?.value.trim();
+    const fp = parseFloat(el('food-price')?.value);
+    if(!fn){ showPopupNotif('⚠️','Food Name Required','Enter the name of your food item.'); return; }
+    if(!fp || fp <= 0){ showPopupNotif('⚠️','Price Required','Enter a valid price for your food.'); return; }
+  }
+  if(isBiz){
+    const bn = el('biz-service-name')?.value.trim();
+    if(!bn){ showPopupNotif('⚠️','Service Name Required','Enter your service or business name.'); return; }
+  }
+
+  // Build the real post object
+  const post = buildPreviewPostObject();
+  post.id = 'post-' + Date.now() + '-' + Math.floor(Math.random()*10000);
+
+  if(isBiz){
+    if(post.bizType === 'rider') post.authorRole = 'rider';
+    else if(['artisan','freelancer','shop'].includes(post.bizType)) post.authorRole = 'artisan';
+  }
+
+  // Multiple images support (Cloudinary URLs already swapped in by the monkey-patch above)
+  if(state.postImages && state.postImages.length){
+    post.images = state.postImages.slice();
+    post.image  = post.images[0];
+  }
+
+  // Publish — this is what makes it visible to everyone in the feed
+  state.posts.unshift(post);
+  try { localStorage.setItem('ememart_posts', JSON.stringify(state.posts)); } catch(e){}
+
+  // Reset the form
+  if(el('post-text')) el('post-text').value = '';
+  if(el('food-name')) el('food-name').value = '';
+  if(el('food-price')) el('food-price').value = '';
+  if(el('biz-service-name')) el('biz-service-name').value = '';
+  state.postImageBase64 = null;
+  clearMediaPreview();
+
+  showPopupNotif('🎉','Published!','Your post is now live and visible to everyone.');
+  navTo('home');
+  switchFeedTab('general');
+  renderFeed();
 }
 
 function renderInbox(){
@@ -4983,12 +5095,91 @@ function msgVendor(vendorId, vendorName){
 
 const vtuNames = {airtime:'Airtime Top-up', data:'Data Bundle', electricity:'Electricity (NEPA)', tv:'TV Subscription', betting:'Bet Funding', internet:'Internet Bill'};
 
+// ============================================================
+// VTU PROVIDER DATA (per service type)
+// ============================================================
+const VTU_PROVIDERS = {
+  airtime: [
+    { id:'mtn',     name:'MTN',     icon:'🟡' },
+    { id:'glo',     name:'Glo',     icon:'🟢' },
+    { id:'airtel',  name:'Airtel',  icon:'🔴' },
+    { id:'9mobile', name:'9mobile', icon:'🟢' },
+  ],
+  data: [
+    { id:'mtn-data',     name:'MTN',     icon:'🟡' },
+    { id:'glo-data',     name:'Glo',     icon:'🟢' },
+    { id:'airtel-data',  name:'Airtel',  icon:'🔴' },
+    { id:'9mobile-data', name:'9mobile', icon:'🟢' },
+  ],
+  electricity: [
+    { id:'ikedc',  name:'Ikeja Electric',   icon:'💡' },
+    { id:'ekedc',  name:'Eko Electric',     icon:'💡' },
+    { id:'aedc',   name:'Abuja Electric',   icon:'💡' },
+    { id:'phedc',  name:'Port Harcourt',    icon:'💡' },
+    { id:'kaedc',  name:'Kaduna Electric',  icon:'💡' },
+    { id:'eedc',   name:'Enugu Electric',   icon:'💡' },
+  ],
+  tv: [
+    { id:'dstv',      name:'DStv',      icon:'📺' },
+    { id:'gotv',      name:'GOtv',      icon:'📺' },
+    { id:'startimes', name:'StarTimes', icon:'📺' },
+  ],
+  betting: [
+    { id:'bet9ja',     name:'Bet9ja',     icon:'⚽' },
+    { id:'sportybet',  name:'SportyBet',  icon:'⚽' },
+    { id:'1xbet',      name:'1xBet',      icon:'⚽' },
+    { id:'betking',    name:'BetKing',    icon:'⚽' },
+  ],
+  internet: [
+    { id:'smile',    name:'Smile',     icon:'🌐' },
+    { id:'spectranet',name:'Spectranet',icon:'🌐' },
+  ],
+};
+
+const VTU_SERVICE_LABELS = {
+  airtime: 'Airtime Top-up', data: 'Data Bundle', electricity: 'NEPA Light',
+  tv: 'Cable TV', betting: 'Bet Funding', internet: 'Internet'
+};
+
 async function vtuAction(service){
+  if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in to use VTU services.'); return; }
+
   if(service==='betting'){
-    const ok=confirm('⚠️ BETTING WARNING\n\n"Gambling can be addictive. Please play responsibly."\n\n• You must be 18+ years old.\n• Set spending limits to protect yourself.\n• Ememart is not responsible for gambling losses.\n\nConfirm you are 18+ and wish to continue.');
-    if(!ok){showPopupNotif('⚠️','Cancelled','Betting fund cancelled.');return;}
+    if(!localStorage.getItem('ememart_betting_ack')){
+      const ok=confirm('⚠️ BETTING WARNING\n\n"Gambling can be addictive. Please play responsibly."\n\n• You must be 18+ years old.\n• Set spending limits to protect yourself.\n• Ememart is not responsible for gambling losses.\n\nConfirm you are 18+ and wish to continue.');
+      if(!ok){ showPopupNotif('⚠️','Cancelled','Betting fund cancelled.'); return; }
+      localStorage.setItem('ememart_betting_ack','1');
+    }
   }
-  await _origVtuAction(service);
+
+  // Reset VTU state for a fresh flow
+  _vtu.service = service;
+  _vtu.providerId = ''; _vtu.providerName = '';
+  _vtu.planId = ''; _vtu.planName = ''; _vtu.amount = 0;
+  _vtu.accountNo = ''; _vtu.phone = '';
+
+  // Set modal title
+  const titleEl = el('vtu-modal-title');
+  const icons = { airtime:'📱', data:'📶', electricity:'💡', tv:'📺', betting:'⚽', internet:'🌐' };
+  if(titleEl) titleEl.textContent = `${icons[service]||'⚡'} ${VTU_SERVICE_LABELS[service]||'VTU Service'}`;
+
+  // Update wallet balance display
+  const balEl = el('vtu-wallet-display');
+  if(balEl) balEl.textContent = fmtCurrency(state.session.balance||0);
+
+  // Populate provider grid
+  const grid = el('vtu-providers-grid');
+  if(grid){
+    const providers = VTU_PROVIDERS[service] || [];
+    grid.innerHTML = providers.map(p => `
+      <button onclick='vtuSelectProvider(${JSON.stringify(p)})' class="bg-gray-800 border border-gray-700 rounded-xl py-3 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 hover:border-emerald-500 hover:bg-gray-700 transition">
+        <span class="text-xl">${p.icon}</span>${p.name}
+      </button>
+    `).join('');
+  }
+
+  vtuGoToStep(1);
+  el('vtu-modal')?.classList.remove('hidden');
 }
 
 function vtuGoToStep(step){
@@ -7095,6 +7286,16 @@ function syncAccountDisplay(){
     const avatarEl= el('acc-avatar');   if(avatarEl) avatarEl.textContent = (s.full_name||s.name||'U').charAt(0).toUpperCase();
     const roleLbl = el('acc-role-label'); if(roleLbl) roleLbl.textContent = (s.role||'user') + ' profile';
     const vendorPortal = el('acc-vendor-portal'); if(vendorPortal) vendorPortal.classList.toggle('hidden', s.role !== 'vendor');
+    const pinBtn = el('acc-pin-btn'); const pinStatus = el('acc-pin-status');
+    if(pinBtn && pinStatus){
+      if(isPinSet()){
+        pinBtn.textContent = 'Change PIN';
+        pinStatus.textContent = '✅ PIN is set — protects withdrawals, transfers & VTU purchases';
+      } else {
+        pinBtn.textContent = 'Set PIN';
+        pinStatus.textContent = 'Protects withdrawals, transfers & VTU purchases';
+      }
+    }
   }
 
   if(!el('session-label')) return;
@@ -7373,17 +7574,7 @@ _sessionTimer=setInterval(()=>{
 // ============================================================
 // BETTING 18+ WARNING
 // ============================================================
-async function handleVtuWithBettingCheck(service){
-  const _origVtuAction = vtuAction;
-  if(service==='betting'){
-    if(!localStorage.getItem('ememart_betting_ack')){
-      showPopupNotif('⚠️','18+ Only','Betting services are for adults only. You must be 18+ to proceed.');
-      localStorage.setItem('ememart_betting_ack','1');
-      return;
-    }
-  }
-  await _origVtuAction(service);
-}
+// (Betting 18+ check is now handled directly inside vtuAction())
 
 // ============================================================
 // BUYER ORDERS
@@ -9089,39 +9280,8 @@ function changePIN(){
   });
 }
 
-// --- Wire Account settings PIN button to openChangePinFlow ---
-document.addEventListener('DOMContentLoaded', () => {
-  // Add PIN status display in Account settings
-  const settingsGrid = document.querySelector('#acc-signed-in-view .grid.grid-cols-2');
-  if(settingsGrid){
-    // Add a PIN change button if not already there
-    if(!el('acc-pin-btn')){
-      const btn = document.createElement('button');
-      btn.id = 'acc-pin-btn';
-      btn.className = 'bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition';
-      btn.onclick = openChangePinFlow;
-      btn.innerHTML = `<span class="text-lg">🔑</span>${isPinSet()?'Change PIN':'Set PIN'}`;
-      settingsGrid.appendChild(btn);
-    }
-  }
-
-  // Show PIN status indicator in Account if no PIN set
-  if(state.session && !isPinSet()){
-    setTimeout(() => {
-      const acctPanel = el('account-panel');
-      if(acctPanel && !acctPanel.classList.contains('hidden') && !el('pin-setup-banner')){
-        // Show a banner nudge
-        showPopupNotif('🔐','Set Your PIN','Protect your wallet — set a transaction PIN in Account → Settings → Set PIN.');
-      }
-    }, 2000);
-  }
-});
-
-// Sync PIN button label when account reloads
-function syncPinButtonLabel(){
-  const btn = el('pin-setting-btn');
-  if(btn) btn.textContent = pinIsSet() ? '🔑 Change PIN' : '🔑 Set PIN';
-}
+// --- Account settings PIN button is now statically defined in account-signed-in-view ---
+// (PIN button label is kept in sync inside syncAccountDisplay())
 
 // === FROM BLOCK 12 ===
 // ============================================================
@@ -9270,6 +9430,7 @@ async function handleGoogleCredentialResponse(response){
 // --- Complete sign-in with full user object ---
 function completeGoogleSignIn(user, payload){
   state.session = { ...user, avatar: user.picture || payload?.picture || null };
+  localStorage.setItem('ememart_user', JSON.stringify(state.session));
   saveState();
   finishSignIn('Google');
 }
@@ -14588,16 +14749,6 @@ function verifyPinPress(digit){
 <!-- ── Pin setup banner (injected dynamically by JS, placeholder anchor) ── -->
 <div id="pin-setup-banner-anchor" class="hidden"></div>
 
-<!-- ── Missing PIN/status elements ── -->
-<button id="pin-setting-btn" class="hidden bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition" onclick="openChangePinFlow()">
-  <span class="text-lg">🔑</span><span id="pin-setting-label">Set PIN</span>
-</button>
-<button id="set-pin-btn" class="hidden btn-primary py-3 text-xs font-black" onclick="setTransactionPin()">Set PIN</button>
-<div id="pin-setup-banner" class="hidden bg-amber-950/30 border border-amber-900/40 rounded-xl p-3 text-[10px] text-amber-300 flex items-center gap-2">
-  <span>🔐</span>
-  <span>Secure your wallet — <button onclick="el('pin-setup-modal')?.classList.remove('hidden')" class="underline font-black">Set a PIN</button></span>
-</div>
-
 </body>
 </html>
 
@@ -14758,6 +14909,41 @@ function acceptBatchOrders(){
 </script>
 <script>
 // Final recovered functions
+// ============================================================
+// LONG-PRESS REACTION PICKER (Facebook-style like button)
+// ============================================================
+let _likeHoldTimer = null;
+let _likeHoldPostId = null;
+let _likeHoldFired = false;
+
+function startLikeHold(postId, btnEl){
+  _likeHoldPostId = postId;
+  _likeHoldFired = false;
+  _likeHoldTimer = setTimeout(() => {
+    showReactionPicker(postId);
+    _likeHoldFired = true; // mark as triggered, so the click won't also fire a like
+    _likeHoldTimer = null;
+  }, 450);
+}
+
+function endLikeHold(){
+  if(_likeHoldTimer){
+    clearTimeout(_likeHoldTimer);
+    _likeHoldTimer = null;
+  }
+}
+
+function showReactionPicker(postId){
+  document.querySelectorAll('.reaction-picker').forEach(p => p.classList.add('hidden'));
+  const picker = el('reaction-picker-' + postId);
+  if(picker) picker.classList.remove('hidden');
+}
+
+function hideReactionPicker(postId){
+  const picker = el('reaction-picker-' + postId);
+  if(picker) picker.classList.add('hidden');
+}
+
 function reactPost(postId, emoji){
   const post = state.posts.find(p=>p.id===postId);
   if(!post) return;
