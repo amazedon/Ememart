@@ -3353,8 +3353,7 @@ async function handleAuth(e) {
         showPopupNotif('❌', 'Sign In Failed', res.message);
       }
     } catch(err) {
-      console.error('LOGIN CRASH:', err);
-      showPopupNotif('❌', 'Error', 'Connection failed: ' + err.message);
+      showPopupNotif('❌', 'Error', 'Connection failed. Try again.');
     } finally {
       btn.textContent = 'Sign In to Ememart'; btn.disabled = false;
     }
@@ -8672,8 +8671,12 @@ function checkTierPostLimit(){
 
 // --- Render tier info on vendor dashboard ---
 function renderVendorTierInfo(){
+  if(!state.session) return;
   const tierKey = state.session?.vendorTier || 'free';
   const tier    = VENDOR_TIERS[tierKey] || VENDOR_TIERS.free;
+  const myPosts  = state.posts.filter(p => p.authorId === state.session.id && !p.expired);
+  const maxPosts = tier.activePosts === Infinity ? '∞' : tier.activePosts;
+  const pct      = tier.activePosts === Infinity ? 0 : Math.min(100, (myPosts.length / tier.activePosts) * 100);
   const ticon   = el('vendor-tier-icon');
   const tname   = el('vendor-tier-name');
   const tren    = el('vendor-tier-renewal');
