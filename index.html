@@ -9270,6 +9270,9 @@ function saveGoogleUserSetup(){
 function finishSignIn(signInMethod){
   el('auth-modal')?.classList.add('hidden');
   el('auth-panel')?.classList.add('hidden');
+  saveState();
+  syncAccountDisplay();
+  navTo('home');
   const firstName = state.session?.full_name?.split(' ')[0] || 'there';
   const method    = signInMethod || (state.session?.google_id ? 'Google' : 'email');
   showPopupNotif('👋',`Welcome back, ${firstName}!`,
