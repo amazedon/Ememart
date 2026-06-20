@@ -1,0 +1,32 @@
+# Environment & secrets
+.env
+.env.*
+*.env
+config.local.php
+
+# Composer dependencies (if using PHPMailer etc.)
+/vendor/
+composer.lock
+
+# Logs
+*.log
+error_log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+
+# Temporary / debug files
+debug_*.php
+*_test.php
+test_*.php
+
+# Backup files
+*.bak
+*.old
+*.orig
