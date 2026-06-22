@@ -6912,13 +6912,28 @@ function openKYCModal(){
   el('kyc-modal').classList.remove('hidden');
 }
 
+let _kycSelfieBase64 = null;
+let _kycUtilityBase64 = null;
+
 function kycPreviewSelfie(e){
   const file = e.target.files[0];
   if(!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
+    _kycSelfieBase64 = ev.target.result;
     el('kyc-selfie-img').src = ev.target.result;
     el('kyc-selfie-preview').classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+function kycPreviewUtilityBill(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    _kycUtilityBase64 = ev.target.result;
+    el('kyc-utility-preview')?.classList.remove('hidden');
   };
   reader.readAsDataURL(file);
 }
@@ -6929,17 +6944,38 @@ async function submitKYC(){
   const nin = el('kyc-nin').value.trim();
   if(!/^\d{11}$/.test(bvn)){ showPopupNotif('⚠️','BVN','Enter an 11-digit BVN.'); return; }
   if(!/^\d{11}$/.test(nin)){ showPopupNotif('⚠️','NIN','Enter an 11-digit NIN.'); return; }
+  if(!_kycSelfieBase64){ showPopupNotif('⚠️','Selfie Required','Upload a selfie holding your ID.'); return; }
   if(state.session.balance < 100){ showPopupNotif('❌','Insufficient Funds','Fund your wallet with at least ₦100 to pay the KYC fee.'); return; }
-  state.session.balance -= 100;
-  addTransaction({ type:'debit', category:'kyc', userId:state.session.id, amount:100, desc:'KYC verification fee paid' });
-  syncAccountDisplay();
-  el('kyc-modal').classList.add('hidden');
-  const kycStatus = el('kyc-status-label');
-  if(kycStatus){ kycStatus.textContent = '⏳ KYC Submitted — Under Review (24-48hrs)'; kycStatus.classList.remove('text-amber-400'); kycStatus.classList.add('text-sky-400'); }
-  const kycBtn = el('kyc-btn');
-  if(kycBtn){ kycBtn.textContent = 'Pending'; kycBtn.disabled = true; }
-  localStorage.setItem('ememart_kyc_status', 'pending');
-  showPopupNotif('🪪','KYC Submitted!','Your identity documents have been submitted. Admin will review within 24-48 hours.');
+
+  const btn = el('kyc-submit-btn');
+  if(btn){ btn.textContent = 'Submitting...'; btn.disabled = true; }
+
+  try {
+    const res = await apiPost('kyc.php', 'submit', {
+      bvn, nin,
+      selfie: _kycSelfieBase64,
+      utility_bill: _kycUtilityBase64 || ''
+    });
+
+    if(res.success){
+      state.session.balance -= 100;
+      state.session.kycStatus = 'pending';
+      syncAccountDisplay();
+      el('kyc-modal').classList.add('hidden');
+      const kycStatus = el('kyc-status-label');
+      if(kycStatus){ kycStatus.textContent = '⏳ KYC Submitted — Under Review (24-48hrs)'; kycStatus.classList.remove('text-amber-400'); kycStatus.classList.add('text-sky-400'); }
+      const kycBtn = el('kyc-btn');
+      if(kycBtn){ kycBtn.textContent = 'Pending'; kycBtn.disabled = true; }
+      showPopupNotif('🪪','KYC Submitted!','Your identity documents have been submitted. Admin will review within 24-48 hours.');
+      _kycSelfieBase64 = null; _kycUtilityBase64 = null;
+    } else {
+      showPopupNotif('❌','Submission Failed', res.message);
+    }
+  } catch(e){
+    showPopupNotif('❌','Error','Connection failed. Please try again.');
+  } finally {
+    if(btn){ btn.textContent = '🪪 Submit KYC (₦100 fee)'; btn.disabled = false; }
+  }
 }
 
 // ============================================================
@@ -10838,11 +10874,12 @@ function completeGoogleSignInDemo(payload){
         <label class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex items-center gap-2 cursor-pointer hover:border-emerald-500 transition">
           <span class="text-lg">📄</span>
           <span class="text-xs text-gray-400">Tap to upload utility bill</span>
-          <input type="file" accept="image/*,application/pdf" class="hidden">
+          <input type="file" accept="image/*,application/pdf" class="hidden" onchange="kycPreviewUtilityBill(event)">
         </label>
+        <div id="kyc-utility-preview" class="hidden text-[10px] text-emerald-400 font-bold">✅ Utility bill attached</div>
       </div>
     </div>
-    <button onclick="submitKYC()" class="btn-primary py-3">🪪 Submit KYC (₦100 fee)</button>
+    <button id="kyc-submit-btn" onclick="submitKYC()" class="btn-primary py-3">🪪 Submit KYC (₦100 fee)</button>
   </div>
 </div>
 
@@ -12337,33 +12374,60 @@ function renderAdminPosts(){
   });
 }
 
-function renderAdminKYC(){
+async function renderAdminKYC(){
   const w = el('admin-kyc-list');
   if(!w) return;
-  const pending = getDemoUsers().filter(u=>u.kycStatus==='pending');
-  if(!pending.length){ w.innerHTML='<div class="text-center py-8 text-xs text-gray-500 italic">No KYC submissions pending review.</div>'; return; }
-  w.innerHTML='';
-  pending.forEach(u => {
-    const div=document.createElement('div');
-    div.className='bg-gray-900 border border-amber-900/40 rounded-xl p-3 flex flex-col gap-2';
-    div.innerHTML=`
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-xl bg-amber-950 border border-amber-800 flex items-center justify-center font-black text-sm text-amber-300 flex-shrink-0">${u.name[0]}</div>
-          <div><div class="text-xs font-black text-white">${u.name}</div><div class="text-[9px] text-gray-400">${u.role} · Submitted docs</div></div>
+  w.innerHTML = '<div class="text-center py-8 text-xs text-gray-500 italic">Loading submissions...</div>';
+
+  try {
+    const res = await apiPost('admin_kyc.php', 'list', { status: 'pending' });
+    if(!res.success){
+      w.innerHTML = `<div class="text-center py-8 text-xs text-red-400 italic">${res.message}</div>`;
+      return;
+    }
+    const pending = res.submissions || [];
+    if(!pending.length){
+      w.innerHTML = '<div class="text-center py-8 text-xs text-gray-500 italic">No KYC submissions pending review.</div>';
+      return;
+    }
+
+    w.innerHTML = '';
+    pending.forEach(k => {
+      const div = document.createElement('div');
+      div.className = 'bg-gray-900 border border-amber-900/40 rounded-xl p-3 flex flex-col gap-2';
+      div.innerHTML = `
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-amber-950 border border-amber-800 flex items-center justify-center font-black text-sm text-amber-300 flex-shrink-0">${k.full_name[0]}</div>
+            <div><div class="text-xs font-black text-white">${k.full_name}</div><div class="text-[9px] text-gray-400">${k.role} · ${k.email}</div></div>
+          </div>
+          <span class="text-[8px] font-black text-amber-400 border border-amber-900/50 px-2 py-0.5 rounded-full">⏳ Pending</span>
         </div>
-        <span class="text-[8px] font-black text-amber-400 border border-amber-900/50 px-2 py-0.5 rounded-full">⏳ Pending</span>
-      </div>
-      <div class="bg-gray-950 border border-gray-800 rounded-lg p-2 text-[9px] text-gray-400">
-        📄 Documents submitted: BVN, NIN, Selfie with ID, Utility bill<br>
-        💰 ₦100 KYC fee paid
-      </div>
-      <div class="flex gap-2">
-        <button onclick="adminApproveKYC('${u.id}'); renderAdminKYC();" class="btn-primary flex-1 py-2 text-xs">✅ Approve</button>
-        <button onclick="adminRejectKYC('${u.id}'); renderAdminKYC();" class="btn-sm-outline flex-1 py-2 text-xs text-red-400 border-red-900">❌ Reject</button>
-      </div>`;
-    w.appendChild(div);
-  });
+        <div class="grid grid-cols-2 gap-2">
+          <div class="flex flex-col gap-1">
+            <span class="text-[8px] text-gray-500 uppercase font-black">Selfie with ID</span>
+            <img src="${k.selfie}" class="w-full h-28 object-cover rounded-lg border border-gray-800 cursor-pointer" onclick="window.open('${k.selfie}','_blank')">
+          </div>
+          ${k.utility_bill ? `
+          <div class="flex flex-col gap-1">
+            <span class="text-[8px] text-gray-500 uppercase font-black">Utility Bill</span>
+            <img src="${k.utility_bill}" class="w-full h-28 object-cover rounded-lg border border-gray-800 cursor-pointer" onclick="window.open('${k.utility_bill}','_blank')">
+          </div>` : `<div class="flex items-center justify-center text-[9px] text-gray-600 italic">No utility bill</div>`}
+        </div>
+        <div class="bg-gray-950 border border-gray-800 rounded-lg p-2 text-[9px] text-gray-400 flex flex-col gap-0.5">
+          <span>🆔 BVN: <span class="text-gray-300 mono">${k.bvn}</span></span>
+          <span>🪪 NIN: <span class="text-gray-300 mono">${k.nin}</span></span>
+          <span>📅 Submitted: ${new Date(k.created_at).toLocaleString()}</span>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="adminApproveKYC(${k.id})" class="btn-primary flex-1 py-2 text-xs">✅ Approve</button>
+          <button onclick="adminRejectKYC(${k.id})" class="btn-sm-outline flex-1 py-2 text-xs text-red-400 border-red-900">❌ Reject</button>
+        </div>`;
+      w.appendChild(div);
+    });
+  } catch(e){
+    w.innerHTML = '<div class="text-center py-8 text-xs text-red-400 italic">Connection failed. Please try again.</div>';
+  }
 }
 
 function renderAdminDisputes(){
@@ -13722,12 +13786,19 @@ function toggleSpoilLog(){
 // RECOVERED MISSING FUNCTIONS
 // ============================================================
 
-function adminApproveKYC(userId){
-  localStorage.setItem(`ememart_kyc_${userId}`, 'verified');
-  if(state.session?.id === userId){ localStorage.setItem('ememart_kyc_status','verified'); }
-  el('admin-user-modal')?.classList.add('hidden');
-  showPopupNotif('✅','KYC Approved',`User ${userId} KYC has been verified.`);
-  renderAdminUsers(); renderAdminKYC(); renderAdminOverview();
+async function adminApproveKYC(kycId){
+  try {
+    const res = await apiPost('admin_kyc.php', 'approve', { kyc_id: kycId });
+    if(res.success){
+      showPopupNotif('✅','KYC Approved','User identity has been verified.');
+      el('admin-user-modal')?.classList.add('hidden');
+      renderAdminUsers(); renderAdminKYC(); renderAdminOverview();
+    } else {
+      showPopupNotif('❌','Failed', res.message);
+    }
+  } catch(e){
+    showPopupNotif('❌','Error','Connection failed. Please try again.');
+  }
 }
 
 function adminChangeRole(userId){
@@ -13754,11 +13825,21 @@ function adminDeletePost(postId){
   showPopupNotif('🗑','Post Deleted','Post removed from the platform.');
 }
 
-function adminRejectKYC(userId){
-  localStorage.setItem(`ememart_kyc_${userId}`, 'rejected');
-  el('admin-user-modal')?.classList.add('hidden');
-  showPopupNotif('❌','KYC Rejected',`KYC for user ${userId} has been rejected.`);
-  renderAdminUsers(); renderAdminKYC();
+async function adminRejectKYC(kycId){
+  const reason = prompt('Reason for rejection (shown to the user):', 'Documents unclear. Please retake your selfie with better lighting.');
+  if(reason === null) return; // cancelled
+  try {
+    const res = await apiPost('admin_kyc.php', 'reject', { kyc_id: kycId, reason });
+    if(res.success){
+      showPopupNotif('❌','KYC Rejected','User has been notified and the ₦100 fee was refunded.');
+      el('admin-user-modal')?.classList.add('hidden');
+      renderAdminUsers(); renderAdminKYC();
+    } else {
+      showPopupNotif('❌','Failed', res.message);
+    }
+  } catch(e){
+    showPopupNotif('❌','Error','Connection failed. Please try again.');
+  }
 }
 
 function adminResolveDispute(ticketId){
