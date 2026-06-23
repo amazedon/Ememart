@@ -21,7 +21,8 @@
   .slide-down{animation:slideDown .2s ease-out forwards}
   .notification-dot::after{content:'';position:absolute;top:2px;right:2px;width:8px;height:8px;background:#10b981;border-radius:50%;}
   .ring-pulse{animation:pulse-ring .8s ease-out infinite}
-  ::-webkit-scrollbar{width:4px;height:4px}
+  .actions-row::-webkit-scrollbar{display:none;}
+  .actions-row{scrollbar-width:none;-ms-overflow-style:none;}
   ::-webkit-scrollbar-track{background:transparent}
   ::-webkit-scrollbar-thumb{background:#374151;border-radius:4px}
   .chip{display:inline-flex;align-items:center;gap:4px;background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.25);font-size:10px;font-weight:700;padding:3px 10px;border-radius:8px}
@@ -422,7 +423,7 @@ document.addEventListener('click', function askOnce(){
     <div class="onboard-slide" id="ob-slide-2">
       <div class="onboard-icon-wrap bg-gradient-to-br from-sky-900 to-gray-900 border border-sky-800">👤</div>
       <h2 class="text-2xl font-black text-white mt-3 leading-tight">What brings<br><span class="text-sky-400">you here?</span></h2>
-      <p class="text-sm text-gray-400 mt-2 leading-relaxed max-w-xs">Choose your main role — you can change this anytime in your profile settings.</p>
+      <p class="text-sm text-gray-400 mt-2 leading-relaxed max-w-xs">Choose your role carefully — you can apply to change it later from your account settings.</p>
       <div class="mt-5 flex flex-col gap-2.5 w-full max-w-xs" id="ob-role-cards">
         <div class="ob-role-card" onclick="selectObRole('user',this)">
           <span class="text-2xl">🛍️</span>
@@ -1029,7 +1030,7 @@ document.addEventListener('click', function askOnce(){
     <div class="flex items-start gap-4">
       <!-- Avatar with online ring -->
       <div class="relative flex-shrink-0">
-        <div id="vp-avatar" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-700 to-gray-800 flex items-center justify-center text-3xl font-black text-white border-2 border-emerald-700/50">A</div>
+        <div id="vp-avatar" class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-700 to-gray-800 flex items-center justify-center text-3xl font-black text-white border-2 border-emerald-700/50 overflow-hidden">A</div>
         <div id="vp-online-ring" class="hidden absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-gray-950 bg-emerald-500"></div>
         <div id="vp-offline-ring" class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-gray-950 bg-gray-600"></div>
       </div>
@@ -1123,23 +1124,29 @@ document.addEventListener('click', function askOnce(){
 <div id="post-panel" class="panel gap-3">
   <div class="border-b border-gray-800 pb-2">
     <h2 class="text-lg font-black text-white">Create Post</h2>
-    <p class="text-xs text-gray-400 mt-0.5">Share a normal update or post your business listing.</p>
+    <p id="post-panel-subtitle" class="text-xs text-gray-400 mt-0.5">Share an update with your community.</p>
   </div>
   
   <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
-    <div class="flex gap-2 p-1 bg-gray-950 rounded-xl border border-gray-800">
+
+    <!-- Role-based type switcher — hidden for regular users -->
+    <div id="post-type-switcher" class="hidden flex gap-2 p-1 bg-gray-950 rounded-xl border border-gray-800">
       <button id="post-type-normal" onclick="setPostType('normal')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-gray-900 transition">📝 Update</button>
       <button id="post-type-biz" onclick="setPostType('business')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg bg-transparent text-gray-400 transition">🏪 Listing</button>
     </div>
 
+    <!-- Guest / regular user notice (no listing option) -->
+    <div id="post-user-notice" class="hidden bg-sky-950/30 border border-sky-900/40 rounded-xl p-3 text-[10px] text-sky-300 leading-relaxed">
+      📝 You can post regular updates. To sell or offer services, apply for a business role in <strong>Account → Apply to Change Role</strong>.
+    </div>
+
     <div id="post-biz-fields" class="hidden flex-col gap-3 border border-dashed border-gray-800 p-3 rounded-xl bg-gray-950/40 fade-up">
-      <div class="flex flex-col gap-1">
-        <label class="label-sm">Listing Type</label>
-        <select id="post-biz-cat" onchange="handleBizCategoryChange()" class="inp">
-          <option value="food">Food Delivery Item</option>
-          <option value="other">Artisan / General Services</option>
-        </select>
-      </div>
+      <!-- Listing type is auto-set by role — selector hidden, role label shown -->
+      <div id="post-biz-role-label" class="text-[10px] font-black text-emerald-400 uppercase tracking-wider"></div>
+      <select id="post-biz-cat" onchange="handleBizCategoryChange()" class="hidden inp">
+        <option value="food">Food Delivery Item</option>
+        <option value="other">Artisan / General Services</option>
+      </select>
 
       <div id="food-delivery-inputs" class="flex flex-col gap-3">
         <div class="flex flex-col gap-1">
@@ -1191,7 +1198,7 @@ document.addEventListener('click', function askOnce(){
           <label class="label-sm">Service / Business Title*</label>
           <input type="text" id="biz-service-name" placeholder="AC Repair & Maintenance" class="inp">
         </div>
-        <div class="flex flex-col gap-1">
+        <div id="biz-type-wrapper" class="flex flex-col gap-1">
           <label class="label-sm">Service Type / Specialty</label>
           <select id="biz-artisan-type" class="inp">
             <option value="artisan">🔧 Artisan / Handyman</option>
@@ -1206,11 +1213,12 @@ document.addEventListener('click', function askOnce(){
         </div>
       </div>
 
+      <!-- 🔐 Escrow — shown on ALL business listing posts -->
       <label class="flex items-center gap-2 p-2 bg-indigo-950/20 border border-indigo-900/40 rounded-xl cursor-pointer select-none">
         <input type="checkbox" id="post-escrow" class="accent-indigo-500">
         <div>
-          <span class="text-[10px] font-black text-indigo-400 uppercase tracking-wider block">🔐 Protect with Escrow Protection</span>
-          <span class="text-[9px] text-gray-500 font-normal">Funds are held safely until buyer confirms receipt. Highly recommended.</span>
+          <span class="text-[10px] font-black text-indigo-400 uppercase tracking-wider block">🔐 Protect with Escrow</span>
+          <span class="text-[9px] text-gray-500 font-normal">Funds held safely until buyer confirms receipt. Highly recommended.</span>
         </div>
       </label>
     </div>
@@ -1230,10 +1238,8 @@ document.addEventListener('click', function askOnce(){
         </div>
         <input type="file" accept="image/*" multiple class="hidden" id="multi-img-input" onchange="handleMultiImageUpload(event)">
       </label>
-      <!-- Thumbnail strip -->
       <div id="multi-img-strip" class="hidden flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none;"></div>
     </div>
-    <!-- Keep legacy single-image elements for backward compat -->
     <div id="media-preview" class="hidden"><img id="img-preview-el" class="hidden"></div>
 
     <div class="flex gap-2 mt-1">
@@ -1248,21 +1254,18 @@ document.addEventListener('click', function askOnce(){
         <span id="advanced-post-chevron">▼</span>
       </button>
       <div id="advanced-post-options" class="hidden flex flex-col gap-3 p-3 bg-gray-950">
-        <!-- Schedule -->
         <div class="flex flex-col gap-1">
           <label class="label-sm">📅 Schedule Post (optional)</label>
           <input type="datetime-local" id="post-schedule-time" class="inp text-xs">
           <div class="text-[10px] text-gray-500">Leave blank to post immediately</div>
         </div>
-        <!-- Post Templates -->
         <div class="flex flex-col gap-1">
           <label class="label-sm">📋 Load Template</label>
           <div id="post-templates-list" class="flex flex-col gap-1.5">
-            <div id="no-templates-msg" class="text-[10px] text-gray-500 italic">No saved templates yet. Post something and save it as a template.</div>
+            <div id="no-templates-msg" class="text-[10px] text-gray-500 italic">No saved templates yet.</div>
           </div>
           <button onclick="savePostAsTemplate()" class="btn-sm-outline text-[9px] mt-1">💾 Save Current as Template</button>
         </div>
-        <!-- Reorder last post -->
         <button onclick="reorderLastPost()" class="btn-sm-outline text-[9px]">🔄 Repost Last Listing</button>
       </div>
     </div>
@@ -1461,8 +1464,8 @@ document.addEventListener('click', function askOnce(){
 </div>
 
 <!-- VTU MODAL -->
-<div id="vtu-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
-  <div class="modal-sheet flex flex-col gap-4">
+<div id="vtu-modal" class="modal-overlay hidden" style="align-items:flex-start;padding-top:16px;padding-bottom:16px;" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal-sheet flex flex-col gap-4" style="border-radius:20px;max-height:92vh;overflow-y:auto;">
     <div class="flex justify-between items-center">
       <h3 id="vtu-modal-title" class="text-base font-black text-white">⚡ VTU Service</h3>
       <button onclick="document.getElementById('vtu-modal').classList.add('hidden')" class="text-gray-400 hover:text-white text-lg font-black">✕</button>
@@ -1523,7 +1526,7 @@ document.addEventListener('click', function askOnce(){
           <span id="vtu-customer-name" class="text-xs font-black text-emerald-400"></span>
         </div>
       </div>
-      <button onclick="vtuProceedToConfirm()" class="btn-primary py-3">Continue →</button>
+      <button onclick="vtuProceedToConfirm()" class="btn-primary py-3 text-sm font-black">💳 Pay Now →</button>
     </div>
     <!-- STEP 4: PIN + Summary -->
     <div id="vtu-step4" class="hidden flex flex-col gap-3">
@@ -1545,7 +1548,7 @@ document.addEventListener('click', function askOnce(){
 </div>
 
 <!-- DEPOSIT MODAL -->
-<div id="deposit-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+<div id="deposit-modal" class="modal-overlay hidden" style="align-items:flex-start;padding-top:16px;" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal-sheet flex flex-col gap-4">
     <div class="flex justify-between items-center">
       <div>
@@ -1596,7 +1599,13 @@ document.addEventListener('click', function askOnce(){
   <div id="account-signed-in-view" class="hidden flex-col gap-3 fade-up">
     <div class="bg-gradient-to-br from-gray-900 to-slate-950 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
       <div class="flex items-center gap-3">
-        <div id="acc-avatar" class="w-12 h-12 rounded-2xl bg-emerald-500 text-gray-950 text-xl font-black flex items-center justify-center shadow-md">U</div>
+        <div class="relative flex-shrink-0" onclick="triggerAvatarUpload()" title="Tap to change profile picture">
+          <div id="acc-avatar" class="w-12 h-12 rounded-2xl bg-emerald-500 text-gray-950 text-xl font-black flex items-center justify-center shadow-md overflow-hidden cursor-pointer">U</div>
+          <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-gray-900 pointer-events-none">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+          <input type="file" id="avatar-upload-input" accept="image/*" class="hidden" onchange="handleAvatarUpload(event)">
+        </div>
         <div class="flex-1">
           <h3 id="acc-name" class="text-base font-black text-white">—</h3>
           <span id="acc-role-label" class="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-900/40 px-2 py-0.5 rounded-md font-bold tracking-wider uppercase mono">user profile</span>
@@ -1628,7 +1637,6 @@ document.addEventListener('click', function askOnce(){
       <div id="vendor-orders-list" class="flex flex-col gap-3">
         <div class="text-center py-8 text-xs text-gray-500 italic bg-gray-900 border border-gray-800 rounded-2xl">No active orders yet.</div>
       </div>
-      <button onclick="showPanel('post')" class="btn-primary mt-1">+ Post New Food Listing</button>
     </div>
 
     <!-- My Orders (Buyer) -->
@@ -1665,6 +1673,22 @@ document.addEventListener('click', function askOnce(){
         </div>
         <button onclick="handleForgotPassword()" class="btn-sm-outline text-[9px] whitespace-nowrap">Change</button>
       </div>
+    </div>
+
+    <!-- Change Role Application -->
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-lg">🎭</span>
+        <div class="text-sm font-black text-white">Account Role</div>
+      </div>
+      <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex items-center justify-between">
+        <div>
+          <div class="text-xs font-bold text-white">Current Role</div>
+          <div id="acc-current-role-label" class="text-[10px] text-emerald-400 font-black mt-0.5 uppercase tracking-wider">—</div>
+        </div>
+        <button onclick="openRoleChangeModal()" class="btn-sm-outline text-[9px] whitespace-nowrap">Apply to Change</button>
+      </div>
+      <div id="acc-role-change-status" class="hidden bg-amber-950/30 border border-amber-900/40 rounded-xl p-3 text-[10px] text-amber-400 font-bold"></div>
     </div>
 
     <!-- Notification Preferences -->
@@ -1831,7 +1855,6 @@ document.addEventListener('click', function askOnce(){
           <span id="artisan-stat-rating" class="text-base font-black text-amber-400">—</span>
         </div>
       </div>
-      <button onclick="showPanel('post'); setPostType('business')" class="btn-primary mt-1">+ Post New Service</button>
     </div>
 
     <!-- Vendor Analytics (shown only for vendors) -->
@@ -2044,6 +2067,7 @@ document.addEventListener('click', function askOnce(){
       <button onclick="switchAdminTab('overview')"   id="atab-overview"   class="admin-tab active">📊 Overview</button>
       <button onclick="switchAdminTab('users')"      id="atab-users"      class="admin-tab">👥 Users</button>
       <button onclick="switchAdminTab('posts')"      id="atab-posts"      class="admin-tab">📝 Posts</button>
+      <button onclick="switchAdminTab('roles')"      id="atab-roles"      class="admin-tab">🎭 Roles</button>
       <button onclick="switchAdminTab('kyc')"        id="atab-kyc"        class="admin-tab">🪪 KYC</button>
       <button onclick="switchAdminTab('disputes')"   id="atab-disputes"   class="admin-tab">⚖️ Disputes</button>
       <button onclick="switchAdminTab('fees')"       id="atab-fees"       class="admin-tab">💰 Fees</button>
@@ -2110,6 +2134,17 @@ document.addEventListener('click', function askOnce(){
           <button onclick="renderAdminPosts()" class="btn-sm-outline text-[9px] px-3">↻</button>
         </div>
         <div id="admin-posts-list" class="flex flex-col gap-2"></div>
+      </div>
+
+      <!-- ROLES TAB -->
+      <div id="asub-roles" class="hidden p-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-black text-white">🎭 Role Change Applications</h3>
+          <button onclick="renderAdminRoleApplications()" class="text-[9px] font-black text-emerald-400 border border-emerald-900/50 px-2 py-1 rounded-lg">↻ Refresh</button>
+        </div>
+        <div id="admin-role-apps-list" class="flex flex-col gap-3">
+          <div class="text-center py-4 text-xs text-gray-500 italic">No pending role applications.</div>
+        </div>
       </div>
 
       <!-- KYC TAB -->
@@ -2839,7 +2874,27 @@ const state = {
     ]
   },
   transactions: [],
-  ingredientsData: ['Rice', 'Beans', 'Yam', 'Plantain', 'Chicken', 'Beef', 'Fish', 'Stockfish', 'Dried Fish', 'Oha Leaves', 'Bitterleaf', 'Palm Oil', 'Vegetable Oil', 'Pepper', 'Onions', 'Garlic', 'Ginger', 'Tomato Paste', 'Crayfish', 'Peanut Powder', 'Yaji Spice', 'Flour', 'Sugar', 'Eggs', 'Butter', 'Milk']
+  ingredientsData: [
+    'White Rice','Ofada Rice','Basmati Rice','Parboiled Rice','Brown Rice','Beans (Black-eyed)','Honey Beans','Soybeans','Millet','Sorghum','Guinea Corn','Corn (Maize)','Ogi (Corn Pap)','Akamu','Wheat','Semolina','Garri (White)','Garri (Yellow)','Yam','Water Yam','Cocoyam','Sweet Potato','Irish Potato','Cassava','Acha (Fonio)','Plantain (Unripe)','Plantain (Ripe)','Oat',
+    'Chicken','Turkey','Beef','Goat Meat','Lamb','Pork','Rabbit','Snail','Cow Leg (Bokoto)','Cow Tripe (Shaki)','Cow Tail','Oxtail','Cow Skin (Kpomo)','Beef Liver','Beef Kidney','Gizzard','Intestines (Roundabout)','Goat Head','Suya Meat','Kilishi (Dried Beef)','Smoked Turkey',
+    'Catfish (Eja Aro)','Tilapia','Mackerel (Titus)','Croaker (Apo)','Sardines','Herring','Stockfish (Okporoko)','Panla (Dried Hake)','Dried Catfish','Smoked Fish','Smoked Mackerel','Crayfish (Ground)','Crayfish (Whole)','Periwinkle','Prawns','Shrimp','Lobster','Crab','Oyster','Clam','Tuna','Salmon','Iced Fish',
+    'Ugwu (Pumpkin Leaf)','Spinach','Bitter Leaf (Onugbu)','Scent Leaf (Nchanwu)','Uziza Leaf','Utazi Leaf','Oha Leaf','Afang Leaf','Waterleaf','Okazi Leaf','Moringa Leaf','Ewedu (Jute Leaf)','Tete (Amaranth)','Okra','Garden Egg (Purple)','Garden Egg (White)','Pumpkin','Carrot','Cabbage','Lettuce','Cucumber','Celery','Kale','Broccoli','Cauliflower','Green Beans','Green Peas','Spring Onion','Chives','Leek','Beets','Radish','Asparagus','Breadfruit',
+    'Scotch Bonnet (Rodo)','Tatashe (Red Bell Pepper)','Habanero Pepper','Cameroon Pepper','Chili Pepper (Fresh)','Dried Pepper (Ground)','Green Pepper','Yellow Pepper','Tomato (Fresh)','Tomato Paste','Tomato Puree','Onion','Red Onion','Shallots','Garlic (Fresh)','Ginger (Fresh)','Ginger (Dried/Powder)',
+    'Iru (Locust Beans)','Ogiri (Fermented Seeds)','Ogiri Igbo','Dawadawa','Ehuru (Calabash Nutmeg)','Uda (Negro Pepper)','Uziza Seed','Prekese (Aidan Fruit)','Ofo','Achi','Ogbono (Wild Mango Seed)','Egusi (Melon Seed)','Banga Spice','Alligator Pepper (Atare)','Fenugreek (Hulba)','Sesame Seed (Beni Seed)','Grains of Selim','African Nutmeg','Groundnut Paste','Suya Spice (Yaji)','Kilishi Spice',
+    'Palm Oil (Raw)','Bleached Palm Oil','Vegetable Oil','Groundnut Oil','Coconut Oil','Olive Oil','Sunflower Oil','Corn Oil','Sesame Oil','Shea Butter','Butter','Margarine','Ghee','Lard',
+    'Maggi Cube','Knorr Cube','Royco Cube','Jumbo Cube','Onga Seasoning','Curry Powder','Turmeric Powder','Mixed Spice','Thyme (Dried)','Jollof Spice Mix','Pepper Soup Spice Mix','Egusi Spice Mix','Suya Spice Pack','Chicken Seasoning','Fish Seasoning','Beef Seasoning','Shrimp Seasoning','Vegetable Seasoning','BBQ Seasoning','Peri Peri Seasoning','All-Purpose Seasoning','Cajun Seasoning','Lemon Pepper Seasoning',
+    'Eggs','Quail Eggs','Fresh Milk','Evaporated Milk','Powdered Milk','Peak Milk','Condensed Milk','Cream','Sour Cream','Yoghurt','Greek Yoghurt','Cheddar Cheese','Mozzarella','Parmesan','Cream Cheese',
+    'All-Purpose Flour','Self-Raising Flour','Whole Wheat Flour','Corn Flour','Semolina Flour','Rice Flour','Tapioca Flour','Plantain Flour','Cassava Flour','Baking Powder','Baking Soda','Yeast','Salt','Sugar (White)','Sugar (Brown)','Icing Sugar','Honey','Maple Syrup','Vanilla Extract','Cocoa Powder','Dark Chocolate','Milk Chocolate','Bread Crumbs','Cornstarch',
+    'Soy Sauce','Oyster Sauce','Fish Sauce','Worcestershire Sauce','Tabasco Hot Sauce','Ketchup','Mayonnaise','Mustard','White Vinegar','Apple Cider Vinegar','Balsamic Vinegar','Teriyaki Sauce','Hoisin Sauce','Sweet Chili Sauce','Sriracha','Coconut Milk','Coconut Cream','BBQ Sauce','Ranch Dressing','Caesar Dressing',
+    'Star Anise','Five Spice Powder','Szechuan Pepper','Doubanjiang (Chili Bean Paste)','Chinese Rice Wine','Shaoxing Wine','Rice Vinegar','Dark Soy Sauce','Light Soy Sauce','Fermented Black Beans','Tofu (Firm)','Tofu (Silken)','Bean Sprouts','Bok Choy','Napa Cabbage','Chinese Broccoli','Lotus Root','Water Chestnut','Bamboo Shoots','Shiitake Mushroom','Wood Ear Mushroom','Enoki Mushroom','Dried Shrimp','Shrimp Paste','Chili Oil','Sesame Paste','Glass Noodles','Rice Noodles','Egg Noodles','Udon Noodles','Ramen Noodles','Wonton Wrappers','Spring Roll Wrappers','Miso Paste','Dashi Stock','Nori (Seaweed)','Wakame','Ponzu Sauce','Mirin','Sake','Wasabi','Katsuobushi (Bonito Flakes)',
+    'Paprika (Sweet)','Paprika (Smoked)','Cayenne Pepper','Chipotle Pepper','Jalapeno','Old Bay Seasoning','Creole Seasoning','Onion Powder','Garlic Powder','Celery Salt','Liquid Smoke','Cornmeal','Grits','Polenta','Pinto Beans','Black Beans','Kidney Beans','Chickpeas','Lentils','Bacon','Pork Belly','Pulled Pork','Ham','Sausage','Pepperoni','Chorizo','Corned Beef','Cream of Mushroom Soup',
+    'Oregano','Basil (Fresh)','Basil (Dried)','Rosemary','Thyme (Fresh)','Sage','Tarragon','Dill','Parsley (Fresh)','Parsley (Dried)','Marjoram','Fennel Seed','Caraway Seed','Juniper Berries','Allspice','Nutmeg','Mace','Cinnamon Stick','Cinnamon Powder','Cardamom (Green)','Cardamom (Black)','Cloves','Black Pepper','White Pepper','Pink Peppercorn','Coriander Seed','Coriander Powder','Cumin Seed','Cumin Powder','Mustard Seed','Dijon Mustard','Whole Grain Mustard','Saffron','Smoked Salt','Sea Salt','Himalayan Salt','Capers','Anchovies','Sun-Dried Tomato','Truffle Oil','Pesto','Herbes de Provence','Zaatar','Sumac','Harissa','Ras el Hanout','Baharat',
+    'Lemon','Lime','Orange','Pineapple','Mango','Banana','Pawpaw (Papaya)','Watermelon','Guava','Avocado','Coconut','Tamarind','Date Fruit','Apple','Pear','Grapes','Pomegranate','Passion Fruit','Soursop (Graviola)','Agbalumo (African Star Apple)',
+    'Groundnut (Peanut)','Cashew Nut','Almond','Walnut','Pecan','Hazelnut','Pistachio','Pine Nut','Sunflower Seed','Pumpkin Seed','Chia Seed','Flaxseed','Sesame Seed','Poppy Seed',
+    'Button Mushroom','Portobello Mushroom','Oyster Mushroom','Shiitake Mushroom','Porcini Mushroom','Dried Mushroom',
+    'Chicken Stock','Beef Stock','Fish Stock','Vegetable Stock','Bone Broth','Coconut Water','Red Wine','White Wine','Beer','Stout (Guinness)','Palm Wine',
+    'Ogbono (Ground)','Egusi (Ground)','Achi (Ground)','Ofor (Ground)','Gelatine','Agar Agar','Arrowroot','Xanthan Gum','Tapioca Pearls',
+  ]
 };
 
 // ===== CONSTANTS — must be declared before DOMContentLoaded =====
@@ -3700,7 +3755,90 @@ function navTo(panelId){
 let _prevPanel = 'home'; // track where to go back to
 
 function openVendorProfile(userId){
-  setTimeout(() => renderVendorSpoilWarning(userId), 150);
+  const user = state.users?.find(u => u.id === userId);
+  const posts = (state.posts||[]).filter(p => p.authorId === userId && !p.expired);
+  const name = user?.full_name || user?.name || posts[0]?.authorName || 'User';
+  const role = user?.role || posts[0]?.authorRole || 'user';
+
+  // Back title
+  const backTitle = el('vp-back-title'); if(backTitle) backTitle.textContent = name;
+
+  // Avatar — photo or initial
+  renderVpAvatar(userId, name);
+
+  // Name + role badge
+  const nameEl = el('vp-name'); if(nameEl) nameEl.textContent = name;
+  const roleBadge = el('vp-role-badge');
+  if(roleBadge){
+    const roleLabels = { vendor:'🍲 Vendor', artisan:'🔧 Artisan', rider:'🚴 Rider', admin:'⚡ Admin', user:'👤 User' };
+    roleBadge.textContent = roleLabels[role] || role;
+  }
+
+  // Business name / bio
+  const bizEl = el('vp-business');
+  if(bizEl) bizEl.textContent = user?.businessName || user?.bio || posts[0]?.bizServiceName || '';
+
+  // Location
+  const locEl = el('vp-location');
+  if(locEl){
+    const locSpan = locEl.querySelector('span');
+    const locText = user?.town ? `${user.town}${user.lga ? ', '+user.lga : ''}${user.state ? ', '+user.state : ''}` : posts[0]?.location || '—';
+    if(locSpan) locSpan.textContent = locText;
+  }
+
+  // Phone
+  const phoneEl = el('vp-phone');
+  if(phoneEl) phoneEl.innerHTML = `📞 ${user?.phone || '—'}`;
+
+  // Verified badge
+  const verBadge = el('vp-verified-badge');
+  if(verBadge) verBadge.classList.toggle('hidden', !user?.verified);
+
+  // Stats
+  const allOrders = posts.flatMap(p => p.orders||[]);
+  const allReviews = posts.flatMap(p => p.reviews||[]);
+  const avgRating = allReviews.length ? (allReviews.reduce((s,r)=>s+r.stars,0)/allReviews.length).toFixed(1) : '—';
+  const joined = user?.joinedTs ? new Date(user.joinedTs).toLocaleDateString('en-NG',{month:'short',year:'numeric'}) : 'New';
+  const postsStat = el('vp-stat-posts'); if(postsStat) postsStat.textContent = posts.length;
+  const ordersStat = el('vp-stat-orders'); if(ordersStat) ordersStat.textContent = allOrders.length;
+  const ratingStat = el('vp-stat-rating'); if(ratingStat) ratingStat.textContent = allReviews.length ? `${avgRating}★` : '—';
+  const memberStat = el('vp-stat-member'); if(memberStat) memberStat.textContent = joined;
+
+  // Message + Follow buttons
+  const msgBtn = el('vp-msg-btn');
+  if(msgBtn && !msgBtn.disabled){
+    msgBtn.onclick = () => startChat(userId);
+    msgBtn.textContent = '💬 Send Message';
+  }
+  const saveBtn = el('vp-save-btn');
+  if(saveBtn) saveBtn.onclick = () => showPopupNotif('🔖','Following',`You are now following ${name}.`);
+
+  // Listings
+  const listingsContainer = el('vp-listings-container');
+  const listingCount = el('vp-listing-count');
+  if(listingsContainer){
+    if(!posts.length){
+      listingsContainer.innerHTML = `<div class="text-center py-8 text-xs text-gray-500 italic">No active listings.</div>`;
+    } else {
+      listingsContainer.innerHTML = '';
+      posts.slice(0,10).forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'bg-gray-900 border border-gray-800 rounded-xl p-3 flex gap-3 items-center cursor-pointer hover:border-gray-700 transition';
+        div.onclick = () => { el('vendor-profile-panel')?.classList.remove('active'); setTimeout(()=>{ showPanel('home'); renderFeed(); },100); };
+        const img = p.images?.[0] ? `<img src="${p.images[0]}" class="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-gray-800">` : `<div class="w-12 h-12 rounded-lg bg-gray-800 flex items-center justify-center text-xl flex-shrink-0">${p.isFood?'🍲':'🔧'}</div>`;
+        div.innerHTML = `${img}<div class="flex-1 min-w-0"><div class="text-xs font-black text-white truncate">${p.foodName||p.text||'Listing'}</div><div class="text-[10px] text-emerald-400 font-bold mono">₦${fmt(p.flashSale?p.flashPrice:p.price||0)}</div><div class="text-[9px] text-gray-500">${p.location||''}</div></div>`;
+        listingsContainer.appendChild(div);
+      });
+    }
+  }
+  if(listingCount) listingCount.textContent = `${posts.length} post${posts.length!==1?'s':''}`;
+
+  // Show the panel
+  _prevPanel = state.activePanel || 'home';
+  showPanel('vendor-profile');
+
+  // Deferred: spoil warning + reviews
+  setTimeout(() => { renderVendorSpoilWarning(userId); renderVendorReviews(userId); }, 150);
 }
 
 function closeVendorProfile(){
@@ -4089,20 +4227,18 @@ function buildPostCard(post){
     availHtml = `<span class="text-[9px] text-gray-400">${post.bizAvail}</span>`;
   }
 
-  // Order/contact button
+  // Order/contact button — open post detail first
   let actionBtn = '';
   if(isFood && !expired && !soldOut && isOpen && !isMine){
-    actionBtn = `<button onclick="placeOrder('${post.id}')" class="btn-primary flex-1 py-2.5 rounded-xl text-xs">🛒 Order Now</button>`;
+    actionBtn = `<button onclick="event.stopPropagation(); openPostDetail('${post.id}')" class="btn-primary flex-1 py-2.5 rounded-xl text-xs">🛒 Order Now</button>`;
   } else if((isRider || isArtisan) && !isMine){
-    actionBtn = `<button onclick="startChat('${post.authorId}')" class="btn-primary flex-1 py-2.5 rounded-xl text-xs">💬 Contact</button>`;
+    actionBtn = `<button onclick="event.stopPropagation(); openPostDetail('${post.id}')" class="btn-primary flex-1 py-2.5 rounded-xl text-xs">💬 Contact</button>`;
   } else if(isMine){
-    actionBtn = `<button onclick="openVendorProfile('${post.authorId}')" class="flex-1 py-2.5 rounded-xl text-xs font-black bg-gray-800 border border-gray-700 text-gray-300">👁️ View Profile</button>`;
+    actionBtn = `<button onclick="event.stopPropagation(); openPostOptions('${post.id}')" class="flex-1 py-2.5 rounded-xl text-xs font-black bg-gray-800 border border-gray-700 text-gray-300">⋯ Options</button>`;
   }
 
-  // Escrow badge
-  const escrowBadge = (isFood && post.escrow)
-    ? `<span onclick="event.stopPropagation(); openEscrowInfo('${post.id}')" class="text-[8px] font-black text-purple-400 bg-purple-950/50 px-1.5 py-0.5 rounded-full border border-purple-900/40 cursor-pointer hover:bg-purple-900/50 transition">🔐 ESCROW</span>`
-    : '';
+  // Escrow badge — now rendered inline in the scrollable actions row
+  const escrowBadge = '';
 
   // Extras / service info
   const extrasHtml = post.foodExtras
@@ -4160,23 +4296,29 @@ function buildPostCard(post){
     <div class="p-3 flex flex-col gap-2">
       <!-- Header -->
       <div class="flex items-start justify-between gap-2">
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-1.5 flex-wrap">
-            ${!post.image ? roleBadge : ''}
-            ${!post.image ? escrowBadge : ''}
+        <div class="flex items-start gap-2 flex-1 min-w-0">
+          <!-- Author avatar — tap to open post detail -->
+          <div onclick="event.stopPropagation(); openPostDetail('${post.id}')" class="cursor-pointer flex-shrink-0 mt-0.5">
+            ${renderPostCardAvatar(post.authorId, post.authorName, 'w-8 h-8')}
           </div>
-          <div class="font-black text-white text-sm leading-tight mt-0.5 cursor-pointer"
-               onclick="openVendorProfile('${post.authorId}')">
-            ${post.foodName || post.bizServiceName || post.authorName}
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              ${!post.image ? roleBadge : ''}
+              ${!post.image ? escrowBadge : ''}
+            </div>
+            <div class="font-black text-white text-sm leading-tight mt-0.5 cursor-pointer"
+                 onclick="event.stopPropagation(); openPostDetail('${post.id}')">
+              ${post.foodName || post.bizServiceName || post.authorName}
+            </div>
+            <div class="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
+              <span class="cursor-pointer hover:text-emerald-400" onclick="event.stopPropagation(); openPostDetail('${post.id}')">${post.authorName}</span>
+              <span>·</span>
+              <span>${pinIcon(11)} ${post.location || ''}</span>
+              <span>·</span>
+              <span>${timeAgo(post.ts)}</span>
+            </div>
+            ${starsHtml ? `<div class="flex items-center gap-1 mt-1">${starsHtml}</div>` : ''}
           </div>
-          <div class="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
-            <span class="cursor-pointer hover:text-emerald-400" onclick="openVendorProfile('${post.authorId}')">${post.authorName}</span>
-            <span>·</span>
-            <span>${pinIcon(11)} ${post.location || ''}</span>
-            <span>·</span>
-            <span>${timeAgo(post.ts)}</span>
-          </div>
-          ${starsHtml ? `<div class="flex items-center gap-1 mt-1">${starsHtml}</div>` : ''}
         </div>
         ${isMine ? `<button onclick="openPostOptions('${post.id}')" class="text-gray-500 hover:text-white text-lg leading-none px-1">⋯</button>` : ''}
       </div>
@@ -4186,6 +4328,14 @@ function buildPostCard(post){
 
       ${extrasHtml}
 
+      <!-- Ingredients chips — visible on feed card -->
+      ${post.ingredients?.length ? `
+      <div class="flex flex-wrap gap-1 mt-0.5">
+        <span class="text-[9px] text-gray-500 font-bold w-full">Ingredients:</span>
+        ${post.ingredients.slice(0,6).map(i => `<span class="text-[9px] bg-gray-800 border border-gray-700/60 text-gray-300 px-2 py-0.5 rounded-full">${i}</span>`).join('')}
+        ${post.ingredients.length > 6 ? `<span class="text-[9px] text-gray-500 px-1">+${post.ingredients.length - 6} more</span>` : ''}
+      </div>` : ''}
+
       <!-- Price + Availability -->
       ${priceHtml ? `<div class="flex items-center justify-between flex-wrap gap-1">
         ${priceHtml}
@@ -4194,48 +4344,73 @@ function buildPostCard(post){
 
       ${expiryHtml}
 
-      <!-- Actions row -->
-      <div class="flex items-center justify-between gap-1 pt-1 border-t border-gray-800 relative">
-        <div class="relative flex-1">
-          <button onclick="if(!_likeHoldFired){ reactPost('${post.id}','❤️') } _likeHoldFired=false;"
-                  onpointerdown="startLikeHold('${post.id}', this)"
-                  onpointerup="endLikeHold()"
-                  onpointerleave="endLikeHold()"
-                  oncontextmenu="return false;"
-                  class="like-main-btn flex items-center gap-1.5 text-[10px] ${userLiked ? 'text-red-400' : 'text-gray-500'} hover:text-red-400 transition font-bold py-1.5 px-1 w-full justify-center select-none">
-            <span class="text-sm">${userLiked ? '❤️' : '🤍'}</span>
-            <span>Like</span>
-            ${likeCount > 0 ? `<span id="like-count-${post.id}" class="text-gray-500">${likeCount}</span>` : ''}
-          </button>
-          <!-- Long-press reaction picker -->
-          <div id="reaction-picker-${post.id}" class="reaction-picker hidden absolute bottom-full left-0 mb-1 bg-gray-800 border border-gray-700 rounded-full px-2 py-1.5 flex items-center gap-1.5 shadow-xl z-20">
-            ${['❤️','👍','🔥','😂','😮'].map(e =>
-              `<button onclick="reactPost('${post.id}','${e}'); hideReactionPicker('${post.id}')" class="text-xl hover:scale-150 transition-transform" title="React ${e}">${e}</button>`
-            ).join('')}
+      <!-- Actions row — horizontally scrollable so Escrow fits naturally -->
+      <div class="actions-row overflow-x-auto pt-1 border-t border-gray-800" style="-webkit-overflow-scrolling:touch;scrollbar-width:none;">
+        <div class="flex items-center gap-0" style="min-width:max-content;">
+          <!-- Like -->
+          <div class="relative">
+            <button onclick="if(!_likeHoldFired){ reactPost('${post.id}','❤️') } _likeHoldFired=false;"
+                    onpointerdown="startLikeHold('${post.id}', this)"
+                    onpointerup="endLikeHold()"
+                    onpointerleave="endLikeHold()"
+                    oncontextmenu="return false;"
+                    class="like-main-btn flex items-center gap-1.5 text-[10px] ${userLiked ? 'text-red-400' : 'text-gray-500'} hover:text-red-400 transition font-bold py-1.5 px-3 select-none whitespace-nowrap">
+              <span class="text-sm">${userLiked ? '❤️' : '🤍'}</span>
+              <span>Like</span>
+              ${likeCount > 0 ? `<span id="like-count-${post.id}" class="text-gray-500">${likeCount}</span>` : ''}
+            </button>
+            <!-- Long-press reaction picker -->
+            <div id="reaction-picker-${post.id}" class="reaction-picker hidden absolute bottom-full left-0 mb-1 bg-gray-800 border border-gray-700 rounded-full px-2 py-1.5 flex items-center gap-1.5 shadow-xl z-20">
+              ${['❤️','👍','🔥','😂','😮'].map(e =>
+                `<button onclick="reactPost('${post.id}','${e}'); hideReactionPicker('${post.id}')" class="text-xl hover:scale-150 transition-transform" title="React ${e}">${e}</button>`
+              ).join('')}
+            </div>
           </div>
+          <!-- Divider -->
+          <span class="text-gray-800 select-none">|</span>
+          <!-- Comment -->
+          <button onclick="openCommentsModal('${post.id}')" class="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-sky-400 transition font-bold py-1.5 px-3 whitespace-nowrap">
+            <span class="text-sm">💬</span>
+            <span>Comment</span>
+            ${cmtCount > 0 ? `<span class="text-gray-500">${cmtCount}</span>` : ''}
+          </button>
+          <!-- Divider -->
+          <span class="text-gray-800 select-none">|</span>
+          <!-- Share -->
+          <button onclick="sharePost('${post.id}')" class="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-emerald-400 transition font-bold py-1.5 px-3 whitespace-nowrap">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <span>Share</span>
+          </button>
+          <!-- Divider -->
+          <span class="text-gray-800 select-none">|</span>
+          <!-- Save -->
+          <button onclick="toggleSavePost('${post.id}')" class="flex items-center gap-1.5 text-[10px] ${isSaved ? 'text-amber-400' : 'text-gray-500'} hover:text-amber-400 transition font-bold py-1.5 px-3 whitespace-nowrap">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="${isSaved?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            <span>${isSaved ? 'Saved' : 'Save'}</span>
+          </button>
+          ${(isFood && post.escrow) ? `
+          <!-- Divider -->
+          <span class="text-gray-800 select-none">|</span>
+          <!-- Escrow Protection -->
+          <button onclick="event.stopPropagation(); openEscrowInfo('${post.id}')" class="flex items-center gap-1.5 text-[10px] font-black text-purple-400 hover:text-purple-300 transition py-1.5 px-3 whitespace-nowrap">
+            <span>🔐</span>
+            <span>Escrow</span>
+          </button>` : ''}
         </div>
-        <button onclick="openCommentsModal('${post.id}')" class="flex-1 flex items-center gap-1.5 justify-center text-[10px] text-gray-500 hover:text-sky-400 transition font-bold py-1.5 px-1">
-          <span class="text-sm">💬</span>
-          <span>Comment</span>
-          ${cmtCount > 0 ? `<span class="text-gray-500">${cmtCount}</span>` : ''}
-        </button>
-        <button onclick="sharePost('${post.id}')" class="flex-1 flex items-center gap-1.5 justify-center text-[10px] text-gray-500 hover:text-emerald-400 transition font-bold py-1.5 px-1">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-          <span>Share</span>
-        </button>
-        <button onclick="toggleSavePost('${post.id}')" class="flex items-center justify-center text-[13px] ${isSaved ? 'text-amber-400' : 'text-gray-500'} hover:text-amber-400 transition py-1.5 px-2" title="${isSaved ? 'Remove from saved' : 'Save post'}">
-          ${isSaved ? '🔖' : '🔖'}
-        </button>
       </div>
       ${actionBtn ? `<div class="flex gap-2 w-full">${actionBtn}</div>` : ''}
     </div>`;
 
-  // Close any open reaction picker when tapping elsewhere on the card
+  // Tap anywhere on the card (not action buttons) → open Post Detail
   card.addEventListener('click', (e) => {
-    if(!e.target.closest('.like-main-btn') && !e.target.closest('.reaction-picker')){
-      hideReactionPicker(post.id);
+    hideReactionPicker(post.id);
+    const excluded = e.target.closest('.like-main-btn, .reaction-picker, .actions-row button, .actions-row a, [onclick]');
+    if(!excluded){
+      openPostDetail(post.id);
     }
   });
+  // Make card look tappable
+  card.style.cursor = 'pointer';
 
   // Apply suspended overlay and spoil warnings
   createPostCardHTML(post, card);
@@ -4858,15 +5033,42 @@ function handleBizCategoryChange(){
 
 function searchIngredients(q){
   const drop = el('ing-dropdown');
-  if(!q.trim()){ drop.classList.add('hidden'); return; }
-  const matches = state.ingredientsData.filter(i => i.toLowerCase().includes(q.toLowerCase()) && !state.selectedIngredients.has(i));
-  if(!matches.length){ drop.classList.add('hidden'); return; }
+  if(!q.trim()){
+    // Show popular/common ones when empty
+    drop.classList.add('hidden');
+    return;
+  }
+  const ql = q.toLowerCase();
+  const matches = state.ingredientsData.filter(i =>
+    i.toLowerCase().includes(ql) && !state.selectedIngredients.has(i)
+  ).slice(0, 20); // max 20 results
+
+  if(!matches.length){
+    drop.innerHTML = `<div class="p-2 text-[10px] text-gray-500 italic">No match — tap + to add "${q}" as custom</div>`;
+    drop.classList.remove('hidden');
+    return;
+  }
   drop.innerHTML = '';
   drop.classList.remove('hidden');
+
+  // Result count
+  const total = state.ingredientsData.filter(i => i.toLowerCase().includes(ql)).length;
+  if(total > 20){
+    const info = document.createElement('div');
+    info.className = 'px-3 py-1 text-[9px] text-gray-500 border-b border-gray-800';
+    info.textContent = `Showing 20 of ${total} results`;
+    drop.appendChild(info);
+  }
+
   matches.forEach(m => {
     const r = document.createElement('div');
-    r.className = 'p-2 hover:bg-gray-800 cursor-pointer border-b border-gray-800/50';
-    r.textContent = m;
+    r.className = 'px-3 py-2 hover:bg-gray-800 cursor-pointer border-b border-gray-800/40 text-xs text-gray-200 flex items-center gap-2';
+    // Highlight matching part
+    const idx = m.toLowerCase().indexOf(ql);
+    const highlighted = idx >= 0
+      ? m.slice(0,idx) + `<span class="text-emerald-400 font-bold">${m.slice(idx, idx+q.length)}</span>` + m.slice(idx+q.length)
+      : m;
+    r.innerHTML = `<span class="text-emerald-500 text-[10px]">+</span> ${highlighted}`;
     r.onclick = () => {
       state.selectedIngredients.add(m);
       el('ing-search').value = '';
@@ -5116,42 +5318,68 @@ const vtuNames = {airtime:'Airtime Top-up', data:'Data Bundle', electricity:'Ele
 // ============================================================
 // VTU PROVIDER DATA (per service type)
 // ============================================================
+// SVG inline icons for providers that may not load from external URLs
+const _VTU_ICONS = {
+  mtn: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="20" fill="#FFCC00"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="11" font-weight="900" fill="#000" font-family="Arial">MTN</text></svg>`,
+  glo: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="20" fill="#008000"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="11" font-weight="900" fill="#fff" font-family="Arial">GLO</text></svg>`,
+  airtel: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="20" fill="#E40000"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">AIRTEL</text></svg>`,
+  '9mobile': `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="20" fill="#006600"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">9mobile</text></svg>`,
+  ikedc: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#0A3D7C"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">IKEDC</text></svg>`,
+  aedc:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#00539C"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">AEDC</text></svg>`,
+  ekedc: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#C0392B"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">EKEDC</text></svg>`,
+  eedc:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#27AE60"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">EEDC</text></svg>`,
+  kedco: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#8E44AD"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">KEDCO</text></svg>`,
+  bedc:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#1ABC9C"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">BEDC</text></svg>`,
+  phedc: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#2C3E50"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">PHED</text></svg>`,
+  kaedc: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#E67E22"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">KAEDC</text></svg>`,
+  ibedc: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#3498DB"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">IBEDC</text></svg>`,
+  jed:   `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#F39C12"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">JED</text></svg>`,
+  yedc:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#16A085"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">YEDC</text></svg>`,
+  dstv:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#003580"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">DStv</text></svg>`,
+  gotv:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#EF7C00"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">GOtv</text></svg>`,
+  startimes:`<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#D12026"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="7" font-weight="900" fill="#fff" font-family="Arial">StarTimes</text></svg>`,
+  bet9ja:   `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#00873E"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">Bet9ja</text></svg>`,
+  sportybet:`<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#FF4B00"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="7" font-weight="900" fill="#fff" font-family="Arial">Sporty</text></svg>`,
+  '1xbet':  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#1C3C6E"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">1xBet</text></svg>`,
+  betking:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#7B2D8B"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="7" font-weight="900" fill="#fff" font-family="Arial">BetKing</text></svg>`,
+};
+
 const VTU_PROVIDERS = {
   airtime: [
-    { id:'mtn',     name:'MTN',     logo:'https://upload.wikimedia.org/wikipedia/commons/9/93/New-mtn-logo.jpg' },
-    { id:'glo',     name:'Glo',     logo:'https://upload.wikimedia.org/wikipedia/en/9/9d/Globacom_Limited_logo.png' },
-    { id:'airtel',  name:'Airtel',  logo:'https://upload.wikimedia.org/wikipedia/commons/2/2a/Airtel_logo.svg' },
-    { id:'9mobile', name:'9mobile', logo:'https://upload.wikimedia.org/wikipedia/commons/4/4a/9mobile_logo.png' },
+    { id:'mtn',     name:'MTN',     svgIcon:_VTU_ICONS.mtn },
+    { id:'glo',     name:'Glo',     svgIcon:_VTU_ICONS.glo },
+    { id:'airtel',  name:'Airtel',  svgIcon:_VTU_ICONS.airtel },
+    { id:'9mobile', name:'9mobile', svgIcon:_VTU_ICONS['9mobile'] },
   ],
   data: [
-    { id:'mtn-data',     name:'MTN',     logo:'https://upload.wikimedia.org/wikipedia/commons/9/93/New-mtn-logo.jpg' },
-    { id:'glo-data',     name:'Glo',     logo:'https://upload.wikimedia.org/wikipedia/en/9/9d/Globacom_Limited_logo.png' },
-    { id:'airtel-data',  name:'Airtel',  logo:'https://upload.wikimedia.org/wikipedia/commons/2/2a/Airtel_logo.svg' },
-    { id:'9mobile-data', name:'9mobile', logo:'https://upload.wikimedia.org/wikipedia/commons/4/4a/9mobile_logo.png' },
+    { id:'mtn-data',     name:'MTN',     svgIcon:_VTU_ICONS.mtn },
+    { id:'glo-data',     name:'Glo',     svgIcon:_VTU_ICONS.glo },
+    { id:'airtel-data',  name:'Airtel',  svgIcon:_VTU_ICONS.airtel },
+    { id:'9mobile-data', name:'9mobile', svgIcon:_VTU_ICONS['9mobile'] },
   ],
   electricity: [
-    { id:'ikedc',  name:'Ikeja Electric',    logo:'https://logo.clearbit.com/ikejaelectric.com' },
-    { id:'aedc',   name:'Abuja Electric',    logo:'https://logo.clearbit.com/abujaelectricity.com' },
-    { id:'ekedc',  name:'Eko Electric',      logo:'https://logo.clearbit.com/ekedp.com' },
-    { id:'eedc',   name:'Enugu Electric',    logo:'https://logo.clearbit.com/enugudisco.com' },
-    { id:'kedco',  name:'Kano Electric',     logo:'https://logo.clearbit.com/kedco.ng' },
-    { id:'bedc',   name:'Benin Electric',    logo:'https://logo.clearbit.com/beninelectric.com' },
-    { id:'phedc',  name:'Port Harcourt',     logo:'https://logo.clearbit.com/phed.com.ng' },
-    { id:'kaedc',  name:'Kaduna Electric',   logo:'https://logo.clearbit.com/kaduna-electric.com' },
-    { id:'ibedc',  name:'Ibadan Electric',   logo:'https://logo.clearbit.com/ibedc.com' },
-    { id:'jed',    name:'Jos Electric',      icon:'💡' },
-    { id:'yedc',   name:'Yola Electric',     icon:'💡' },
+    { id:'ikedc',  name:'Ikeja Electric',  svgIcon:_VTU_ICONS.ikedc },
+    { id:'aedc',   name:'Abuja Electric',  svgIcon:_VTU_ICONS.aedc },
+    { id:'ekedc',  name:'Eko Electric',    svgIcon:_VTU_ICONS.ekedc },
+    { id:'eedc',   name:'Enugu Electric',  svgIcon:_VTU_ICONS.eedc },
+    { id:'kedco',  name:'Kano Electric',   svgIcon:_VTU_ICONS.kedco },
+    { id:'bedc',   name:'Benin Electric',  svgIcon:_VTU_ICONS.bedc },
+    { id:'phedc',  name:'Port Harcourt',   svgIcon:_VTU_ICONS.phedc },
+    { id:'kaedc',  name:'Kaduna Electric', svgIcon:_VTU_ICONS.kaedc },
+    { id:'ibedc',  name:'Ibadan Electric', svgIcon:_VTU_ICONS.ibedc },
+    { id:'jed',    name:'Jos Electric',    svgIcon:_VTU_ICONS.jed },
+    { id:'yedc',   name:'Yola Electric',   svgIcon:_VTU_ICONS.yedc },
   ],
   tv: [
-    { id:'dstv',      name:'DStv',      logo:'https://upload.wikimedia.org/wikipedia/en/2/2c/DStv_logo.png' },
-    { id:'gotv',      name:'GOtv',      logo:'https://upload.wikimedia.org/wikipedia/en/9/94/GOtv_Africa_logo.png' },
-    { id:'startimes', name:'StarTimes', logo:'https://logo.clearbit.com/startimes.com' },
+    { id:'dstv',      name:'DStv',      svgIcon:_VTU_ICONS.dstv },
+    { id:'gotv',      name:'GOtv',      svgIcon:_VTU_ICONS.gotv },
+    { id:'startimes', name:'StarTimes', svgIcon:_VTU_ICONS.startimes },
   ],
   betting: [
-    { id:'bet9ja',     name:'Bet9ja',     logo:'https://logo.clearbit.com/bet9ja.com' },
-    { id:'sportybet',  name:'SportyBet',  logo:'https://logo.clearbit.com/sportybet.com' },
-    { id:'1xbet',      name:'1xBet',      logo:'https://logo.clearbit.com/1xbet.com' },
-    { id:'betking',    name:'BetKing',    logo:'https://logo.clearbit.com/betking.com' },
+    { id:'bet9ja',    name:'Bet9ja',   svgIcon:_VTU_ICONS.bet9ja },
+    { id:'sportybet', name:'SportyBet',svgIcon:_VTU_ICONS.sportybet },
+    { id:'1xbet',     name:'1xBet',    svgIcon:_VTU_ICONS['1xbet'] },
+    { id:'betking',   name:'BetKing',  svgIcon:_VTU_ICONS.betking },
   ],
 };
 
@@ -5201,10 +5429,12 @@ async function vtuAction(service){
   if(grid){
     const providers = VTU_PROVIDERS[service] || [];
     grid.innerHTML = providers.map(p => `
-      <button onclick='vtuSelectProvider(${JSON.stringify(p)})' class="bg-gray-800 border border-gray-700 rounded-xl py-3 flex flex-col items-center gap-1.5 text-[9px] font-black text-gray-300 hover:border-emerald-500 hover:bg-gray-700 transition">
-        ${p.logo
-          ? `<img src="${p.logo}" alt="${p.name}" class="w-9 h-9 rounded-full object-cover bg-white" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'text-xl',textContent:'📡'}))">`
-          : `<span class="text-xl">${p.icon||'📡'}</span>`
+      <button onclick='vtuSelectProvider(${JSON.stringify(p).replace(/'/g,"&#39;")})' class="bg-gray-800 border border-gray-700 rounded-xl py-3 flex flex-col items-center gap-1.5 text-[9px] font-black text-gray-300 hover:border-emerald-500 hover:bg-gray-700 transition">
+        ${p.svgIcon
+          ? p.svgIcon
+          : p.logo
+            ? `<img src="${p.logo}" alt="${p.name}" class="w-9 h-9 rounded-full object-cover bg-white" onerror="this.outerHTML='<span class=text-xl>📡</span>'">`
+            : `<span class="text-xl">${p.icon||'📡'}</span>`
         }
         ${p.name}
       </button>
@@ -5213,6 +5443,7 @@ async function vtuAction(service){
 
   vtuGoToStep(1);
   el('vtu-modal')?.classList.remove('hidden');
+  setTimeout(()=>{ const s=el('vtu-modal')?.querySelector('.modal-sheet'); if(s) s.scrollTop=0; window.scrollTo(0,0); },50);
 }
 
 // ============================================================
@@ -5264,10 +5495,15 @@ function selectQuickAmount(amount){
 }
 
 function updateNetworkPill(){
-  const p = VTU_PROVIDERS.airtime.find(x => x.id === _vtu.providerId) || VTU_PROVIDERS.airtime[0];
+  const list = _vtu.service === 'data' ? VTU_PROVIDERS.data : VTU_PROVIDERS.airtime;
+  const p = list.find(x => x.id === _vtu.providerId) || list[0];
   const logoEl = el('vtu-network-pill-logo');
   const iconEl = el('vtu-network-pill-icon');
-  if(p.logo){
+  if(p.svgIcon){
+    logoEl.classList.add('hidden');
+    iconEl.innerHTML = p.svgIcon.replace('w-9 h-9','w-6 h-6');
+    iconEl.classList.remove('hidden');
+  } else if(p.logo){
     logoEl.src = p.logo;
     logoEl.classList.remove('hidden');
     iconEl.classList.add('hidden');
@@ -5287,10 +5523,12 @@ function renderNetworkDropdown(){
   if(!dd) return;
   const list = _vtu.service === 'data' ? VTU_PROVIDERS.data : VTU_PROVIDERS.airtime;
   dd.innerHTML = list.map(p => `
-    <button onclick='pickNetwork(${JSON.stringify(p)})' class="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-gray-300 hover:bg-gray-800 transition">
-      ${p.logo
-        ? `<img src="${p.logo}" class="w-6 h-6 rounded-full object-cover bg-white" onerror="this.style.display='none'">`
-        : `<span class="text-base">${p.icon||'📡'}</span>`
+    <button onclick='pickNetwork(${JSON.stringify(p).replace(/'/g,"&#39;")})' class="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-gray-300 hover:bg-gray-800 transition">
+      ${p.svgIcon
+        ? `<span class="w-6 h-6 flex-shrink-0 overflow-hidden rounded-full">${p.svgIcon.replace('w-9 h-9','w-6 h-6')}</span>`
+        : p.logo
+          ? `<img src="${p.logo}" class="w-6 h-6 rounded-full object-cover bg-white" onerror="this.style.display='none'">`
+          : `<span class="text-base">${p.icon||'📡'}</span>`
       }
       ${p.name}
     </button>
@@ -5324,7 +5562,11 @@ function autoDetectNetwork(){
 }
 
 function vtuGoToStep(step){
-  [1,2,3,4].forEach(s => el('vtu-step'+s).classList.toggle('hidden', s!==step));
+  [1,2,3,4].forEach(s => el('vtu-step'+s)?.classList.toggle('hidden', s!==step));
+  // Scroll the modal sheet to top so all content is visible
+  const sheet = el('vtu-modal')?.querySelector('.modal-sheet');
+  if(sheet) sheet.scrollTop = 0;
+  window.scrollTo(0,0);
 }
 
 async function vtuSelectProvider(p){
@@ -5495,12 +5737,16 @@ async function processVTU(){
 }
 
 function doDeposit(){
-  if(!isPinSet() && state.session){
+  if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in to fund your wallet.'); return; }
+  if(!isPinSet()){
     showPopupNotif('🔐','Set PIN First','Please set your transaction PIN before funding your wallet.');
     setTimeout(() => showPinSetupPrompt(false), 400);
     return;
   }
-  _origDoDeposit();
+  // Refresh deposit modal balance
+  const depBal = el('dep-balance-display');
+  if(depBal) depBal.textContent = fmtCurrency(state.session.balance||0);
+  el('deposit-modal').classList.remove('hidden');
 }
 
 async function confirmDeposit(){
@@ -6704,7 +6950,7 @@ function renderVendorReviews(userId){
     card.innerHTML = `
       <div class="flex items-start justify-between gap-2">
         <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-xl bg-amber-900 flex items-center justify-center text-xs font-black flex-shrink-0">${r.buyerName[0]}</div>
+          <div class="w-7 h-7 rounded-xl overflow-hidden flex-shrink-0">${renderPostCardAvatar(r.buyerId||r.buyerName, r.buyerName, 'w-7 h-7')}</div>
           <div>
             <div class="text-xs font-black text-white">${r.buyerName}</div>
             <div class="text-[9px] text-gray-500 mono">${new Date(r.ts).toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric'})}</div>
@@ -7432,8 +7678,567 @@ function checkLowBalanceAlert(){
 }
 
 // ============================================================
-// SYNC ACCOUNT DISPLAY PATCH — add new role portals
+// POST DETAIL MODAL
 // ============================================================
+let _pdPostId   = null;
+let _pdAuthorId = null;
+
+function openPostDetail(postId){
+  const post = state.posts.find(p => p.id === postId);
+  if(!post) return;
+  _pdPostId   = postId;
+  _pdAuthorId = post.authorId;
+
+  const user     = state.users?.find(u => u.id === post.authorId);
+  const isMine   = state.session && state.session.id === post.authorId;
+  const isFood   = post.isFood || post.businessCategory === 'food';
+  const isRider  = post.bizType === 'rider' || post.authorRole === 'rider';
+  const isArtisan= post.bizType === 'artisan' || (post.authorRole === 'artisan' && !isFood);
+  const isBiz    = isFood || isRider || isArtisan;
+  const isSaved  = (getSavedItems()||[]).some(x => x.id === post.id);
+  const userLiked= state.session && (post.likes||[]).includes(state.session.id);
+  const rating   = avgPostRating(post);
+  const expired  = post.expired || (post.expiresAt && post.expiresAt < Date.now());
+  const soldOut  = post.qty !== undefined && post.qty <= 0;
+  const isOpen   = isFood ? isVendorOpen(post) : true;
+
+  // 1. Gallery
+  const images = post.images?.length ? post.images : post.image ? [post.image] : [];
+  const gallery = el('pd-gallery');
+  const galleryInner = el('pd-gallery-inner');
+  const galleryDots  = el('pd-gallery-dots');
+  if(images.length){
+    gallery.classList.remove('hidden');
+    galleryInner.innerHTML = images.map(src =>
+      `<div class="flex-shrink-0 w-full h-full snap-center" style="min-width:100%">
+        <img src="${src}" class="w-full h-full object-cover">
+       </div>`
+    ).join('');
+    galleryDots.innerHTML = images.length > 1
+      ? images.map((_,i) => `<div class="w-1.5 h-1.5 rounded-full ${i===0?'bg-white':'bg-gray-600'} transition-all"></div>`).join('')
+      : '';
+    // Update dots on scroll
+    galleryInner.onscroll = () => {
+      const idx = Math.round(galleryInner.scrollLeft / galleryInner.offsetWidth);
+      galleryDots.querySelectorAll('div').forEach((d,i) => {
+        d.className = `w-1.5 h-1.5 rounded-full ${i===idx?'bg-white':'bg-gray-600'} transition-all`;
+      });
+    };
+  } else {
+    gallery.classList.add('hidden');
+  }
+
+  // 2. Seller card
+  const sellerAvEl = el('pd-seller-avatar');
+  const photo = getAvatar(post.authorId);
+  if(photo){
+    sellerAvEl.innerHTML = `<img src="${photo}" class="w-full h-full object-cover">`;
+  } else {
+    sellerAvEl.textContent = (post.authorName||'?').charAt(0).toUpperCase();
+  }
+  el('pd-seller-name').textContent = post.authorName || 'User';
+  el('pd-seller-verified').classList.toggle('hidden', !user?.verified);
+
+  const roleColors = { vendor:'text-emerald-400 bg-emerald-950/60 border-emerald-900/40', rider:'text-sky-400 bg-sky-950/60 border-sky-900/40', artisan:'text-amber-400 bg-amber-950/60 border-amber-900/40', user:'text-gray-400 bg-gray-800 border-gray-700' };
+  const roleLabels = { vendor:'🍲 VENDOR', rider:'🏍️ RIDER', artisan:'🔧 ARTISAN', user:'👤 USER' };
+  const roleKey = isFood?'vendor': isRider?'rider': isArtisan?'artisan':'user';
+  const roleSpan = el('pd-seller-role-badge');
+  roleSpan.className = `text-[8px] font-black px-1.5 py-0.5 rounded-full border ${roleColors[roleKey]}`;
+  roleSpan.textContent = roleLabels[roleKey];
+
+  el('pd-seller-rating').textContent = rating > 0 ? `${'★'.repeat(Math.round(rating))} ${rating.toFixed(1)} (${(post.reviews||[]).length})` : '';
+  el('pd-seller-location').textContent = post.location || user?.town || '';
+  el('pd-seller-dot').classList.toggle('hidden', !post.location && !user?.town);
+  el('pd-seller-joined').textContent = user?.joinedTs ? 'Joined ' + new Date(user.joinedTs).toLocaleDateString('en-NG',{month:'short',year:'numeric'}) : '';
+
+  // 3. Post content
+  el('pd-role-badge').className = `text-[8px] font-black px-1.5 py-0.5 rounded-full border ${roleColors[roleKey]}`;
+  el('pd-role-badge').textContent = isBiz ? roleLabels[roleKey] : '';
+  el('pd-escrow-badge').classList.toggle('hidden', !post.escrow);
+  el('pd-flash-badge').classList.toggle('hidden', !post.flashSale);
+  el('pd-title').textContent = post.foodName || post.bizServiceName || post.authorName;
+  el('pd-time').textContent = timeAgo(post.ts);
+  el('pd-text').textContent = post.text || '';
+
+  // Price row
+  const priceRow = el('pd-price-row');
+  let priceRowHtml = '';
+  if(isFood && post.price > 0){
+    priceRowHtml += `<span class="text-emerald-400 font-black text-2xl mono">₦${fmt(post.flashSale&&post.flashPrice?post.flashPrice:post.price)}</span>`;
+    if(post.flashSale && post.flashPrice) priceRowHtml += `<span class="text-gray-500 line-through text-sm mono ml-1">₦${fmt(post.price)}</span>`;
+  } else if(post.bizPrice > 0){
+    priceRowHtml += `<span class="text-emerald-400 font-black text-2xl mono">₦${fmt(post.bizPrice)}</span><span class="text-xs text-gray-400 ml-1">per service</span>`;
+  }
+  if(isFood){
+    const statusHtml = expired ? '<span class="text-xs text-red-400 font-black">⏰ Expired</span>'
+      : soldOut ? '<span class="text-xs text-red-400 font-black">❌ Sold Out</span>'
+      : isOpen  ? '<span class="text-xs text-emerald-400 font-black">🟢 Open Now</span>'
+      : '<span class="text-xs text-gray-400 font-black">🔴 Closed</span>';
+    priceRowHtml += `<div class="flex items-center gap-2">${statusHtml}${post.qty>0&&!expired&&!soldOut?`<span class="text-xs text-gray-400">${post.qty} left</span>`:''}</div>`;
+  } else if(post.bizAvail){
+    priceRowHtml += `<span class="text-xs text-gray-400">${post.bizAvail}</span>`;
+  }
+  priceRow.innerHTML = priceRowHtml;
+
+  // Extras
+  const extrasEl = el('pd-extras');
+  if(post.foodExtras){ extrasEl.classList.remove('hidden'); extrasEl.innerHTML = `<span class="text-gray-500">Includes:</span> ${post.foodExtras}`; }
+  else { extrasEl.classList.add('hidden'); }
+
+  // Ingredients chips
+  const ingEl = el('pd-ingredients');
+  if(post.ingredients?.length){
+    ingEl.classList.remove('hidden');
+    ingEl.style.display = 'flex';
+    ingEl.innerHTML = `<div class="w-full text-xs font-black text-gray-400 mb-1">🧂 Ingredients & Spices Used (${post.ingredients.length})</div>` +
+      post.ingredients.map(i => `<span class="text-[10px] bg-gray-800 border border-gray-700 text-gray-300 px-2.5 py-1 rounded-full">${i}</span>`).join('');
+  } else { ingEl.classList.add('hidden'); }
+
+  // Avail hours
+  const availHoursEl = el('pd-avail-hours');
+  if(post.bizAvail && !isFood){ availHoursEl.classList.remove('hidden'); el('pd-avail-text').textContent = post.bizAvail; }
+  else { availHoursEl.classList.add('hidden'); }
+
+  // Expiry bar
+  const expiryBar = el('pd-expiry-bar');
+  if(isFood && post.expiresAt){
+    expiryBar.classList.remove('hidden');
+    const total = post.expiresAt - (post.ts || Date.now());
+    const left  = post.expiresAt - Date.now();
+    const pct   = total > 0 ? Math.max(0, Math.min(100, (left/total)*100)) : 0;
+    const fill  = el('pd-expiry-fill');
+    fill.style.width = pct + '%';
+    fill.className = `h-full rounded-full transition-all ${pct>50?'bg-emerald-500':pct>25?'bg-amber-500':'bg-red-500'}`;
+    const remMins = Math.floor(left/60000);
+    el('pd-expiry-label').textContent = expired ? '⛔ Expired' : remMins >= 60 ? `${Math.floor(remMins/60)}h ${remMins%60}m left` : `${remMins}m left`;
+  } else { expiryBar.classList.add('hidden'); }
+
+  // 4. Like/Save state
+  const likeIcon = el('pd-like-icon');
+  if(likeIcon) likeIcon.textContent = userLiked ? '❤️' : '🤍';
+  const likeBtn = el('pd-like-btn');
+  if(likeBtn) likeBtn.className = `flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold ${userLiked?'text-red-400':'text-gray-500'} hover:text-red-400 transition`;
+  const likeCount = el('pd-like-count');
+  if(likeCount) likeCount.textContent = (post.likes||[]).length > 0 ? (post.likes||[]).length : '';
+  const cmtCount = el('pd-cmt-count');
+  if(cmtCount) cmtCount.textContent = (post.comments||[]).length > 0 ? (post.comments||[]).length : '';
+  const saveLabel = el('pd-save-label');
+  const saveIcon  = el('pd-save-icon');
+  if(saveLabel) saveLabel.textContent = isSaved ? 'Saved' : 'Save';
+  if(saveIcon)  saveIcon.setAttribute('fill', isSaved ? 'currentColor' : 'none');
+  const saveBtn = el('pd-save-btn');
+  if(saveBtn) saveBtn.className = `flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold ${isSaved?'text-amber-400':'text-gray-500'} hover:text-amber-400 transition`;
+
+  // 5. Contact section (not own posts, business only)
+  const contactSec = el('pd-contact-section');
+  contactSec.classList.toggle('hidden', isMine || !isBiz);
+  if(el('pd-chat-input')) el('pd-chat-input').value = '';
+
+  // 6. Order bar
+  const orderBar = el('pd-order-bar');
+  const canOrder = isFood && !expired && !soldOut && isOpen && !isMine;
+  const canContact = (isRider || isArtisan) && !isMine;
+  if(canOrder){
+    orderBar.classList.remove('hidden');
+    el('pd-order-price').textContent = `₦${fmt(post.flashSale&&post.flashPrice?post.flashPrice:post.price)}`;
+    el('pd-order-avail').textContent = post.qty > 0 ? `${post.qty} portions left` : '';
+    el('pd-order-btn').textContent   = '🛒 Order Now';
+    el('pd-order-btn').onclick       = () => { closePostDetail(); placeOrder(postId); };
+  } else if(canContact){
+    orderBar.classList.remove('hidden');
+    el('pd-order-price').textContent = '';
+    el('pd-order-avail').textContent = post.bizAvail || '';
+    el('pd-order-btn').textContent   = '💬 Contact Seller';
+    el('pd-order-btn').onclick       = () => pdStartChat();
+  } else if(isMine){
+    orderBar.classList.remove('hidden');
+    el('pd-order-price').textContent = '';
+    el('pd-order-avail').textContent = '';
+    el('pd-order-btn').textContent   = '✏️ Edit / Options';
+    el('pd-order-btn').onclick       = () => { closePostDetail(); openPostOptions(postId); };
+  } else {
+    orderBar.classList.add('hidden');
+  }
+
+  // Show modal, scroll to top
+  const modal = el('post-detail-modal');
+  modal.classList.remove('hidden');
+  el('post-detail-body').scrollTop = 0;
+  document.body.style.overflow = 'hidden';
+}
+
+function closePostDetail(){
+  el('post-detail-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function pdToggleLike(){
+  if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in to like posts.'); return; }
+  reactPost(_pdPostId, '❤️');
+  const post = state.posts.find(p => p.id === _pdPostId);
+  if(!post) return;
+  const liked = (post.likes||[]).includes(state.session.id);
+  el('pd-like-icon').textContent = liked ? '❤️' : '🤍';
+  el('pd-like-btn').className = `flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold ${liked?'text-red-400':'text-gray-500'} hover:text-red-400 transition`;
+  el('pd-like-count').textContent = (post.likes||[]).length > 0 ? (post.likes||[]).length : '';
+}
+
+function pdToggleSave(){
+  toggleSavePost(_pdPostId);
+  const isSaved = (getSavedItems()||[]).some(x => x.id === _pdPostId);
+  el('pd-save-label').textContent = isSaved ? 'Saved' : 'Save';
+  el('pd-save-icon').setAttribute('fill', isSaved ? 'currentColor' : 'none');
+  el('pd-save-btn').className = `flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold ${isSaved?'text-amber-400':'text-gray-500'} hover:text-amber-400 transition`;
+}
+
+function pdSetQuickMsg(msg){
+  const inp = el('pd-chat-input');
+  if(inp){ inp.value = msg; inp.focus(); }
+}
+
+function pdStartChat(){
+  if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in to chat.'); return; }
+  const msg = el('pd-chat-input')?.value?.trim();
+  if(!msg){ showPopupNotif('⚠️','Empty','Please write a message first.'); return; }
+  const post = state.posts.find(p => p.id === _pdPostId);
+  if(!post) return;
+  const pairId = [state.session.id, post.authorId].sort().join('-');
+  if(!state.chats) state.chats = {};
+  if(!state.chats[pairId]) state.chats[pairId] = [];
+  state.chats[pairId].push({ from: state.session.id, text: msg, ts: Date.now() });
+  saveState();
+  closePostDetail();
+  navTo('chat');
+  const partner = state.users?.find(u => u.id === post.authorId);
+  setTimeout(() => openChatWith(pairId, partner?.name || post.authorName, partner?.role || post.authorRole), 150);
+}
+
+function pdRequestCallback(){
+  pdSetQuickMsg(`Hi, please call me back regarding your listing: ${el('pd-title')?.textContent || 'your post'}`);
+  pdStartChat();
+}
+
+function pdCallSeller(){
+  const post = state.posts.find(p => p.id === _pdPostId);
+  const user = state.users?.find(u => u.id === post?.authorId);
+  const phone = user?.phone;
+  if(phone){ window.location.href = `tel:${phone}`; }
+  else { showPopupNotif('📞','No Number','This seller has not added a phone number to their profile.'); }
+}
+
+function pdDoOrder(){
+  closePostDetail();
+  placeOrder(_pdPostId);
+}
+
+
+const ROLE_CHANGE_KEY = 'ememart_role_applications';
+
+function getRoleApplications(){ try{ return JSON.parse(localStorage.getItem(ROLE_CHANGE_KEY)||'[]'); }catch(e){ return []; } }
+function saveRoleApplications(a){ localStorage.setItem(ROLE_CHANGE_KEY, JSON.stringify(a)); }
+
+function initPostPanelForRole(){
+  const role = state.session?.role || 'user';
+  const switcher   = el('post-type-switcher');
+  const userNotice = el('post-user-notice');
+  const subtitle   = el('post-panel-subtitle');
+  const bizLabel   = el('post-biz-role-label');
+
+  // Hide all role-specific things first
+  switcher?.classList.add('hidden');
+  userNotice?.classList.add('hidden');
+
+  if(!state.session){
+    // Not signed in — just show update form
+    if(subtitle) subtitle.textContent = 'Sign in to post.';
+    setPostType('normal');
+    return;
+  }
+
+  if(role === 'user'){
+    // Regular users: updates only, show hint
+    userNotice?.classList.remove('hidden');
+    if(subtitle) subtitle.textContent = 'Share an update with your community.';
+    setPostType('normal');
+
+  } else if(role === 'vendor'){
+    // Vendor: Update OR Food listing
+    switcher?.classList.remove('hidden');
+    if(subtitle) subtitle.textContent = 'Post a food listing or share an update.';
+    if(bizLabel) bizLabel.textContent = '🍲 Food Listing';
+    // Force food category
+    const catSel = el('post-biz-cat');
+    if(catSel){ catSel.value = 'food'; handleBizCategoryChange(); }
+    setPostType('normal'); // default to update; vendor picks
+
+  } else if(role === 'rider'){
+    // Rider: Update OR Rider listing
+    switcher?.classList.remove('hidden');
+    if(subtitle) subtitle.textContent = 'Post a delivery listing or share an update.';
+    if(bizLabel) bizLabel.textContent = '🏍️ Delivery / Rider Listing';
+    const catSel = el('post-biz-cat');
+    if(catSel){ catSel.value = 'other'; handleBizCategoryChange(); }
+    // Pre-select rider type
+    const typeSel = el('biz-artisan-type');
+    if(typeSel) typeSel.value = 'rider';
+    // Hide the type select (role already defines it)
+    el('biz-type-wrapper')?.classList.add('hidden');
+    setPostType('normal');
+
+  } else if(role === 'artisan'){
+    // Artisan: Update OR Service listing
+    switcher?.classList.remove('hidden');
+    if(subtitle) subtitle.textContent = 'Post a service listing or share an update.';
+    if(bizLabel) bizLabel.textContent = '🔧 Service / Artisan Listing';
+    const catSel = el('post-biz-cat');
+    if(catSel){ catSel.value = 'other'; handleBizCategoryChange(); }
+    const typeSel = el('biz-artisan-type');
+    if(typeSel) typeSel.value = 'artisan';
+    el('biz-type-wrapper')?.classList.add('hidden');
+    setPostType('normal');
+  }
+}
+
+// Override showPanel to init post panel when navigating to it
+const _origShowPanel = window.showPanel;
+window.showPanel = function(panel){
+  _origShowPanel(panel);
+  if(panel === 'post') initPostPanelForRole();
+};
+
+// ============================================================
+// ROLE CHANGE APPLICATION
+// ============================================================
+function openRoleChangeModal(){
+  if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in first.'); return; }
+  const apps = getRoleApplications();
+  const pending = apps.find(a => a.userId === state.session.id && a.status === 'pending');
+  if(pending){
+    showPopupNotif('⏳','Application Pending',`You already have a pending application to become a ${pending.newRole}. Please wait for admin review.`);
+    return;
+  }
+  const currentEl = el('rc-current-role');
+  if(currentEl) currentEl.textContent = getRoleLabel(state.session.role || 'user');
+  // Remove current role from options
+  const sel = el('rc-new-role');
+  if(sel){
+    Array.from(sel.options).forEach(opt => {
+      opt.disabled = opt.value === (state.session.role || 'user');
+    });
+    sel.value = '';
+  }
+  if(el('rc-reason')) el('rc-reason').value = '';
+  if(el('rc-biz-name')) el('rc-biz-name').value = '';
+  el('role-change-modal').classList.remove('hidden');
+}
+
+function submitRoleChangeApplication(){
+  if(!state.session) return;
+  const newRole = el('rc-new-role')?.value;
+  const reason  = el('rc-reason')?.value.trim();
+  const bizName = el('rc-biz-name')?.value.trim();
+  if(!newRole){ showPopupNotif('⚠️','Select Role','Please select the role you want to apply for.'); return; }
+  if(!reason || reason.length < 10){ showPopupNotif('⚠️','Reason Required','Please explain why you want to change your role (at least 10 characters).'); return; }
+
+  const apps = getRoleApplications();
+  const app = {
+    id: 'rca-' + Date.now(),
+    userId: state.session.id,
+    userName: state.session.full_name || state.session.name || 'User',
+    currentRole: state.session.role || 'user',
+    newRole,
+    bizName,
+    reason,
+    status: 'pending',
+    ts: Date.now()
+  };
+  apps.unshift(app);
+  saveRoleApplications(apps);
+
+  el('role-change-modal').classList.add('hidden');
+  updateRoleChangeStatusBadge();
+  showPopupNotif('📨','Application Submitted',`Your application to become a ${getRoleLabel(newRole)} has been submitted. You will be notified when it's reviewed.`);
+}
+
+function getRoleLabel(role){
+  return { user:'Regular Buyer', vendor:'Food Vendor', rider:'Dispatch Rider', artisan:'Artisan / Service Provider', admin:'Admin' }[role] || role;
+}
+
+function updateRoleChangeStatusBadge(){
+  if(!state.session) return;
+  const apps = getRoleApplications();
+  const pending = apps.find(a => a.userId === state.session.id && a.status === 'pending');
+  const approved = apps.find(a => a.userId === state.session.id && a.status === 'approved' && !a.applied);
+  const statusEl = el('acc-role-change-status');
+  const roleEl   = el('acc-current-role-label');
+  if(roleEl) roleEl.textContent = getRoleLabel(state.session.role || 'user');
+
+  if(statusEl){
+    if(approved){
+      // Apply the approved role change
+      state.session.role = approved.newRole;
+      approved.applied = true;
+      saveRoleApplications(apps);
+      if(roleEl) roleEl.textContent = getRoleLabel(approved.newRole);
+      statusEl.classList.remove('hidden');
+      statusEl.className = 'bg-emerald-950/40 border border-emerald-900/40 rounded-xl p-3 text-[10px] text-emerald-400 font-bold';
+      statusEl.textContent = `✅ Role changed to ${getRoleLabel(approved.newRole)}! You can now post as a ${getRoleLabel(approved.newRole)}.`;
+      syncAccountDisplay();
+    } else if(pending){
+      statusEl.classList.remove('hidden');
+      statusEl.className = 'bg-amber-950/30 border border-amber-900/40 rounded-xl p-3 text-[10px] text-amber-400 font-bold';
+      statusEl.textContent = `⏳ Application pending: ${getRoleLabel(pending.currentRole)} → ${getRoleLabel(pending.newRole)}. Awaiting admin approval.`;
+    } else {
+      statusEl.classList.add('hidden');
+    }
+  }
+}
+
+// ============================================================
+// ADMIN: ROLE CHANGE APPROVAL PANEL (injected into admin panel)
+// ============================================================
+function renderAdminRoleApplications(){
+  const container = el('admin-role-apps-list');
+  if(!container) return;
+  const apps = getRoleApplications().filter(a => a.status === 'pending');
+  if(!apps.length){
+    container.innerHTML = '<div class="text-center py-4 text-xs text-gray-500 italic">No pending role applications.</div>';
+    return;
+  }
+  container.innerHTML = '';
+  apps.forEach(a => {
+    const div = document.createElement('div');
+    div.className = 'bg-gray-950 border border-gray-800 rounded-xl p-3 flex flex-col gap-2';
+    div.innerHTML = `
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <div class="text-xs font-black text-white">${a.userName}</div>
+          <div class="text-[9px] text-gray-400 mt-0.5">${getRoleLabel(a.currentRole)} → <span class="text-emerald-400 font-black">${getRoleLabel(a.newRole)}</span></div>
+          ${a.bizName ? `<div class="text-[9px] text-gray-500">Business: ${a.bizName}</div>` : ''}
+          <div class="text-[9px] text-gray-500 mt-1 italic">"${a.reason}"</div>
+          <div class="text-[8px] text-gray-600 mono mt-0.5">${new Date(a.ts).toLocaleString()}</div>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="approveRoleApplication('${a.id}')" class="btn-sm-primary flex-1 text-[10px] py-1.5">✅ Approve</button>
+        <button onclick="rejectRoleApplication('${a.id}')" class="flex-1 text-[10px] py-1.5 font-black text-red-400 border border-red-900 rounded-xl hover:bg-red-950 transition">❌ Reject</button>
+      </div>`;
+    container.appendChild(div);
+  });
+}
+
+function approveRoleApplication(appId){
+  const apps = getRoleApplications();
+  const app = apps.find(a => a.id === appId);
+  if(!app) return;
+  app.status = 'approved';
+  saveRoleApplications(apps);
+  // If the affected user is currently signed in, apply immediately
+  if(state.session && state.session.id === app.userId){
+    state.session.role = app.newRole;
+    app.applied = true;
+    saveRoleApplications(apps);
+    syncAccountDisplay();
+    initPostPanelForRole();
+    showPopupNotif('✅','Role Approved',`Your role has been changed to ${getRoleLabel(app.newRole)}!`);
+  } else {
+    showPopupNotif('✅','Approved',`${app.userName}'s application to become a ${getRoleLabel(app.newRole)} has been approved.`);
+  }
+  renderAdminRoleApplications();
+  updateRoleChangeStatusBadge();
+}
+
+function rejectRoleApplication(appId){
+  const apps = getRoleApplications();
+  const app = apps.find(a => a.id === appId);
+  if(!app) return;
+  app.status = 'rejected';
+  saveRoleApplications(apps);
+  showPopupNotif('❌','Rejected',`${app.userName}'s role change application has been rejected.`);
+  renderAdminRoleApplications();
+}
+
+// Run on load
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(updateRoleChangeStatusBadge, 800);
+});
+
+
+const AVATAR_KEY = 'ememart_avatars'; // {userId: base64DataUrl}
+
+function getAvatarStore(){
+  try{ return JSON.parse(localStorage.getItem(AVATAR_KEY)||'{}'); }catch(e){ return {}; }
+}
+function saveAvatar(userId, dataUrl){
+  const store = getAvatarStore();
+  store[userId] = dataUrl;
+  try{ localStorage.setItem(AVATAR_KEY, JSON.stringify(store)); }catch(e){}
+}
+function getAvatar(userId){
+  return getAvatarStore()[userId] || null;
+}
+
+function triggerAvatarUpload(){
+  el('avatar-upload-input')?.click();
+}
+
+function handleAvatarUpload(event){
+  const file = event.target.files?.[0];
+  if(!file || !state.session) return;
+  if(file.size > 2*1024*1024){
+    showPopupNotif('⚠️','File Too Large','Please choose an image under 2 MB.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const dataUrl = e.target.result;
+    saveAvatar(state.session.id, dataUrl);
+    renderAccAvatar();
+    showPopupNotif('📸','Profile Picture Updated','Your profile picture has been saved!');
+  };
+  reader.readAsDataURL(file);
+  // Reset input so same file can be picked again
+  event.target.value = '';
+}
+
+function renderAccAvatar(){
+  const s = state.session;
+  if(!s) return;
+  const el2 = el('acc-avatar');
+  if(!el2) return;
+  const photo = getAvatar(s.id);
+  if(photo){
+    el2.innerHTML = `<img src="${photo}" alt="Profile" class="w-full h-full object-cover">`;
+  } else {
+    el2.innerHTML = (s.full_name||s.name||'U').charAt(0).toUpperCase();
+  }
+}
+
+function renderVpAvatar(userId, userName){
+  const vpAv = el('vp-avatar');
+  if(!vpAv) return;
+  const photo = getAvatar(userId);
+  if(photo){
+    vpAv.innerHTML = `<img src="${photo}" alt="${userName}" class="w-full h-full object-cover">`;
+    vpAv.style.background = 'transparent';
+  } else {
+    vpAv.innerHTML = (userName||'?').charAt(0).toUpperCase();
+    vpAv.style.background = '';
+  }
+}
+
+function renderPostCardAvatar(userId, userName, size='w-7 h-7'){
+  const photo = getAvatar(userId);
+  if(photo){
+    return `<img src="${photo}" alt="${userName}" class="${size} rounded-full object-cover border border-gray-700 flex-shrink-0">`;
+  }
+  const initials = (userName||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const colors = ['bg-emerald-700','bg-sky-700','bg-amber-700','bg-purple-700','bg-rose-700'];
+  const color = colors[(userName||'').charCodeAt(0) % colors.length];
+  return `<div class="${size} ${color} rounded-full flex items-center justify-center text-[9px] font-black text-white flex-shrink-0 border border-gray-700">${initials}</div>`;
+}
+
+
 function syncAccountDisplay(){
   const s = state.session;
   const loggedIn = !!s;
@@ -7457,8 +8262,9 @@ function syncAccountDisplay(){
     const stateEl = el('acc-state');    if(stateEl) stateEl.textContent = s.state || '—';
     const numEl   = el('acc-num');      if(numEl)   numEl.textContent   = s.accountNum || ('EM-' + s.id);
     const balEl   = el('acc-balance');  if(balEl)   balEl.textContent   = fmtCurrency(s.balance||0);
-    const avatarEl= el('acc-avatar');   if(avatarEl) avatarEl.textContent = (s.full_name||s.name||'U').charAt(0).toUpperCase();
+    const avatarEl= el('acc-avatar');   if(avatarEl) renderAccAvatar();
     const roleLbl = el('acc-role-label'); if(roleLbl) roleLbl.textContent = (s.role||'user') + ' profile';
+    updateRoleChangeStatusBadge();
     const vendorPortal = el('acc-vendor-portal'); if(vendorPortal) vendorPortal.classList.toggle('hidden', s.role !== 'vendor');
     const pinBtn = el('acc-pin-btn'); const pinStatus = el('acc-pin-status');
     if(pinBtn && pinStatus){
@@ -7637,16 +8443,70 @@ async function setTransactionPin(){
 // ============================================================
 function sharePost(postId){
   const post=state.posts.find(p=>p.id===postId); if(!post)return;
-  const text=post.price
+  const shareText=post.price
     ?`🛒 ${post.foodName||post.text||'Check this out'} — ₦${fmt(post.price)} by ${post.authorName} on Ememart!\nhttps://ememart.ng/post/${postId}`
     : `📢 ${(post.text||'').slice(0,100)} — via ${post.authorName} on Ememart!\nhttps://ememart.ng/post/${postId}`;
-  if(navigator.share){
-    navigator.share({title:'Ememart Post',text,url:`https://ememart.ng/post/${postId}`}).catch(()=>{});
-  } else {
-    navigator.clipboard?.writeText(text).catch(()=>{});
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,'_blank');
-    showPopupNotif('↗️','Shared!','Post opened in WhatsApp. Link also copied to clipboard.');
+  const shareUrl=`https://ememart.ng/post/${postId}`;
+  const encodedText=encodeURIComponent(shareText);
+  const encodedUrl=encodeURIComponent(shareUrl);
+
+  // Build and show share sheet modal
+  let modal=el('share-sheet-modal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='share-sheet-modal';
+    modal.className='modal-overlay hidden';
+    modal.onclick=function(e){if(e.target===this)this.classList.add('hidden');};
+    modal.innerHTML=`<div class="modal-sheet flex flex-col gap-4">
+      <div class="flex justify-between items-center">
+        <h3 class="text-base font-black text-white">↗️ Share Post</h3>
+        <button onclick="el('share-sheet-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black">✕</button>
+      </div>
+      <div id="share-sheet-preview" class="bg-gray-950 border border-gray-800 rounded-xl p-3 text-[11px] text-gray-300 leading-relaxed line-clamp-3"></div>
+      <div class="grid grid-cols-4 gap-3" id="share-sheet-platforms"></div>
+      <button id="share-copy-btn" class="btn-sm-outline py-3 text-xs">📋 Copy Link</button>
+    </div>`;
+    document.body.appendChild(modal);
   }
+
+  // Fill preview
+  const prev=el('share-sheet-preview');
+  if(prev) prev.textContent=shareText.slice(0,120)+(shareText.length>120?'…':'');
+
+  // Copy button
+  const copyBtn=el('share-copy-btn');
+  if(copyBtn){
+    copyBtn.onclick=()=>{
+      navigator.clipboard?.writeText(shareText).then(()=>{
+        copyBtn.textContent='✅ Copied!';
+        setTimeout(()=>{copyBtn.textContent='📋 Copy Link';},2000);
+      }).catch(()=>{ copyBtn.textContent='📋 Copy Link'; });
+    };
+  }
+
+  // Platform grid
+  const grid=el('share-sheet-platforms');
+  if(grid){
+    const platforms=[
+      {icon:'<svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#25D366"/><path d="M23.5 8.5A10.5 10.5 0 0 0 7.3 22.8L6 26l3.3-1.3A10.5 10.5 0 1 0 23.5 8.5zm-7.5 16a8.7 8.7 0 0 1-4.4-1.2l-.3-.2-3.1 1.2 1.2-3-.2-.3A8.8 8.8 0 1 1 16 24.5zm4.8-6.6c-.3-.1-1.6-.8-1.8-.9-.2-.1-.4-.1-.6.1l-.8.9c-.1.2-.3.2-.5.1a7 7 0 0 1-2-1.2 7.5 7.5 0 0 1-1.4-1.7c-.1-.2 0-.4.1-.5l.5-.5c.1-.1.1-.3.2-.4l-.9-2.1c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.2-.9.9-.9 2.1s.9 2.4 1 2.6a11 11 0 0 0 4.6 3.9c.6.3 1.1.4 1.5.5.6.1 1.2.1 1.6-.1.5-.2 1.6-.6 1.8-1.3.2-.6.2-1.1.1-1.2l-.6-.2z" fill="#fff"/></svg>',label:'WhatsApp',url:`https://wa.me/?text=${encodedText}`},
+      {icon:'<svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#0088CC"/><path d="M6 16c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10S6 21.5 6 16zm13.6-3.1L12 16l7.6 1.2-7.6-7.6 7.6 7.3zm0 0l-7.6 7.3L21.4 16l-1.8-3.1z" fill="none"/><path d="M8 16.3l3.5-1.2L13 17l-2.2.8L8 16.3zm3.5-1.2l6-2.1-2 3.5-4-1.4zm6-2.1l2.2 1-.8 2.4-1.4-3.4zm2.2 1l.9 2.8-3.1-.4 2.2-2.4zM13 17l4 1.4-.5 2.2L13 17zm4 1.4l3.1.4-2.6 1.8-.5-2.2z" fill="#fff"/></svg>',label:'Telegram',url:`https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`},
+      {icon:'<svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#1877F2"/><path d="M22 16h-3v-2c0-.8.4-1 1-1h2V10h-3c-2.2 0-3 1.8-3 3v3h-2v3h2v8h3v-8h2l1-3z" fill="#fff"/></svg>',label:'Facebook',url:`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`},
+      {icon:'<svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#000"/><path d="M18.2 14.8L24 8h-1.4l-5 5.8L13.2 8H8l6.1 8.9L8 24h1.4l5.3-6.1L19 24h5.2l-6-9.2zm-1.9 2.2l-.6-.9-5-7.1H12.6l4 5.7.6.9 5.2 7.4h-2l-4.2-5.9-.1-.1z" fill="#fff"/></svg>',label:'Twitter/X',url:`https://twitter.com/intent/tweet?text=${encodedText}`},
+      {icon:'<svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#0A66C2"/><path d="M12 13h-2v8h2v-8zm-1-3.5a1.3 1.3 0 1 1 0 2.6 1.3 1.3 0 0 1 0-2.6zM22 21h-2v-4c0-1-.3-2-1.5-2S17 16 17 17v4h-2v-8h2v1.1c.4-.7 1.3-1.3 2.5-1.3C21.5 12.8 22 14.4 22 16v5z" fill="#fff"/></svg>',label:'LinkedIn',url:`https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`},
+      {icon:'<svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#FF4500"/><path d="M26 16.1a2.2 2.2 0 0 0-3.7-1.6c-.9-.6-2.1-1-3.5-1.1l.6-2.8 2 .4a1.6 1.6 0 1 0 1.7-1.7 1.6 1.6 0 0 0-1.5 1l-2.2-.5c-.1 0-.3.1-.3.2l-.7 3.2c-1.4 0-2.6.4-3.5 1.1a2.2 2.2 0 0 0-3.2 3 4.2 4.2 0 0 0 0 .6c0 3 3.4 5.4 7.5 5.4s7.5-2.4 7.5-5.4a4.2 4.2 0 0 0 0-.5A2.2 2.2 0 0 0 26 16zm-12.4 1.3a1.3 1.3 0 1 1 2.6 0 1.3 1.3 0 0 1-2.6 0zm7 3.5c-.9.8-2.2 1.2-3.6 1.2-1.4 0-2.7-.4-3.6-1.2a.4.4 0 0 1 .5-.6c.7.7 1.9 1 3.1 1 1.2 0 2.4-.3 3.1-1a.4.4 0 0 1 .5.6zm-.2-2.2a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z" fill="#fff"/></svg>',label:'Reddit',url:`https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedText}`},
+      {icon:'<svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#25D366" opacity=".2"/><path d="M20 12H12a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h1v2l3-2h4a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1z" stroke="#34d399" stroke-width="1.5" fill="none"/><circle cx="14.5" cy="16" r=".8" fill="#34d399"/><circle cx="16" cy="16" r=".8" fill="#34d399"/><circle cx="17.5" cy="16" r=".8" fill="#34d399"/></svg>',label:'SMS',url:`sms:?body=${encodedText}`},
+      {icon:'<svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#EA4335" opacity=".15"/><path d="M8 11l8 6 8-6" stroke="#EA4335" stroke-width="1.5" fill="none"/><rect x="8" y="10" width="16" height="12" rx="2" stroke="#EA4335" stroke-width="1.5" fill="none"/></svg>',label:'Email',url:`mailto:?subject=Check this on Ememart&body=${encodedText}`},
+    ];
+    grid.innerHTML=platforms.map(p=>`
+      <a href="${p.url}" target="_blank" rel="noopener"
+         onclick="el('share-sheet-modal').classList.add('hidden')"
+         class="flex flex-col items-center gap-1.5 cursor-pointer">
+        ${p.icon}
+        <span class="text-[9px] font-black text-gray-400 text-center">${p.label}</span>
+      </a>`).join('');
+  }
+
+  modal.classList.remove('hidden');
 }
 
 // ============================================================
@@ -9360,7 +10220,13 @@ window.processTransfer = async function(){
 }
 
 // Deposit — prompt PIN setup on first deposit
-const _origDoDeposit = window.doDeposit;
+// Fund-wallet original opener — open the deposit modal and refresh balance display
+const _origDoDeposit = function(){
+  if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in to fund your wallet.'); return; }
+  const depBal = el('dep-balance-display');
+  if(depBal) depBal.textContent = fmtCurrency(state.session.balance||0);
+  el('deposit-modal').classList.remove('hidden');
+};
 window.doDeposit = function(){
   if(!pinIsSet()) showPinSetup();
   _origDoDeposit?.();
@@ -10772,9 +11638,61 @@ function completeGoogleSignInDemo(payload){
     <div class="flex flex-col gap-1">
       <label class="label-sm">Bank Name</label>
       <select id="withdraw-bank" class="inp text-xs">
-        <option value="">Select bank...</option>
-        <option>Access Bank</option><option>GTBank</option><option>First Bank</option><option>UBA</option>
-        <option>Zenith Bank</option><option>Opay</option><option>Kuda Bank</option><option>Moniepoint</option>
+        <option value="">— Select bank —</option>
+        <optgroup label="💚 Mobile Money & Fintech">
+          <option>PalmPay</option>
+          <option>MTN MoMo (Mobile Money)</option>
+          <option>SmartCash (Airtel Money)</option>
+          <option>OPay</option>
+          <option>Moniepoint</option>
+          <option>Kuda Bank</option>
+          <option>Carbon (One Finance)</option>
+          <option>FairMoney</option>
+          <option>Chipper Cash</option>
+          <option>VFD Microfinance Bank</option>
+          <option>Rubies Bank</option>
+          <option>Sparkle Bank</option>
+          <option>Cowrywise</option>
+          <option>PiggyVest (Wealth.ng)</option>
+          <option>Raven Bank</option>
+          <option>Mint Finex MFB</option>
+        </optgroup>
+        <optgroup label="🏦 Major Commercial Banks">
+          <option>Access Bank</option>
+          <option>GTBank (Guaranty Trust)</option>
+          <option>Zenith Bank</option>
+          <option>First Bank of Nigeria</option>
+          <option>UBA (United Bank for Africa)</option>
+          <option>Sterling Bank</option>
+          <option>Polaris Bank</option>
+          <option>Fidelity Bank</option>
+          <option>Union Bank</option>
+          <option>Wema Bank (ALAT)</option>
+          <option>Stanbic IBTC Bank</option>
+          <option>Standard Chartered</option>
+          <option>Citibank Nigeria</option>
+          <option>Ecobank Nigeria</option>
+          <option>Heritage Bank</option>
+          <option>Keystone Bank</option>
+          <option>Unity Bank</option>
+          <option>Titan Trust Bank</option>
+          <option>Providus Bank</option>
+          <option>Globus Bank</option>
+          <option>First City Monument Bank (FCMB)</option>
+          <option>Jaiz Bank</option>
+          <option>SunTrust Bank</option>
+          <option>Coronation Bank</option>
+          <option>Parallex Bank</option>
+        </optgroup>
+        <optgroup label="🏧 Microfinance & Others">
+          <option>LAPO Microfinance Bank</option>
+          <option>AB Microfinance Bank</option>
+          <option>Accion Microfinance Bank</option>
+          <option>NPF Microfinance Bank</option>
+          <option>Mutual Trust Microfinance Bank</option>
+          <option>Fina Trust Microfinance Bank</option>
+          <option>Microvis Microfinance Bank</option>
+        </optgroup>
       </select>
     </div>
     <div class="flex flex-col gap-1">
@@ -12266,13 +13184,14 @@ function unsuspendVendor(vendorId){
 function switchAdminTab(tab){
   document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
   el('atab-'+tab)?.classList.add('active');
-  ['overview','users','posts','kyc','disputes','fees','notify','earnings'].forEach(t => {
+  ['overview','users','posts','roles','kyc','disputes','fees','notify','earnings'].forEach(t => {
     el('asub-'+t)?.classList.toggle('hidden', t !== tab);
   });
   const renderers = {
     overview: renderAdminOverview,
     users:    renderAdminUsers,
     posts:    renderAdminPosts,
+    roles:    renderAdminRoleApplications,
     kyc:      renderAdminKYC,
     disputes: renderAdminDisputes,
     fees:     renderAdminFees,
@@ -14644,6 +15563,200 @@ function verifyPinPress(digit){
   </div>
 </div>
 
+<!-- ROLE CHANGE APPLICATION MODAL -->
+<div id="role-change-modal" class="modal-overlay hidden" style="align-items:flex-start;padding-top:16px;" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal-sheet flex flex-col gap-4">
+    <div class="flex justify-between items-center">
+      <div>
+        <h3 class="text-base font-black text-white">🎭 Apply to Change Role</h3>
+        <p class="text-[10px] text-gray-400 mt-0.5">Your request will be reviewed by an admin</p>
+      </div>
+      <button onclick="el('role-change-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black">✕</button>
+    </div>
+    <div class="bg-amber-950/30 border border-amber-900/40 rounded-xl p-3 text-[10px] text-amber-300 leading-relaxed">
+      ⚠️ Each account can only hold <strong>one role</strong>. Your current role will be replaced once your application is approved. This cannot be undone without another application.
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="label-sm">Current Role</label>
+      <div id="rc-current-role" class="inp bg-gray-950 text-gray-500 cursor-not-allowed">—</div>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="label-sm">Requested Role*</label>
+      <select id="rc-new-role" class="inp">
+        <option value="">— Select new role —</option>
+        <option value="user">🛍️ Regular Buyer</option>
+        <option value="vendor">🍲 Food Vendor</option>
+        <option value="rider">🏍️ Dispatch Rider</option>
+        <option value="artisan">🔧 Artisan / Service Provider</option>
+      </select>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="label-sm">Reason for Change*</label>
+      <textarea id="rc-reason" rows="3" placeholder="Explain why you want to change your role..." class="inp resize-none"></textarea>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label class="label-sm">Business Name (if applicable)</label>
+      <input type="text" id="rc-biz-name" placeholder="e.g. Ada Kitchens, Swift Rides..." class="inp">
+    </div>
+    <button onclick="submitRoleChangeApplication()" class="btn-primary py-3 font-black">📨 Submit Application</button>
+  </div>
+</div>
+
+<!-- POST DETAIL MODAL -->
+<div id="post-detail-modal" class="fixed inset-0 z-50 hidden flex flex-col bg-gray-950" style="overscroll-behavior:contain;">
+  <!-- Sticky Header -->
+  <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-950 flex-shrink-0" style="padding-top:max(12px,env(safe-area-inset-top))">
+    <button onclick="closePostDetail()" class="flex items-center gap-1.5 text-gray-400 hover:text-white transition">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      <span class="text-sm font-bold">Back</span>
+    </button>
+    <span class="text-sm font-black text-white">Post Detail</span>
+    <button onclick="sharePost(_pdPostId)" class="text-gray-400 hover:text-white transition">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+    </button>
+  </div>
+
+  <!-- Scrollable Body -->
+  <div class="flex-1 overflow-y-auto pb-24" id="post-detail-body" style="-webkit-overflow-scrolling:touch;">
+
+    <!-- 1. Post Images Gallery -->
+    <div id="pd-gallery" class="w-full bg-gray-900 hidden" style="height:260px;position:relative;">
+      <div id="pd-gallery-inner" class="w-full h-full flex overflow-x-auto snap-x snap-mandatory" style="scrollbar-width:none;-webkit-overflow-scrolling:touch;"></div>
+      <div id="pd-gallery-dots" class="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5"></div>
+    </div>
+
+    <!-- 2. Seller Profile Card -->
+    <div id="pd-seller-card" class="mx-3 mt-3 bg-gray-900 border border-gray-800 rounded-2xl p-4 flex gap-3 items-start cursor-pointer active:opacity-80 transition" onclick="openVendorProfile(_pdAuthorId)">
+      <div id="pd-seller-avatar" class="w-14 h-14 rounded-2xl bg-emerald-700 flex items-center justify-center text-2xl font-black text-white flex-shrink-0 overflow-hidden border-2 border-gray-700"></div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span id="pd-seller-name" class="font-black text-white text-sm"></span>
+          <span id="pd-seller-verified" class="hidden text-[9px] bg-emerald-900/50 text-emerald-400 border border-emerald-800/50 px-1.5 py-0.5 rounded-full font-black">✓ VERIFIED</span>
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap mt-0.5">
+          <span id="pd-seller-role-badge" class="text-[8px] font-black px-1.5 py-0.5 rounded-full border"></span>
+          <span id="pd-seller-rating" class="text-[10px] text-amber-400 font-bold"></span>
+        </div>
+        <div class="text-[10px] text-gray-400 flex items-center gap-1 mt-1 flex-wrap">
+          <span id="pd-seller-location"></span>
+          <span id="pd-seller-dot" class="hidden">·</span>
+          <span id="pd-seller-joined" class="text-gray-500"></span>
+        </div>
+        <div id="pd-seller-online" class="flex items-center gap-1 mt-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+          <span class="text-[9px] text-emerald-400 font-bold">Online</span>
+        </div>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 mt-1"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+
+    <!-- 3. Post Content -->
+    <div class="mx-3 mt-3 bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+      <!-- Title + badges -->
+      <div>
+        <div class="flex items-start gap-2 flex-wrap mb-1">
+          <span id="pd-role-badge" class="text-[8px] font-black px-1.5 py-0.5 rounded-full border"></span>
+          <span id="pd-escrow-badge" class="hidden text-[8px] font-black text-purple-300 bg-purple-950/50 px-1.5 py-0.5 rounded-full border border-purple-800/50">🔐 Escrow</span>
+          <span id="pd-flash-badge" class="hidden text-[8px] font-black text-white bg-red-600 px-1.5 py-0.5 rounded-full">⚡ FLASH</span>
+        </div>
+        <h2 id="pd-title" class="text-lg font-black text-white leading-tight"></h2>
+        <div id="pd-time" class="text-[10px] text-gray-500 mt-0.5"></div>
+      </div>
+
+      <!-- Price + availability -->
+      <div id="pd-price-row" class="flex items-center justify-between gap-2 flex-wrap"></div>
+
+      <!-- Description -->
+      <p id="pd-text" class="text-sm text-gray-300 leading-relaxed"></p>
+
+      <!-- Extras / ingredients -->
+      <div id="pd-extras" class="hidden text-xs text-gray-400"></div>
+      <div id="pd-ingredients" class="hidden flex-wrap gap-1.5 pt-1 border-t border-gray-800/50"></div>
+
+      <!-- Availability hours -->
+      <div id="pd-avail-hours" class="hidden text-xs text-gray-400 flex items-center gap-1.5">
+        <span>🕐</span><span id="pd-avail-text"></span>
+      </div>
+
+      <!-- Expiry bar -->
+      <div id="pd-expiry-bar" class="hidden flex flex-col gap-1">
+        <div class="timer-bar w-full"><div id="pd-expiry-fill" class="h-full rounded-full transition-all bg-emerald-500"></div></div>
+        <div id="pd-expiry-label" class="text-[10px] mono text-gray-400 text-right"></div>
+      </div>
+    </div>
+
+    <!-- 4. Like · Comment · Share · Save row -->
+    <div class="mx-3 mt-3 bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+      <div class="flex items-center border-b border-gray-800" id="pd-actions-row">
+        <!-- Like -->
+        <button id="pd-like-btn" onclick="pdToggleLike()" class="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-red-400 transition">
+          <span id="pd-like-icon" class="text-base">🤍</span>
+          <span>Like</span>
+          <span id="pd-like-count" class="text-gray-600 text-[10px]"></span>
+        </button>
+        <div class="w-px h-6 bg-gray-800"></div>
+        <!-- Comment -->
+        <button onclick="openCommentsModal(_pdPostId)" class="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-sky-400 transition">
+          <span class="text-base">💬</span>
+          <span>Comment</span>
+          <span id="pd-cmt-count" class="text-gray-600 text-[10px]"></span>
+        </button>
+        <div class="w-px h-6 bg-gray-800"></div>
+        <!-- Share -->
+        <button onclick="sharePost(_pdPostId)" class="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-emerald-400 transition">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          <span>Share</span>
+        </button>
+        <div class="w-px h-6 bg-gray-800"></div>
+        <!-- Save -->
+        <button id="pd-save-btn" onclick="pdToggleSave()" class="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-amber-400 transition">
+          <svg id="pd-save-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          <span id="pd-save-label">Save</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 5. Contact the Seller (hidden for own posts & non-business) -->
+    <div id="pd-contact-section" class="mx-3 mt-3 flex flex-col gap-3 hidden">
+      <!-- Call / Callback row -->
+      <div class="flex gap-2">
+        <button onclick="pdRequestCallback()" class="flex-1 py-3 rounded-2xl border-2 border-emerald-600 text-emerald-400 font-black text-xs hover:bg-emerald-950/40 transition">Request call back</button>
+        <button onclick="pdCallSeller()" class="flex-1 py-3 rounded-2xl bg-emerald-500 text-gray-900 font-black text-xs flex items-center justify-center gap-2 hover:bg-emerald-400 transition">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+          Call
+        </button>
+      </div>
+
+      <!-- Chat panel -->
+      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+        <div class="text-sm font-black text-white">Chat with the seller</div>
+        <!-- Quick chips -->
+        <div class="flex flex-wrap gap-2">
+          <button onclick="pdSetQuickMsg('Make an offer')" class="px-3 py-1.5 rounded-full border border-emerald-700 text-emerald-400 text-xs font-bold hover:bg-emerald-950/40 transition">Make an offer</button>
+          <button onclick="pdSetQuickMsg('Is this available?')" class="px-3 py-1.5 rounded-full border border-emerald-700 text-emerald-400 text-xs font-bold hover:bg-emerald-950/40 transition">Is this available?</button>
+          <button onclick="pdSetQuickMsg('Last price?')" class="px-3 py-1.5 rounded-full border border-emerald-700 text-emerald-400 text-xs font-bold hover:bg-emerald-950/40 transition">Last price?</button>
+        </div>
+        <!-- Message input -->
+        <textarea id="pd-chat-input" rows="3" placeholder="Write your message here" class="inp resize-none text-sm"></textarea>
+        <!-- Start chat button -->
+        <button onclick="pdStartChat()" class="w-full py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-gray-900 font-black text-sm transition">Start chat</button>
+      </div>
+    </div>
+
+    <!-- Spacer so content clears sticky Order button -->
+    <div class="h-8"></div>
+  </div>
+
+  <!-- Sticky Bottom: Order Now -->
+  <div id="pd-order-bar" class="hidden absolute bottom-0 left-0 right-0 bg-gray-950 border-t border-gray-800 px-4 py-3 flex gap-3" style="padding-bottom:max(12px,env(safe-area-inset-bottom))">
+    <div class="flex flex-col justify-center flex-1">
+      <div id="pd-order-price" class="text-emerald-400 font-black text-base mono"></div>
+      <div id="pd-order-avail" class="text-[10px] text-gray-400"></div>
+    </div>
+    <button id="pd-order-btn" onclick="pdDoOrder()" class="btn-primary px-6 py-3 text-sm font-black rounded-2xl flex-shrink-0">🛒 Order Now</button>
+  </div>
+</div>
+
 <!-- GROUP ORDER MODAL -->
 <div id="group-order-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal-sheet flex flex-col gap-4">
@@ -15079,13 +16192,7 @@ function reactPost(postId, emoji){
   renderFeed();
 }
 
-function sharePostMenu(postId){
-  const post=state.posts.find(p=>p.id===postId);
-  if(!post) return;
-  const text=post.isFood?`🍲 ${post.foodName} — ₦${fmt(post.flashSale?post.flashPrice:post.price)} by ${post.authorName} on Ememart!\nhttps://ememart.ng/post/${postId}`:`📢 ${(post.text||'').slice(0,100)} — via ${post.authorName}\nhttps://ememart.ng/post/${postId}`;
-  if(navigator.share){ navigator.share({title:'Ememart Post',text,url:`https://ememart.ng/post/${postId}`}).catch(()=>{}); }
-  else { navigator.clipboard?.writeText(text).catch(()=>{}); window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,'_blank'); showPopupNotif('↗️','Shared!','Post link opened in WhatsApp.'); }
-}
+function sharePostMenu(postId){ sharePost(postId); }
 
 function openChangePinFlow(){
   if(!isPinSet()){ showPinSetupPrompt(false); return; }
