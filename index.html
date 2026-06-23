@@ -813,12 +813,11 @@ document.addEventListener('click', function askOnce(){
 <div id="home-panel" class="panel active gap-3">
   <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex justify-between items-center">
     <div>
-      <div id="session-label" class="text-xs font-bold text-gray-400 mono">🔴 Guest</div>
-      <div id="balance-row" class="hidden flex items-center gap-2 mt-1">
+      <div class="text-xs font-bold text-gray-400 mono">Available Balance</div>
+      <div id="balance-row" class="flex items-center gap-2 mt-1">
         <div id="session-balance" class="text-xl font-black text-white mono">₦0.00</div>
         <button onclick="toggleBalanceVisibility()" id="balance-eye-btn" class="text-gray-500 hover:text-emerald-400 transition text-base leading-none" title="Show/hide balance">👁️</button>
       </div>
-      <div id="session-location" class="hidden text-[10px] text-emerald-400 mt-0.5 flex items-center gap-1"><svg width="14" height="16" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;flex-shrink:0"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg> <span id="session-location-text">—</span></div>
     </div>
     <div class="flex flex-col gap-2 items-end">
       <span id="role-badge" class="hidden bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[9px] px-2 py-0.5 rounded-lg mono font-black uppercase"></span>
@@ -3674,12 +3673,8 @@ async function handleSignOut(){
   try { await apiPost('auth.php','logout',{}); } catch(e){}
   state.session = null;
   localStorage.removeItem('ememart_user');
-  el('session-label').textContent = '🔴 Guest';
-  el('session-balance').textContent = '₦0.00';
-
-  // Hide balance and location when logged out
-  el('balance-row')?.classList.add('hidden');
-  el('session-location')?.classList.add('hidden');
+  const sbSignout = el('session-balance');
+  if(sbSignout) sbSignout.textContent = '₦0.00';
 
   const guestBtn = el('guest-signin-btn');
   const walletActions = el('wallet-actions');
@@ -8278,27 +8273,14 @@ function syncAccountDisplay(){
     }
   }
 
-  if(!el('session-label')) return;
+  if(!el('session-balance')) return;
 
-  // Label
-  el('session-label').textContent = loggedIn
-    ? `🟢 ${s.full_name || s.name || 'User'}`
-    : '🔴 Guest';
-
-  // Balance row — only show when logged in
+  // Balance row — always visible, shows ₦0.00 when logged out
   const balRow = el('balance-row');
-  if(balRow) balRow.classList.toggle('hidden', !loggedIn);
+  if(balRow) balRow.classList.remove('hidden');
   const sbEl = el('session-balance');
   if(sbEl) sbEl.textContent = loggedIn ? fmtCurrency(s.balance||0) : '₦0.00';
   applyBalanceVisibility && applyBalanceVisibility();
-
-  // Location — only show when logged in
-  const locEl = el('session-location');
-  if(locEl) locEl.classList.toggle('hidden', !loggedIn);
-  const locText = el('session-location-text');
-  if(locText) locText.textContent = loggedIn
-    ? [s.town, s.lga, s.state].filter(Boolean).join(', ') || '—'
-    : '—';
 
   // Guest / wallet action buttons
   const guestBtn = el('guest-signin-btn');
