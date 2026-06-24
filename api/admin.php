@@ -232,6 +232,107 @@ switch ($action) {
         respond(true, "Password reset successfully. You can now sign in.");
         break;
 
+    // ----------------------------------------------------------
+    // LIST ROLE APPLICATIONS — fetch pending applications for review
+    // ----------------------------------------------------------
+    case 'list_role_applications':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'role_applications') && !hasPermission($admin, 'users')) {
+            respond(false, "You don't have permission to review role applications.");
+        }
+
+        $status = clean($_GET['status'] ?? $body['status'] ?? 'pending');
+        $allowed = ['pending', 'approved', 'rejected', 'all'];
+        if (!in_array($status, $allowed)) $status = 'pending';
+
+        $sql = "
+            SELECT a.id, a.user_id, a.current_role, a.new_role, a.business_name,
+                   a.reason, a.status, a.admin_note, a.created_at, a.reviewed_at,
+                   u.full_name, u.email, u.phone
+            FROM role_applications a
+            JOIN users u ON u.id = a.user_id
+        ";
+        if ($status !== 'all') {
+            $stmt = $pdo->prepare($sql . " WHERE a.status = ? ORDER BY a.created_at DESC");
+            $stmt->execute([$status]);
+        } else {
+            $stmt = $pdo->query($sql . " ORDER BY a.created_at DESC");
+        }
+        $applications = $stmt->fetchAll();
+
+        respond(true, "Applications fetched.", ["applications" => $applications]);
+        break;
+
+    // ----------------------------------------------------------
+    // APPROVE ROLE APPLICATION — change the user's actual role
+    // ----------------------------------------------------------
+    case 'approve_role_application':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'role_applications') && !hasPermission($admin, 'users')) {
+            respond(false, "You don't have permission to approve role applications.");
+        }
+
+        $app_id = (int)($body['app_id'] ?? 0);
+        if (!$app_id) respond(false, "Application ID is required.");
+
+        $stmt = $pdo->prepare("SELECT user_id, new_role FROM role_applications WHERE id = ? LIMIT 1");
+        $stmt->execute([$app_id]);
+        $app = $stmt->fetch();
+        if (!$app) respond(false, "Application not found.");
+
+        $pdo->prepare("
+            UPDATE role_applications
+            SET status='approved', reviewed_by=?, reviewed_at=NOW()
+            WHERE id=?
+        ")->execute([$admin['user_id'], $app_id]);
+
+        $pdo->prepare("UPDATE users SET role=? WHERE id=?")
+            ->execute([$app['new_role'], $app['user_id']]);
+
+        $pdo->prepare("
+            INSERT INTO notifications (user_id, title, message, type, created_at)
+            VALUES (?, 'Role Approved ✅', ?, 'role_change', NOW())
+        ")->execute([$app['user_id'], "Your application to become a " . ucfirst($app['new_role']) . " has been approved!"]);
+
+        logAdminAction($pdo, $admin['user_id'], 'approve_role_application', 'role_application', $app_id);
+
+        respond(true, "Role application approved. User is now a " . ucfirst($app['new_role']) . ".");
+        break;
+
+    // ----------------------------------------------------------
+    // REJECT ROLE APPLICATION
+    // ----------------------------------------------------------
+    case 'reject_role_application':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'role_applications') && !hasPermission($admin, 'users')) {
+            respond(false, "You don't have permission to reject role applications.");
+        }
+
+        $app_id = (int)($body['app_id'] ?? 0);
+        $reason = clean($body['reason'] ?? 'Application did not meet requirements.');
+        if (!$app_id) respond(false, "Application ID is required.");
+
+        $stmt = $pdo->prepare("SELECT user_id, new_role FROM role_applications WHERE id = ? LIMIT 1");
+        $stmt->execute([$app_id]);
+        $app = $stmt->fetch();
+        if (!$app) respond(false, "Application not found.");
+
+        $pdo->prepare("
+            UPDATE role_applications
+            SET status='rejected', admin_note=?, reviewed_by=?, reviewed_at=NOW()
+            WHERE id=?
+        ")->execute([$reason, $admin['user_id'], $app_id]);
+
+        $pdo->prepare("
+            INSERT INTO notifications (user_id, title, message, type, created_at)
+            VALUES (?, 'Role Application Rejected ❌', ?, 'role_change', NOW())
+        ")->execute([$app['user_id'], "Your application to become a " . ucfirst($app['new_role']) . " was rejected: $reason"]);
+
+        logAdminAction($pdo, $admin['user_id'], 'reject_role_application', 'role_application', $app_id, $reason);
+
+        respond(true, "Role application rejected.");
+        break;
+
     case 'logout':
         $admin_id = (int)($_SESSION['admin_id'] ?? 0);
         if ($admin_id) logAdminAction($pdo, $admin_id, 'logout');
