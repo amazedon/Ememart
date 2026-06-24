@@ -8033,7 +8033,7 @@ function openRoleChangeModal(){
   el('role-change-modal').classList.remove('hidden');
 }
 
-function submitRoleChangeApplication(){
+async function submitRoleChangeApplication(){
   if(!state.session) return;
   const newRole = el('rc-new-role')?.value;
   const reason  = el('rc-reason')?.value.trim();
@@ -8041,57 +8041,64 @@ function submitRoleChangeApplication(){
   if(!newRole){ showPopupNotif('⚠️','Select Role','Please select the role you want to apply for.'); return; }
   if(!reason || reason.length < 10){ showPopupNotif('⚠️','Reason Required','Please explain why you want to change your role (at least 10 characters).'); return; }
 
-  const apps = getRoleApplications();
-  const app = {
-    id: 'rca-' + Date.now(),
-    userId: state.session.id,
-    userName: state.session.full_name || state.session.name || 'User',
-    currentRole: state.session.role || 'user',
-    newRole,
-    bizName,
-    reason,
-    status: 'pending',
-    ts: Date.now()
-  };
-  apps.unshift(app);
-  saveRoleApplications(apps);
+  const btn = el('rc-submit-btn');
+  if(btn){ btn.textContent = 'Submitting...'; btn.disabled = true; }
 
-  el('role-change-modal').classList.add('hidden');
-  updateRoleChangeStatusBadge();
-  showPopupNotif('📨','Application Submitted',`Your application to become a ${getRoleLabel(newRole)} has been submitted. You will be notified when it's reviewed.`);
+  try {
+    const res = await apiPost('role_application.php', 'submit', {
+      new_role: newRole, business_name: bizName, reason
+    });
+
+    if(res.success){
+      el('role-change-modal').classList.add('hidden');
+      updateRoleChangeStatusBadge();
+      showPopupNotif('📨','Application Submitted',`Your application to become a ${getRoleLabel(newRole)} has been submitted. You will be notified when it's reviewed.`);
+    } else {
+      showPopupNotif('❌','Submission Failed', res.message);
+    }
+  } catch(e){
+    showPopupNotif('❌','Error','Connection failed. Please try again.');
+  } finally {
+    if(btn){ btn.textContent = 'Submit Application'; btn.disabled = false; }
+  }
 }
 
 function getRoleLabel(role){
   return { user:'Regular Buyer', vendor:'Food Vendor', rider:'Dispatch Rider', artisan:'Artisan / Service Provider', admin:'Admin' }[role] || role;
 }
 
-function updateRoleChangeStatusBadge(){
+async function updateRoleChangeStatusBadge(){
   if(!state.session) return;
-  const apps = getRoleApplications();
-  const pending = apps.find(a => a.userId === state.session.id && a.status === 'pending');
-  const approved = apps.find(a => a.userId === state.session.id && a.status === 'approved' && !a.applied);
   const statusEl = el('acc-role-change-status');
   const roleEl   = el('acc-current-role-label');
   if(roleEl) roleEl.textContent = getRoleLabel(state.session.role || 'user');
+  if(!statusEl) return;
 
-  if(statusEl){
-    if(approved){
-      // Apply the approved role change
-      state.session.role = approved.newRole;
-      approved.applied = true;
-      saveRoleApplications(apps);
-      if(roleEl) roleEl.textContent = getRoleLabel(approved.newRole);
+  try {
+    const res = await apiPost('role_application.php', 'status', {});
+    if(!res.success || !res.data?.application){
+      statusEl.classList.add('hidden');
+      return;
+    }
+    const app = res.data.application;
+
+    if(app.status === 'approved'){
       statusEl.classList.remove('hidden');
       statusEl.className = 'bg-emerald-950/40 border border-emerald-900/40 rounded-xl p-3 text-[10px] text-emerald-400 font-bold';
-      statusEl.textContent = `✅ Role changed to ${getRoleLabel(approved.newRole)}! You can now post as a ${getRoleLabel(approved.newRole)}.`;
-      syncAccountDisplay();
-    } else if(pending){
+      statusEl.textContent = `✅ Your application to become a ${getRoleLabel(app.new_role)} was approved! Refresh or sign in again to see your updated role.`;
+    } else if(app.status === 'pending'){
       statusEl.classList.remove('hidden');
       statusEl.className = 'bg-amber-950/30 border border-amber-900/40 rounded-xl p-3 text-[10px] text-amber-400 font-bold';
-      statusEl.textContent = `⏳ Application pending: ${getRoleLabel(pending.currentRole)} → ${getRoleLabel(pending.newRole)}. Awaiting admin approval.`;
+      statusEl.textContent = `⏳ Application pending: → ${getRoleLabel(app.new_role)}. Awaiting admin approval.`;
+    } else if(app.status === 'rejected'){
+      statusEl.classList.remove('hidden');
+      statusEl.className = 'bg-red-950/30 border border-red-900/40 rounded-xl p-3 text-[10px] text-red-400 font-bold';
+      statusEl.textContent = `❌ Application rejected: ${app.admin_note || 'No reason given.'}`;
     } else {
       statusEl.classList.add('hidden');
     }
+  } catch(e){
+    statusEl.classList.add('hidden');
   }
 }
 
@@ -8149,14 +8156,78 @@ function approveRoleApplication(appId){
   updateRoleChangeStatusBadge();
 }
 
-function rejectRoleApplication(appId){
-  const apps = getRoleApplications();
-  const app = apps.find(a => a.id === appId);
-  if(!app) return;
-  app.status = 'rejected';
-  saveRoleApplications(apps);
-  showPopupNotif('❌','Rejected',`${app.userName}'s role change application has been rejected.`);
-  renderAdminRoleApplications();
+// ============================================================
+// ADMIN: ROLE CHANGE APPROVAL PANEL (injected into in-app admin tab)
+// ============================================================
+async function renderAdminRoleApplications(){
+  const container = el('admin-role-apps-list');
+  if(!container) return;
+  container.innerHTML = '<div class="text-center py-4 text-xs text-gray-500 italic">Loading...</div>';
+
+  try {
+    const res = await apiPost('admin.php', 'list_role_applications', { status: 'pending' });
+    if(!res.success){
+      container.innerHTML = `<div class="text-center py-4 text-xs text-red-400 italic">${res.message}</div>`;
+      return;
+    }
+    const apps = res.data?.applications || [];
+    if(!apps.length){
+      container.innerHTML = '<div class="text-center py-4 text-xs text-gray-500 italic">No pending role applications.</div>';
+      return;
+    }
+    container.innerHTML = '';
+    apps.forEach(a => {
+      const div = document.createElement('div');
+      div.className = 'bg-gray-950 border border-gray-800 rounded-xl p-3 flex flex-col gap-2';
+      div.innerHTML = `
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <div class="text-xs font-black text-white">${a.full_name}</div>
+            <div class="text-[9px] text-gray-400 mt-0.5">${getRoleLabel(a.current_role)} → <span class="text-emerald-400 font-black">${getRoleLabel(a.new_role)}</span></div>
+            ${a.business_name ? `<div class="text-[9px] text-gray-500">Business: ${a.business_name}</div>` : ''}
+            <div class="text-[9px] text-gray-500 mt-1 italic">"${a.reason}"</div>
+            <div class="text-[8px] text-gray-600 mono mt-0.5">${new Date(a.created_at).toLocaleString()}</div>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="approveRoleApplication(${a.id})" class="btn-sm-primary flex-1 text-[10px] py-1.5">✅ Approve</button>
+          <button onclick="rejectRoleApplication(${a.id})" class="flex-1 text-[10px] py-1.5 font-black text-red-400 border border-red-900 rounded-xl hover:bg-red-950 transition">❌ Reject</button>
+        </div>`;
+      container.appendChild(div);
+    });
+  } catch(e){
+    container.innerHTML = '<div class="text-center py-4 text-xs text-red-400 italic">Connection failed. Please try again.</div>';
+  }
+}
+
+async function approveRoleApplication(appId){
+  try {
+    const res = await apiPost('admin.php', 'approve_role_application', { app_id: appId });
+    if(res.success){
+      showPopupNotif('✅','Approved', res.message);
+      renderAdminRoleApplications();
+    } else {
+      showPopupNotif('❌','Failed', res.message);
+    }
+  } catch(e){
+    showPopupNotif('❌','Error','Connection failed. Please try again.');
+  }
+}
+
+async function rejectRoleApplication(appId){
+  const reason = prompt('Reason for rejection (shown to the user):', 'Application did not meet our requirements.');
+  if(reason === null) return;
+  try {
+    const res = await apiPost('admin.php', 'reject_role_application', { app_id: appId, reason });
+    if(res.success){
+      showPopupNotif('❌','Rejected', res.message);
+      renderAdminRoleApplications();
+    } else {
+      showPopupNotif('❌','Failed', res.message);
+    }
+  } catch(e){
+    showPopupNotif('❌','Error','Connection failed. Please try again.');
+  }
 }
 
 // Run on load
