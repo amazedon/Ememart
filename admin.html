@@ -338,6 +338,7 @@ async function doChangePassword() {
 const NAV_ITEMS = [
   { id: 'overview',   label: 'Overview',        icon: '📊', perm: null },
   { id: 'kyc',         label: 'KYC Review',      icon: '🪪', perm: 'kyc' },
+  { id: 'role_apps',   label: 'Role Applications', icon: '🔄', perm: 'role_applications' },
   { id: 'users',       label: 'Users',           icon: '👥', perm: 'users' },
   { id: 'posts',       label: 'Posts',           icon: '📝', perm: 'posts' },
   { id: 'disputes',    label: 'Disputes',        icon: '⚖️', perm: 'disputes' },
@@ -351,7 +352,7 @@ const NAV_ITEMS = [
 function buildSidebar() {
   const nav = el('sidebar-nav');
   nav.innerHTML = NAV_ITEMS
-    .filter(item => !item.perm || hasPerm(item.perm))
+    .filter(item => !item.perm || hasPerm(item.perm) || (item.id === 'role_apps' && hasPerm('users')))
     .map(item => `
       <button onclick="navigateTo('${item.id}')" id="nav-${item.id}" class="sidebar-link flex items-center gap-3 px-5 py-2.5 text-xs font-bold text-gray-400 hover:text-white hover:bg-gray-900 transition">
         <span class="text-base">${item.icon}</span>${item.label}
@@ -377,6 +378,7 @@ function navigateTo(page) {
   const renderers = {
     overview: renderOverviewPage,
     kyc: renderKycPage,
+    role_apps: renderRoleApplicationsPage,
     staff: renderStaffPage,
     activity: renderActivityPage,
     users: renderComingSoon,
@@ -490,6 +492,69 @@ async function rejectKyc(id) {
   const res = await kycApi('reject', { kyc_id: id, reason });
   alert(res.message);
   if (res.success) renderKycPage();
+}
+
+// ============================================================
+// ROLE APPLICATIONS PAGE
+// ============================================================
+async function renderRoleApplicationsPage() {
+  el('page-content').innerHTML = pageHeader('Role Applications', 'Review requests from users to become vendors, riders, or artisans.') +
+    `<div id="role-apps-list" class="flex flex-col gap-4"><div class="skel h-32 rounded-2xl"></div></div>`;
+
+  const res = await adminApi('list_role_applications', { status: 'pending' });
+  const list = el('role-apps-list');
+
+  if (!res.success) {
+    list.innerHTML = `<div class="bg-red-950/30 border border-red-900/40 rounded-2xl p-6 text-center text-sm text-red-400">${res.message}</div>`;
+    return;
+  }
+
+  const applications = res.applications || [];
+  if (!applications.length) {
+    list.innerHTML = `<div class="bg-gray-900 glow-border rounded-2xl p-12 text-center"><div class="text-3xl mb-2">✅</div><div class="text-sm text-gray-500">No pending role applications.</div></div>`;
+    return;
+  }
+
+  const roleIcons = { vendor: '🍲', rider: '🏍️', artisan: '🔧' };
+
+  list.innerHTML = applications.map(a => `
+    <div class="bg-gray-900 glow-border rounded-2xl p-5 flex flex-col gap-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-sky-950 border border-sky-800 flex items-center justify-center font-black text-sky-300">${a.full_name.charAt(0)}</div>
+          <div><div class="text-sm font-black text-white">${a.full_name}</div><div class="text-[10px] text-gray-500">${a.email} · ${a.phone||'no phone'}</div></div>
+        </div>
+        <span class="badge-perm border-amber-800 text-amber-400 bg-amber-950/30">⏳ Pending</span>
+      </div>
+      <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex items-center gap-3">
+        <span class="text-xs text-gray-500 font-bold">${a.current_role}</span>
+        <span class="text-gray-600">→</span>
+        <span class="text-sm font-black text-emerald-400">${roleIcons[a.new_role]||''} ${a.new_role}</span>
+      </div>
+      ${a.business_name ? `<div class="text-xs text-gray-400"><span class="text-gray-600 font-bold">Business name:</span> ${a.business_name}</div>` : ''}
+      <div class="text-xs text-gray-400 bg-gray-950 border border-gray-800 rounded-xl p-3">"${a.reason}"</div>
+      <div class="text-[10px] text-gray-600">Submitted: ${fmtDate(a.created_at)}</div>
+      <div class="flex gap-2">
+        <button onclick="approveRoleApp(${a.id})" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs py-2.5 rounded-xl transition">✅ Approve</button>
+        <button onclick="rejectRoleApp(${a.id})" class="flex-1 bg-gray-800 hover:bg-red-950 border border-gray-700 hover:border-red-800 text-red-400 font-black text-xs py-2.5 rounded-xl transition">❌ Reject</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function approveRoleApp(id) {
+  if (!confirm('Approve this role application? The user\'s role will change immediately.')) return;
+  const res = await adminApi('approve_role_application', { app_id: id });
+  alert(res.message);
+  if (res.success) renderRoleApplicationsPage();
+}
+
+async function rejectRoleApp(id) {
+  const reason = prompt('Reason for rejection (shown to the user):', 'Application did not meet our requirements.');
+  if (reason === null) return;
+  const res = await adminApi('reject_role_application', { app_id: id, reason });
+  alert(res.message);
+  if (res.success) renderRoleApplicationsPage();
 }
 
 // ============================================================
