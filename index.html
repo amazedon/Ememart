@@ -2035,239 +2035,7 @@ document.addEventListener('click', function askOnce(){
   </div>
 </div>
 
-<div id="admin-panel" class="panel gap-0 hidden">
-  <!-- Admin login gate -->
-  <div id="admin-login-gate" class="flex flex-col gap-4 p-4">
-    <div class="text-center py-4">
-      <div class="text-5xl mb-3">🛡️</div>
-      <div class="text-lg font-black text-white">Admin Dashboard</div>
-      <div class="text-xs text-gray-400 mt-1">Restricted access — authorised personnel only</div>
-    </div>
-    <div class="flex flex-col gap-3">
-      <div class="flex flex-col gap-1"><label class="label-sm">Admin Username</label><input type="text" id="admin-user-inp" placeholder="admin" class="inp"></div>
-      <div class="flex flex-col gap-1"><label class="label-sm">Admin Password</label><input type="password" id="admin-pass-inp" placeholder="••••••••" class="inp"></div>
-    </div>
-    <button onclick="adminLogin()" class="btn-primary py-3">🔐 Sign In to Admin</button>
-    <div class="text-[9px] text-gray-600 text-center">Default demo credentials: admin / ememart2024</div>
-  </div>
-
-  <!-- Admin dashboard (shown after login) -->
-  <div id="admin-dashboard" class="hidden flex flex-col gap-0">
-
-    <!-- Admin header -->
-    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-950 sticky top-0 z-10">
-      <div class="flex items-center gap-2">
-        <span class="text-base">🛡️</span>
-        <div>
-          <div class="text-xs font-black text-white">Admin Dashboard</div>
-          <div id="admin-session-label" class="text-[9px] text-emerald-400">Signed in as admin</div>
-        </div>
-      </div>
-      <button onclick="adminLogout()" class="text-[9px] text-red-400 border border-red-900/50 px-2.5 py-1 rounded-lg font-black hover:bg-red-950 transition">Sign Out</button>
-    </div>
-
-    <!-- Tab bar -->
-    <div class="flex border-b border-gray-800 overflow-x-auto bg-gray-950" style="scrollbar-width:none;">
-      <button onclick="switchAdminTab('overview')"   id="atab-overview"   class="admin-tab active">📊 Overview</button>
-      <button onclick="switchAdminTab('users')"      id="atab-users"      class="admin-tab">👥 Users</button>
-      <button onclick="switchAdminTab('posts')"      id="atab-posts"      class="admin-tab">📝 Posts</button>
-      <button onclick="switchAdminTab('roles')"      id="atab-roles"      class="admin-tab">🎭 Roles</button>
-      <button onclick="switchAdminTab('kyc')"        id="atab-kyc"        class="admin-tab">🪪 KYC</button>
-      <button onclick="switchAdminTab('disputes')"   id="atab-disputes"   class="admin-tab">⚖️ Disputes</button>
-      <button onclick="switchAdminTab('fees')"       id="atab-fees"       class="admin-tab">💰 Fees</button>
-      <button onclick="switchAdminTab('notify')"     id="atab-notify"     class="admin-tab">📣 Notify</button>
-      <button onclick="switchAdminTab('earnings')"   id="atab-earnings"   class="admin-tab">📈 Earnings</button>
-    </div>
-
-    <div class="flex-1 overflow-y-auto">
-
-      <!-- OVERVIEW TAB -->
-      <div id="asub-overview" class="p-4 flex flex-col gap-4">
-        <div class="grid grid-cols-2 gap-2">
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Total Users</span><span id="astat-users" class="text-xl font-black text-white">0</span></div>
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Total Posts</span><span id="astat-posts" class="text-xl font-black text-white">0</span></div>
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Total Orders</span><span id="astat-orders" class="text-xl font-black text-emerald-400">0</span></div>
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Open Disputes</span><span id="astat-disputes" class="text-xl font-black text-amber-400">0</span></div>
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">KYC Pending</span><span id="astat-kyc" class="text-xl font-black text-sky-400">0</span></div>
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Suspended</span><span id="astat-suspended" class="text-xl font-black text-red-400">0</span></div>
-        </div>
-        <!-- Revenue summary -->
-        <div class="bg-gradient-to-br from-emerald-950 to-gray-950 border border-emerald-900/50 rounded-2xl p-4 flex flex-col gap-3">
-          <div class="text-[10px] font-black text-gray-400 uppercase tracking-wider">💰 Platform Revenue</div>
-          <div id="astat-revenue" class="text-3xl font-black text-emerald-400 mono">₦0</div>
-          <div class="grid grid-cols-3 gap-2 text-center">
-            <div><div id="arev-escrow" class="text-sm font-black text-white mono">₦0</div><div class="text-[8px] text-gray-500 uppercase">Escrow Fees</div></div>
-            <div><div id="arev-kyc" class="text-sm font-black text-white mono">₦0</div><div class="text-[8px] text-gray-500 uppercase">KYC Fees</div></div>
-            <div><div id="arev-boost" class="text-sm font-black text-white mono">₦0</div><div class="text-[8px] text-gray-500 uppercase">Boost Fees</div></div>
-          </div>
-        </div>
-        <!-- Quick actions -->
-        <div class="grid grid-cols-2 gap-2">
-          <button onclick="switchAdminTab('kyc')" class="bg-sky-950/30 border border-sky-900/40 rounded-xl py-2.5 text-[9px] font-black text-sky-400 hover:bg-sky-950 transition">🪪 Review KYC Queue</button>
-          <button onclick="switchAdminTab('disputes')" class="bg-amber-950/30 border border-amber-900/40 rounded-xl py-2.5 text-[9px] font-black text-amber-400 hover:bg-amber-950 transition">⚖️ Open Disputes</button>
-          <button onclick="switchAdminTab('posts')" class="bg-gray-900 border border-gray-800 rounded-xl py-2.5 text-[9px] font-black text-gray-300 hover:bg-gray-800 transition">📝 Moderate Posts</button>
-          <button onclick="switchAdminTab('notify')" class="bg-gray-900 border border-gray-800 rounded-xl py-2.5 text-[9px] font-black text-gray-300 hover:bg-gray-800 transition">📣 Send Notification</button>
-        </div>
-      </div>
-
-      <!-- USERS TAB -->
-      <div id="asub-users" class="hidden p-4 flex flex-col gap-3">
-        <div class="flex gap-2">
-          <input type="text" id="admin-user-search" placeholder="Search users by name, email, role..." class="inp flex-1 text-xs" oninput="renderAdminUsers()">
-          <select id="admin-user-filter" class="inp text-xs w-28" onchange="renderAdminUsers()">
-            <option value="">All roles</option>
-            <option value="user">Buyer</option>
-            <option value="vendor">Vendor</option>
-            <option value="rider">Rider</option>
-            <option value="artisan">Artisan</option>
-          </select>
-        </div>
-        <div id="admin-users-list" class="flex flex-col gap-2"></div>
-      </div>
-
-      <!-- POSTS TAB -->
-      <div id="asub-posts" class="hidden p-4 flex flex-col gap-3">
-        <div class="flex gap-2">
-          <select id="admin-post-filter" class="inp text-xs flex-1" onchange="renderAdminPosts()">
-            <option value="all">All posts</option>
-            <option value="food">Food only</option>
-            <option value="flagged">Flagged/Reported</option>
-            <option value="expired">Expired</option>
-            <option value="promoted">Promoted</option>
-          </select>
-          <button onclick="renderAdminPosts()" class="btn-sm-outline text-[9px] px-3">↻</button>
-        </div>
-        <div id="admin-posts-list" class="flex flex-col gap-2"></div>
-      </div>
-
-      <!-- ROLES TAB -->
-      <div id="asub-roles" class="hidden p-4 flex flex-col gap-3">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-black text-white">🎭 Role Change Applications</h3>
-          <button onclick="renderAdminRoleApplications()" class="text-[9px] font-black text-emerald-400 border border-emerald-900/50 px-2 py-1 rounded-lg">↻ Refresh</button>
-        </div>
-        <div id="admin-role-apps-list" class="flex flex-col gap-3">
-          <div class="text-center py-4 text-xs text-gray-500 italic">No pending role applications.</div>
-        </div>
-      </div>
-
-      <!-- KYC TAB -->
-      <div id="asub-kyc" class="hidden p-4 flex flex-col gap-3">
-        <div class="bg-sky-950/30 border border-sky-900/40 rounded-xl p-3 text-[10px] text-sky-300">📋 Review submitted KYC documents. Approve or reject each submission. Users are notified automatically.</div>
-        <div id="admin-kyc-list" class="flex flex-col gap-2"></div>
-      </div>
-
-      <!-- DISPUTES TAB -->
-      <div id="asub-disputes" class="hidden p-4 flex flex-col gap-3">
-        <div class="flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none;">
-          <button onclick="filterAdminDisputes('all')"       id="adf-all"       class="filter-pill active flex-shrink-0">All</button>
-          <button onclick="filterAdminDisputes('open')"      id="adf-open"      class="filter-pill flex-shrink-0">⏳ Open</button>
-          <button onclick="filterAdminDisputes('escalated')" id="adf-escalated" class="filter-pill flex-shrink-0">🔴 Escalated</button>
-          <button onclick="filterAdminDisputes('resolved')"  id="adf-resolved"  class="filter-pill flex-shrink-0">✅ Resolved</button>
-        </div>
-        <div id="admin-disputes-list" class="flex flex-col gap-2"></div>
-      </div>
-
-      <!-- FEES TAB -->
-      <div id="asub-fees" class="hidden p-4 flex flex-col gap-4">
-        <div class="bg-amber-950/30 border border-amber-900/40 rounded-xl p-3 text-[10px] text-amber-300">⚠️ Changes apply immediately to all new transactions. Existing escrow holds are not affected.</div>
-        <div class="flex flex-col gap-3" id="admin-fees-form">
-          <!-- Escrow fees -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-3">
-            <div class="text-[10px] font-black text-white">🔐 Escrow Fees</div>
-            <div class="grid grid-cols-2 gap-2">
-              <div class="flex flex-col gap-1"><label class="label-sm">Seller Fee (₦)</label><input type="number" id="fee-escrow-seller" value="90" class="inp text-xs"></div>
-              <div class="flex flex-col gap-1"><label class="label-sm">Buyer Fee (₦)</label><input type="number" id="fee-escrow-buyer" value="45" class="inp text-xs"></div>
-            </div>
-            <div class="flex flex-col gap-1">
-              <label class="label-sm">Who Pays Escrow Fee</label>
-              <select id="fee-escrow-who" class="inp text-xs">
-                <option value="split">Split (seller + buyer)</option>
-                <option value="seller">Seller only</option>
-                <option value="buyer">Buyer only</option>
-              </select>
-            </div>
-          </div>
-          <!-- Other fees -->
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-3">
-            <div class="text-[10px] font-black text-white">💰 Other Fees</div>
-            <div class="grid grid-cols-2 gap-2">
-              <div class="flex flex-col gap-1"><label class="label-sm">KYC Fee (₦)</label><input type="number" id="fee-kyc" value="100" class="inp text-xs"></div>
-              <div class="flex flex-col gap-1"><label class="label-sm">Promoted Post (₦)</label><input type="number" id="fee-boost" value="500" class="inp text-xs"></div>
-              <div class="flex flex-col gap-1"><label class="label-sm">Withdrawal Fee (₦)</label><input type="number" id="fee-withdrawal" value="0" class="inp text-xs"></div>
-              <div class="flex flex-col gap-1"><label class="label-sm">Pro Plan (₦/mo)</label><input type="number" id="fee-pro" value="5000" class="inp text-xs"></div>
-              <div class="flex flex-col gap-1"><label class="label-sm">Premium Plan (₦/mo)</label><input type="number" id="fee-premium" value="15000" class="inp text-xs"></div>
-            </div>
-          </div>
-          <button onclick="saveAdminFees()" class="btn-primary py-3">💾 Save Fee Changes</button>
-          <!-- Change log -->
-          <div class="flex flex-col gap-1.5">
-            <div class="text-[9px] font-black text-gray-400 uppercase tracking-wider">Change Log</div>
-            <div id="fee-change-log" class="flex flex-col gap-1"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- NOTIFY TAB -->
-      <div id="asub-notify" class="hidden p-4 flex flex-col gap-3">
-        <div class="flex flex-col gap-3">
-          <div class="flex flex-col gap-1">
-            <label class="label-sm">Target Audience</label>
-            <select id="notif-target" class="inp text-xs">
-              <option value="all">📣 All Users</option>
-              <option value="vendors">🏪 Vendors Only</option>
-              <option value="riders">🏍️ Riders Only</option>
-              <option value="buyers">🛍️ Buyers Only</option>
-              <option value="artisans">🔧 Artisans Only</option>
-              <option value="state">🗺️ Specific State</option>
-              <option value="lga">🏘️ Specific LGA</option>
-            </select>
-          </div>
-          <div id="notif-location-filter" class="hidden flex flex-col gap-1">
-            <label class="label-sm">Location Name</label>
-            <input type="text" id="notif-location-val" placeholder="e.g. Lagos / Ikeja" class="inp text-xs">
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="label-sm">Notification Title</label>
-            <input type="text" id="notif-title-inp" placeholder="e.g. 🎉 New Feature Alert!" class="inp">
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="label-sm">Message</label>
-            <textarea id="notif-message-inp" rows="4" placeholder="Your message to users..." class="inp resize-none text-xs"></textarea>
-          </div>
-          <div id="notif-preview-box" class="bg-gray-950 border border-gray-800 rounded-xl p-3 hidden">
-            <div class="text-[9px] text-gray-500 uppercase font-black tracking-wider mb-2">Preview</div>
-            <div class="flex items-start gap-2">
-              <span class="text-lg flex-shrink-0">🏪</span>
-              <div><div id="notif-preview-title" class="text-xs font-black text-white"></div><div id="notif-preview-msg" class="text-[10px] text-gray-400 mt-0.5 leading-relaxed"></div></div>
-            </div>
-          </div>
-          <button onclick="previewAdminNotif()" class="btn-sm-outline text-[9px] py-2">👁️ Preview</button>
-          <button onclick="sendAdminNotif()" class="btn-primary py-3">📣 Send Notification</button>
-          <!-- Sent log -->
-          <div class="flex flex-col gap-1.5">
-            <div class="text-[9px] font-black text-gray-400 uppercase tracking-wider">Recently Sent</div>
-            <div id="notif-sent-log" class="flex flex-col gap-1"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- EARNINGS TAB -->
-      <div id="asub-earnings" class="hidden p-4 flex flex-col gap-4">
-        <div class="bg-gradient-to-br from-emerald-950 to-gray-950 border border-emerald-900/50 rounded-2xl p-4 flex flex-col gap-3">
-          <div class="text-[10px] font-black text-gray-400 uppercase tracking-wider">💰 All-Time Platform Earnings</div>
-          <div id="earnings-total-big" class="text-4xl font-black text-emerald-400 mono">₦0</div>
-        </div>
-        <div class="grid grid-cols-2 gap-2" id="earnings-breakdown"></div>
-        <div class="flex flex-col gap-2">
-          <div class="text-[10px] font-black text-gray-400 uppercase tracking-wider">Transaction Log</div>
-          <div id="earnings-txn-log" class="flex flex-col gap-1.5 max-h-96 overflow-y-auto"></div>
-        </div>
-      </div>
-
-    </div><!-- end flex-1 -->
-  </div><!-- end admin-dashboard -->
-</div><!-- end admin-panel -->
+<!-- (Insecure in-app admin panel removed — use the secure admin.html dashboard instead) -->
 
 <div id="safety-panel" class="panel gap-3">
   <div class="border-b border-gray-800 pb-2">
@@ -3707,15 +3475,7 @@ function showPanel(name){
   }
   // Hide all panels
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  if(name === 'admin'){
-    el('admin-panel')?.classList.remove('hidden');
-    el('admin-panel')?.classList.add('active');
-    checkAdminSession();
-    return;
-  }
-  // Hide admin panel when switching away
-  el('admin-panel')?.classList.remove('active');
-  el('admin-panel')?.classList.add('hidden');
+  // (admin panel branch removed — admin access now lives at admin.html, a separate secure page)
   // Show the target panel
   const target = el(name + '-panel');
   if(target) target.classList.add('active');
@@ -8105,56 +7865,11 @@ async function updateRoleChangeStatusBadge(){
 // ============================================================
 // ADMIN: ROLE CHANGE APPROVAL PANEL (injected into admin panel)
 // ============================================================
-function renderAdminRoleApplications(){
-  const container = el('admin-role-apps-list');
-  if(!container) return;
-  const apps = getRoleApplications().filter(a => a.status === 'pending');
-  if(!apps.length){
-    container.innerHTML = '<div class="text-center py-4 text-xs text-gray-500 italic">No pending role applications.</div>';
-    return;
-  }
-  container.innerHTML = '';
-  apps.forEach(a => {
-    const div = document.createElement('div');
-    div.className = 'bg-gray-950 border border-gray-800 rounded-xl p-3 flex flex-col gap-2';
-    div.innerHTML = `
-      <div class="flex items-start justify-between gap-2">
-        <div>
-          <div class="text-xs font-black text-white">${a.userName}</div>
-          <div class="text-[9px] text-gray-400 mt-0.5">${getRoleLabel(a.currentRole)} → <span class="text-emerald-400 font-black">${getRoleLabel(a.newRole)}</span></div>
-          ${a.bizName ? `<div class="text-[9px] text-gray-500">Business: ${a.bizName}</div>` : ''}
-          <div class="text-[9px] text-gray-500 mt-1 italic">"${a.reason}"</div>
-          <div class="text-[8px] text-gray-600 mono mt-0.5">${new Date(a.ts).toLocaleString()}</div>
-        </div>
-      </div>
-      <div class="flex gap-2">
-        <button onclick="approveRoleApplication('${a.id}')" class="btn-sm-primary flex-1 text-[10px] py-1.5">✅ Approve</button>
-        <button onclick="rejectRoleApplication('${a.id}')" class="flex-1 text-[10px] py-1.5 font-black text-red-400 border border-red-900 rounded-xl hover:bg-red-950 transition">❌ Reject</button>
-      </div>`;
-    container.appendChild(div);
-  });
-}
+// (Removed: renderAdminRoleApplications — was part of the insecure in-app admin panel)
 
-function approveRoleApplication(appId){
-  const apps = getRoleApplications();
-  const app = apps.find(a => a.id === appId);
-  if(!app) return;
-  app.status = 'approved';
-  saveRoleApplications(apps);
-  // If the affected user is currently signed in, apply immediately
-  if(state.session && state.session.id === app.userId){
-    state.session.role = app.newRole;
-    app.applied = true;
-    saveRoleApplications(apps);
-    syncAccountDisplay();
-    initPostPanelForRole();
-    showPopupNotif('✅','Role Approved',`Your role has been changed to ${getRoleLabel(app.newRole)}!`);
-  } else {
-    showPopupNotif('✅','Approved',`${app.userName}'s application to become a ${getRoleLabel(app.newRole)} has been approved.`);
-  }
-  renderAdminRoleApplications();
-  updateRoleChangeStatusBadge();
-}
+
+// (Removed: approveRoleApplication — was part of the insecure in-app admin panel)
+
 
 // ============================================================
 // ADMIN: ROLE CHANGE APPROVAL PANEL (injected into in-app admin tab)
@@ -8214,21 +7929,8 @@ async function approveRoleApplication(appId){
   }
 }
 
-async function rejectRoleApplication(appId){
-  const reason = prompt('Reason for rejection (shown to the user):', 'Application did not meet our requirements.');
-  if(reason === null) return;
-  try {
-    const res = await apiPost('admin.php', 'reject_role_application', { app_id: appId, reason });
-    if(res.success){
-      showPopupNotif('❌','Rejected', res.message);
-      renderAdminRoleApplications();
-    } else {
-      showPopupNotif('❌','Failed', res.message);
-    }
-  } catch(e){
-    showPopupNotif('❌','Error','Connection failed. Please try again.');
-  }
-}
+// (Removed: rejectRoleApplication — was part of the insecure in-app admin panel)
+
 
 // Run on load
 document.addEventListener('DOMContentLoaded', () => {
@@ -10859,14 +10561,11 @@ function addSuspendedBadgeToCard(card, post){
 // ADMIN DASHBOARD ENGINE
 // ============================================================
 
-const ADMIN_KEY         = 'ememart_admin_session';
 const ADMIN_FEES_KEY    = 'ememart_admin_fees';
-const ADMIN_NOTIF_LOG   = 'ememart_admin_notif_log';
 const ADMIN_FEE_LOG     = 'ememart_admin_fee_log';
-let   _adminDisputeFilter = 'all';
 
 // Demo credentials
-const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
+// (Removed: ADMIN_CREDENTIALS — hardcoded admin/password was a security risk, now handled by admin.php)
 
 // --- Admin login ---
 // [removed duplicate function block lines 10737-10750]
@@ -10874,15 +10573,7 @@ const ADMIN_CREDENTIALS = { username:'admin', password:'ememart2024' };
 
 
 // Auto-restore admin session
-function restoreAdminSession(){
-  try{
-    const session = JSON.parse(localStorage.getItem(ADMIN_KEY)||'null');
-    if(session && (Date.now()-session.ts) < 3600000){
-      el('admin-login-modal')?.classList.add('hidden');
-      el('admin-panel-content')?.classList.remove('hidden');
-    }
-  }catch(e){}
-}
+// (Removed: restoreAdminSession — was part of the insecure in-app admin panel, never called)
 
 // --- Tab switcher ---
 // [removed duplicate function block lines 10766-10784]
@@ -10922,20 +10613,7 @@ function getDemoUsers(){
 
 // [removed duplicate function block lines 10914-10919]
 
-function approveKYC(userId){
-  localStorage.setItem(`kyc_${userId}`, 'verified');
-  if(state.session?.id === userId){ localStorage.setItem('ememart_kyc_status','verified'); }
-  el('admin-user-modal')?.classList.add('hidden');
-  showPopupNotif('✅','KYC Approved',`User ${userId} KYC has been verified.`);
-  renderAdminUsers(); renderAdminKYC(); renderAdminOverview();
-}
-
-function rejectKYC(userId){
-  localStorage.setItem(`kyc_${userId}`, 'rejected');
-  el('admin-user-modal')?.classList.add('hidden');
-  showPopupNotif('❌','KYC Rejected',`KYC for user ${userId} has been rejected.`);
-  renderAdminUsers(); renderAdminKYC();
-}
+// (Removed: approveKYC/rejectKYC — old localStorage-only duplicates, superseded by adminApproveKYC/adminRejectKYC which call the real backend)
 
 // [removed duplicate function block lines 10936-10942]
 
@@ -11012,59 +10690,17 @@ el('notif-title-inp')?.addEventListener('input', ()=>{ try{previewAdminNotif();}
 el('notif-message-inp')?.addEventListener('input', ()=>{ try{previewAdminNotif();}catch(e){} });
 
 
-function renderAdminNotifLog(){
-  const w = el('notif-log-list'); if(!w) return;
-  const log = JSON.parse(localStorage.getItem(ADMIN_NOTIF_LOG)||'[]');
-  w.innerHTML='';
-  if(!log.length){ w.innerHTML='<div class="text-xs text-gray-500 italic text-center py-4">No notifications sent yet.</div>'; return; }
-  log.slice(0,5).forEach(n => {
-    const div=document.createElement('div');
-    div.className='bg-gray-950 border border-gray-800 rounded-xl p-2.5 flex flex-col gap-0.5';
-    div.innerHTML=`<div class="flex justify-between"><span class="text-[10px] font-black text-white">${n.title}</span><span class="text-[9px] text-gray-500">${new Date(n.sentAt).toLocaleDateString()}</span></div><div class="text-[9px] text-gray-400">→ ${n.audience}</div><div class="text-[9px] text-gray-500 truncate">${n.msg}</div>`;
-    w.appendChild(div);
-  });
-}
+// (Removed: renderAdminNotifLog — was part of the insecure in-app admin panel)
+
 
 // --- EARNINGS TAB ---
-function renderAdminEarnings(){
-  const w = el('earnings-summary'); if(!w) return;
-  const txns = JSON.parse(localStorage.getItem('ememart_txns')||'[]');
-  const rev = {
-    escrow: txns.filter(t=>t.category==='escrow_fee').reduce((s,t)=>s+(t.amount||0),0),
-    kyc:    txns.filter(t=>t.category==='kyc').reduce((s,t)=>s+(t.amount||0),0),
-    boost:  txns.filter(t=>t.category==='promotion').reduce((s,t)=>s+(t.amount||0),0),
-    subs:   txns.filter(t=>t.category==='subscription').reduce((s,t)=>s+(t.amount||0),0),
-  };
-  rev.total = rev.escrow+rev.kyc+rev.boost+rev.subs;
-  w.innerHTML = `
-    <div class="bg-gray-900 border border-emerald-900/30 rounded-xl p-3 flex flex-col gap-1 col-span-2"><span class="text-[9px] text-gray-500 uppercase font-black">Total Revenue</span><span class="text-2xl font-black text-emerald-400 mono">${fmtCurrency(rev.total)}</span></div>
-    <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Escrow Fees</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.escrow)}</span></div>
-    <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">KYC Fees</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.kyc)}</span></div>
-      <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Boost Fees</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.boost)}</span></div>
-      <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-1"><span class="text-[9px] text-gray-500 uppercase font-black">Subscriptions</span><span class="text-lg font-black text-white mono">${fmtCurrency(rev.subs)}</span></div>`;
-  const txnLog=el('earnings-txn-log');
-  if(txnLog){
-    txnLog.innerHTML='';
-    const txns=JSON.parse(localStorage.getItem('ememart_txns')||'[]').filter(t=>['escrow_fee','kyc','promotion','subscription'].includes(t.category));
-    if(!txns.length){ txnLog.innerHTML='<div class="text-[9px] text-gray-600 italic text-center py-4">No revenue transactions yet.</div>'; return; }
-    txns.slice(0,30).forEach(t => {
-      const div=document.createElement('div');
-      div.className='flex items-center justify-between text-[9px] py-1.5 border-b border-gray-800 last:border-0';
-      div.innerHTML=`<span class="text-gray-400 truncate flex-1">${t.desc||t.category}</span><span class="font-black text-emerald-400 mono ml-2">+₦${fmt(t.amount)}</span><span class="text-gray-600 ml-2 flex-shrink-0">${new Date(t.ts).toLocaleDateString()}</span>`;
-      txnLog.appendChild(div);
-    });
-  }
-}
+// (Removed: renderAdminEarnings — was part of the insecure in-app admin panel)
+
 
 // --- Admin access from Account panel (secret tap) ---
 let _adminTapCount = 0;
-function onAdminTap(){
-  _adminTapCount++;
-  if(_adminTapCount >= 7){
-    _adminTapCount = 0;
-    el('admin-login-modal')?.classList.remove('hidden');
-  }
-}
+// (Removed: onAdminTap — was part of the insecure in-app admin panel)
+
 
 // --- showPanel is fully self-contained above; admin overlay handled inside it ---
 const _origShowPanelAdmin = window.showPanel;
@@ -11125,11 +10761,11 @@ function getPlatformRevenue(){
   return txns.filter(t=>t.category==='platform_fee'||t.category==='escrow_fee').reduce((s,t)=>s+(t.amount||0), 0);
 }
 
-function renderAdminUserModal(userId){ openAdminUserModal && openAdminUserModal(userId); }
+// (Removed: renderAdminUserModal — wrapped the now-removed openAdminUserModal, never called)
 
 // Init
 // [removed duplicate function block lines 11248-11248]
-try{ checkAdminSession(); }catch(e){}
+// (Removed: checkAdminSession() init call — was part of the insecure in-app admin panel)
 
 
 // ============================================================
@@ -12666,20 +12302,8 @@ function confirmBoost(){
   _boostPostId = null; _boostHours = 0; _boostFee = 0;
 }
 
-function adminLogin(){
-  const user = el('admin-user-inp')?.value.trim();
-  const pass = el('admin-pass-inp')?.value;
-  if(user === ADMIN_CREDENTIALS.username && pass === ADMIN_CREDENTIALS.password){
-    localStorage.setItem(ADMIN_KEY, '1');
-    el('admin-login-gate').classList.add('hidden');
-    el('admin-dashboard').classList.remove('hidden');
-    switchAdminTab('overview');
-    showPopupNotif('🛡️','Admin Access Granted','Welcome to the Ememart Admin Dashboard.');
-  } else {
-    showPopupNotif('❌','Access Denied','Invalid admin credentials.');
-    el('admin-pass-inp').value = '';
-  }
-}
+// (Removed: adminLogin — was part of the insecure in-app admin panel)
+
 
 function openGallery(postId, startIdx){
   const post = state.posts.find(p => p.id === postId);
@@ -13254,117 +12878,17 @@ function unsuspendVendor(vendorId){
   showPopupNotif('✅','Vendor Reinstated','Vendor suspension lifted. Spoil count reset to 0.');
 }
 
-function switchAdminTab(tab){
-  document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
-  el('atab-'+tab)?.classList.add('active');
-  ['overview','users','posts','roles','kyc','disputes','fees','notify','earnings'].forEach(t => {
-    el('asub-'+t)?.classList.toggle('hidden', t !== tab);
-  });
-  const renderers = {
-    overview: renderAdminOverview,
-    users:    renderAdminUsers,
-    posts:    renderAdminPosts,
-    roles:    renderAdminRoleApplications,
-    kyc:      renderAdminKYC,
-    disputes: renderAdminDisputes,
-    fees:     renderAdminFees,
-    notify:   renderAdminNotifLog,
-    earnings: renderAdminEarnings,
-  };
-  renderers[tab]?.();
-}
+// (Removed: switchAdminTab — was part of the insecure in-app admin panel)
 
-function renderAdminOverview(){
-  const allPosts    = state.posts;
-  const allOrders   = allPosts.flatMap(p => p.orders||[]);
-  const disputes    = getDisputes();
-  const openDisp    = disputes.filter(d => d.status==='open'||d.status==='acknowledged'||d.status==='escalated');
-  const suspended   = getSuspendedVendors();
-  const revenue     = getPlatformRevenue();
 
-  const users = getDemoUsers();
+// (Removed: renderAdminOverview — was part of the insecure in-app admin panel)
 
-  el('astat-users')     && (el('astat-users').textContent     = users.length);
-  el('astat-posts')     && (el('astat-posts').textContent     = allPosts.length);
-  el('astat-orders')    && (el('astat-orders').textContent    = allOrders.length);
-  el('astat-disputes')  && (el('astat-disputes').textContent  = openDisp.length);
-  el('astat-suspended') && (el('astat-suspended').textContent = suspended.length);
 
-  // KYC pending count
-  const kycPending = users.filter(u => u.kycStatus === 'pending').length;
-  el('astat-kyc') && (el('astat-kyc').textContent = kycPending);
+// (Removed: renderAdminUsers — was part of the insecure in-app admin panel)
 
-  el('astat-revenue') && (el('astat-revenue').textContent = fmtCurrency(revenue.total));
-  el('arev-escrow')   && (el('arev-escrow').textContent   = fmtCurrency(revenue.escrow));
-  el('arev-kyc')      && (el('arev-kyc').textContent      = fmtCurrency(revenue.kyc));
-  el('arev-boost')    && (el('arev-boost').textContent    = fmtCurrency(revenue.boost));
-}
 
-function renderAdminUsers(){
-  const w       = el('admin-users-list');
-  if(!w) return;
-  const q       = el('admin-user-search')?.value.toLowerCase() || '';
-  const filter  = el('admin-user-filter')?.value || '';
-  let   users   = getDemoUsers();
-  if(q)      users = users.filter(u => u.name.toLowerCase().includes(q) || u.role.includes(q));
-  if(filter) users = users.filter(u => u.role === filter);
+// (Removed: renderAdminPosts — was part of the insecure in-app admin panel)
 
-  if(!users.length){ w.innerHTML = '<div class="text-center py-8 text-xs text-gray-500 italic">No users found.</div>'; return; }
-  w.innerHTML = '';
-  users.forEach(u => {
-    const div = document.createElement('div');
-    div.className = `bg-gray-900 border ${u.suspended?'border-red-900/50':'border-gray-800'} rounded-xl p-3 flex flex-col gap-2`;
-    div.innerHTML = `
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-xl bg-gray-800 flex items-center justify-center font-black text-sm text-white flex-shrink-0">${u.name[0]}</div>
-          <div>
-            <div class="text-xs font-black text-white">${u.name}</div>
-            <div class="text-[9px] text-gray-400">${u.role.toUpperCase()} · Joined ${u.joinDate}</div>
-            ${u.suspended ? '<div class="text-[8px] font-black text-red-400">🚫 SUSPENDED</div>' : ''}
-            ${u.kycStatus==='pending' ? '<div class="text-[8px] font-black text-amber-400">⏳ KYC PENDING</div>' : u.kycStatus==='verified'?'<div class="text-[8px] font-black text-emerald-400">✅ KYC VERIFIED</div>':''}
-          </div>
-        </div>
-        <div class="flex gap-1 flex-shrink-0">
-          <button onclick="openAdminUserModal('${u.id}')" class="text-[8px] font-black text-sky-400 border border-sky-900/50 px-2 py-1 rounded-lg hover:bg-sky-950 transition">Manage</button>
-        </div>
-      </div>
-      ${u.notes ? `<div class="text-[9px] text-amber-300 bg-amber-950/20 border border-amber-900/30 rounded-lg px-2 py-1">📝 ${u.notes}</div>` : ''}`;
-    w.appendChild(div);
-  });
-}
-
-function renderAdminPosts(){
-  const w      = el('admin-posts-list');
-  if(!w) return;
-  const filter = el('admin-post-filter')?.value || 'all';
-  let   posts  = [...state.posts];
-  if(filter==='food')     posts = posts.filter(p=>p.isFood);
-  if(filter==='flagged')  posts = posts.filter(p=>p.reports&&p.reports.length>0);
-  if(filter==='expired')  posts = posts.filter(p=>p.expired);
-  if(filter==='promoted') posts = posts.filter(p=>p.promoted&&p.promotedUntil>Date.now());
-  if(!posts.length){ w.innerHTML='<div class="text-center py-8 text-xs text-gray-500 italic">No posts match this filter.</div>'; return; }
-  w.innerHTML='';
-  posts.slice(0,30).forEach(p => {
-    const div=document.createElement('div');
-    div.className='bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-2';
-    div.innerHTML=`
-      <div class="flex justify-between items-start gap-2">
-        <div class="flex-1 min-w-0">
-          <div class="text-xs font-black text-white truncate">${p.foodName||p.text?.slice(0,50)||'Update post'}</div>
-          <div class="text-[9px] text-gray-400">by ${p.authorName} · ${p.isFood?'Food':'Post'} · ${new Date(p.ts).toLocaleDateString()}</div>
-          ${p.expired?'<div class="text-[8px] text-red-400 font-black">⏰ EXPIRED</div>':''}
-          ${p.promoted&&p.promotedUntil>Date.now()?'<div class="text-[8px] text-purple-400 font-black">⭐ PROMOTED</div>':''}
-          ${p.reports?.length?`<div class="text-[8px] text-amber-400 font-black">🚩 ${p.reports.length} REPORT${p.reports.length>1?'S':''}</div>`:''}
-        </div>
-        <div class="flex gap-1 flex-shrink-0">
-          <button onclick="adminDeletePost('${p.id}')" class="text-[8px] font-black text-red-400 border border-red-900/50 px-2 py-1 rounded-lg hover:bg-red-950 transition">Delete</button>
-          ${p.reports?.length?`<button onclick="adminClearReports('${p.id}')" class="text-[8px] font-black text-amber-400 border border-amber-900/50 px-2 py-1 rounded-lg hover:bg-amber-950 transition">Clear</button>`:''}
-        </div>
-      </div>`;
-    w.appendChild(div);
-  });
-}
 
 async function renderAdminKYC(){
   const w = el('admin-kyc-list');
@@ -13422,49 +12946,11 @@ async function renderAdminKYC(){
   }
 }
 
-function renderAdminDisputes(){
-  const w=el('admin-disputes-list');
-  if(!w) return;
-  let disputes=getDisputes();
-  if(_adminDisputeFilter!=='all') disputes=disputes.filter(d=>d.status===_adminDisputeFilter);
-  if(!disputes.length){ w.innerHTML='<div class="text-center py-8 text-xs text-gray-500 italic">No disputes match this filter.</div>'; return; }
-  w.innerHTML='';
-  const statusColors={open:'text-amber-400',acknowledged:'text-sky-400',escalated:'text-red-400',resolved:'text-emerald-400',closed:'text-gray-500'};
-  disputes.forEach(d => {
-    const div=document.createElement('div');
-    div.className='bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-2';
-    div.innerHTML=`
-      <div class="flex justify-between items-start gap-2">
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-[9px] font-black text-gray-500 mono">${d.id}</span>
-            <span class="text-[8px] font-black ${statusColors[d.status]||'text-gray-400'}">${d.status.toUpperCase()}</span>
-          </div>
-          <div class="text-xs font-black text-white mt-0.5 truncate">${d.foodName} vs ${d.vendorName}</div>
-          <div class="text-[9px] text-gray-400">${d.reason?.replace(/_/g,' ')} · ₦${fmt(d.amount)} · ${new Date(d.createdAt).toLocaleDateString()}</div>
-          <div class="text-[9px] text-gray-500">Buyer: ${d.userName}</div>
-        </div>
-        <div class="flex gap-1 flex-shrink-0">
-          ${d.status!=='resolved'&&d.status!=='closed'?`<button onclick="adminResolveDispute('${d.id}')" class="text-[8px] font-black text-emerald-400 border border-emerald-900/50 px-2 py-1 rounded-lg hover:bg-emerald-950 transition">Resolve</button>`:''}
-          <button onclick="openDisputeDetail('${d.id}')" class="text-[8px] font-black text-sky-400 border border-sky-900/50 px-2 py-1 rounded-lg hover:bg-sky-950 transition">View</button>
-        </div>
-      </div>`;
-    w.appendChild(div);
-  });
-}
+// (Removed: renderAdminDisputes — was part of the insecure in-app admin panel)
 
-function renderAdminFees(){
-  const fees=JSON.parse(localStorage.getItem(ADMIN_FEES_KEY)||'{}');
-  if(fees.escrowSeller !== undefined) el('fee-escrow-seller').value=fees.escrowSeller;
-  if(fees.escrowBuyer  !== undefined) el('fee-escrow-buyer').value=fees.escrowBuyer;
-  if(fees.escrowWho    !== undefined) el('fee-escrow-who').value=fees.escrowWho;
-  if(fees.kyc          !== undefined) el('fee-kyc').value=fees.kyc;
-  if(fees.boost        !== undefined) el('fee-boost').value=fees.boost;
-  if(fees.withdrawal   !== undefined) el('fee-withdrawal').value=fees.withdrawal;
-  if(fees.pro          !== undefined) el('fee-pro').value=fees.pro;
-  if(fees.premium      !== undefined) el('fee-premium').value=fees.premium;
-  renderFeeLog();
-}
+
+// (Removed: renderAdminFees — was part of the insecure in-app admin panel)
+
 
 function saveAdminFees(){
   const fees={
@@ -13487,21 +12973,8 @@ function saveAdminFees(){
 }
 
 
-function sendAdminNotif(){
-  const title  =el('notif-title-inp')?.value.trim();
-  const msg    =el('notif-message-inp')?.value.trim();
-  const target =el('notif-target')?.value;
-  const locVal =el('notif-location-val')?.value.trim();
-  if(!title||!msg){ showPopupNotif('⚠️','Fill Fields','Enter a title and message.'); return; }
-  const audience = target==='all'?'All users':target==='state'?`State: ${locVal}`:target==='lga'?`LGA: ${locVal}`:`${target} users`;
-  const log=JSON.parse(localStorage.getItem(ADMIN_NOTIF_LOG)||'[]');
-  log.unshift({ title, msg, audience, sentAt:Date.now() });
-  localStorage.setItem(ADMIN_NOTIF_LOG, JSON.stringify(log.slice(0,20)));
-  el('notif-title-inp').value=''; el('notif-message-inp').value='';
-  el('notif-preview-box')?.classList.add('hidden');
-  renderAdminNotifLog();
-  showPopupNotif('📣','Notification Sent!',`"${title}" sent to ${audience}.`);
-}
+// (Removed: sendAdminNotif — was part of the insecure in-app admin panel)
+
 
 function previewAdminNotif(){
   const title=el('notif-title-inp')?.value.trim();
@@ -13512,13 +12985,8 @@ function previewAdminNotif(){
   el('notif-preview-box').classList.remove('hidden');
 }
 
-function adminLogout(){
-  localStorage.removeItem(ADMIN_KEY);
-  el('admin-login-gate').classList.remove('hidden');
-  el('admin-dashboard').classList.add('hidden');
-  el('admin-user-inp').value = '';
-  el('admin-pass-inp').value = '';
-}
+// (Removed: adminLogout — was part of the insecure in-app admin panel)
+
 
 function openStatusPicker(){
   const modal = el('status-picker-modal');
@@ -13570,12 +13038,7 @@ function setMyStatus(statusKey){
   updateMyStatusDisplay();
 }
 
-function checkAdminSession(){
-  if(localStorage.getItem(ADMIN_KEY) === '1'){
-    el('admin-login-gate')?.classList.add('hidden');
-    el('admin-dashboard')?.classList.remove('hidden');
-  }
-}
+// (Removed: checkAdminSession — was part of the insecure in-app admin panel)
 
 function renderBoostAnalytics(){
   const w = el('boost-analytics-list');
@@ -14778,92 +14241,28 @@ function toggleSpoilLog(){
 // RECOVERED MISSING FUNCTIONS
 // ============================================================
 
-async function adminApproveKYC(kycId){
-  try {
-    const res = await apiPost('admin_kyc.php', 'approve', { kyc_id: kycId });
-    if(res.success){
-      showPopupNotif('✅','KYC Approved','User identity has been verified.');
-      el('admin-user-modal')?.classList.add('hidden');
-      renderAdminUsers(); renderAdminKYC(); renderAdminOverview();
-    } else {
-      showPopupNotif('❌','Failed', res.message);
-    }
-  } catch(e){
-    showPopupNotif('❌','Error','Connection failed. Please try again.');
-  }
-}
+// (Removed: adminApproveKYC — was part of the insecure in-app admin panel)
 
-function adminChangeRole(userId){
-  const sel = el(`aum-role-${userId}`);
-  if(!sel) return;
-  const newRole = sel.value;
-  const log = JSON.parse(localStorage.getItem('ememart_role_log')||'[]');
-  log.unshift({ userId, newRole, changedBy:'admin', ts:Date.now() });
-  localStorage.setItem('ememart_role_log', JSON.stringify(log));
-  showPopupNotif('✅','Role Updated',`User role changed to ${newRole}. Logged for accountability.`);
-  renderAdminUsers();
-}
 
-function adminClearReports(postId){
-  const p = state.posts.find(x=>x.id===postId);
-  if(p) p.reports=[];
-  renderAdminPosts();
-  showPopupNotif('✅','Reports Cleared','All reports cleared for this post.');
-}
+// (Removed: adminChangeRole — was part of the insecure in-app admin panel)
 
-function adminDeletePost(postId){
-  state.posts = state.posts.filter(p=>p.id!==postId);
-  renderFeed(); renderAdminPosts(); renderAdminOverview();
-  showPopupNotif('🗑','Post Deleted','Post removed from the platform.');
-}
 
-async function adminRejectKYC(kycId){
-  const reason = prompt('Reason for rejection (shown to the user):', 'Documents unclear. Please retake your selfie with better lighting.');
-  if(reason === null) return; // cancelled
-  try {
-    const res = await apiPost('admin_kyc.php', 'reject', { kyc_id: kycId, reason });
-    if(res.success){
-      showPopupNotif('❌','KYC Rejected','User has been notified and the ₦100 fee was refunded.');
-      el('admin-user-modal')?.classList.add('hidden');
-      renderAdminUsers(); renderAdminKYC();
-    } else {
-      showPopupNotif('❌','Failed', res.message);
-    }
-  } catch(e){
-    showPopupNotif('❌','Error','Connection failed. Please try again.');
-  }
-}
+// (Removed: adminClearReports, adminDeletePost — were only triggered from the removed insecure in-app admin panel)
 
-function adminResolveDispute(ticketId){
-  const disputes=getDisputes();
-  const t=disputes.find(d=>d.id===ticketId);
-  if(!t) return;
-  t.status='resolved'; t.updatedAt=Date.now();
-  t.messages.push({from:'agent',text:'✅ ADMIN OVERRIDE: This dispute has been manually resolved by an Ememart administrator.',ts:Date.now()});
-  saveDisputes(disputes);
-  renderAdminDisputes(); renderAdminOverview();
-  showPopupNotif('✅','Dispute Resolved','Admin manually resolved this dispute.');
-}
+// (Removed: adminRejectKYC — was part of the insecure in-app admin panel)
 
-function adminSaveNote(userId){
-  const note = el(`aum-note-${userId}`)?.value.trim() || '';
-  localStorage.setItem(`admin_note_${userId}`, note);
-  showPopupNotif('📝','Note Saved','Admin note saved for this user.');
-  renderAdminUsers();
-}
 
-function adminSuspendUser(userId){
-  const suspended = getSuspendedVendors();
-  if(!suspended.includes(userId)){ suspended.push(userId); saveSuspendedVendors(suspended); }
-  showPopupNotif('🚫','User Suspended',`User ${userId} suspended.`);
-  renderAdminUsers(); renderAdminOverview(); renderFeed();
-}
+// (Removed: adminResolveDispute — was part of the insecure in-app admin panel)
 
-function adminUnsuspendUser(userId){
-  saveSuspendedVendors(getSuspendedVendors().filter(id=>id!==userId));
-  showPopupNotif('✅','Suspension Lifted',`User ${userId} reinstated.`);
-  renderAdminUsers(); renderAdminOverview(); renderFeed();
-}
+
+// (Removed: adminSaveNote — was part of the insecure in-app admin panel)
+
+
+// (Removed: adminSuspendUser — was part of the insecure in-app admin panel)
+
+
+// (Removed: adminUnsuspendUser — was part of the insecure in-app admin panel)
+
 
 function applySearchFilters(){
   _searchFilters.priceMin=parseFloat(el('filter-price-min')?.value)||0;
@@ -15008,12 +14407,7 @@ function escalateToWhatsApp(){
   showPopupNotif('💬','Escalating...','Opening WhatsApp with your issue pre-filled.');
 }
 
-function filterAdminDisputes(status){
-  _adminDisputeFilter=status;
-  document.querySelectorAll('[id^="adf-"]').forEach(b=>b.classList.remove('active'));
-  el('adf-'+status)?.classList.add('active');
-  renderAdminDisputes();
-}
+// (Removed: filterAdminDisputes — was only triggered from the removed insecure in-app admin panel)
 
 // (handleAppleSignIn removed — Apple Sign-In not offered)
 // (handleGoogleSignIn removed — Google's own rendered button now handles clicks directly via initGoogleSignIn)
@@ -15024,50 +14418,8 @@ function msgRiderFromTracking(){
   showPopupNotif('💬','Messages','Send your rider a message from here.');
 }
 
-function openAdminUserModal(userId){
-  const users = getDemoUsers();
-  const u = users.find(u=>u.id===userId); if(!u) return;
-  const modal = el('admin-user-modal'); if(!modal) return;
-  const body = el('aum-body');
-  if(body) body.innerHTML = `
-    <div class="flex items-center gap-3 mb-4">
-      <div class="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center font-black text-lg text-white">${u.name[0]}</div>
-      <div><div class="text-sm font-black text-white">${u.name}</div><div class="text-[10px] text-gray-400">${u.role} · ${u.id}</div></div>
-    </div>
-    <!-- Role change -->
-    <div class="flex flex-col gap-1 mb-3">
-      <label class="label-sm">Change Role</label>
-      <div class="flex gap-2">
-        <select id="aum-role-${u.id}" class="inp text-xs flex-1">
-          <option value="user" ${u.role==='user'?'selected':''}>Buyer</option>
-          <option value="vendor" ${u.role==='vendor'?'selected':''}>Vendor</option>
-          <option value="rider" ${u.role==='rider'?'selected':''}>Rider</option>
-          <option value="artisan" ${u.role==='artisan'?'selected':''}>Artisan</option>
-        </select>
-        <button onclick="adminChangeRole('${u.id}')" class="btn-sm-primary text-[9px] px-3">Save</button>
-      </div>
-    </div>
-    <!-- Admin notes -->
-    <div class="flex flex-col gap-1 mb-3">
-      <label class="label-sm">Admin Note (private)</label>
-      <div class="flex gap-2">
-        <input type="text" id="aum-note-${u.id}" value="${u.notes}" placeholder="Internal note..." class="inp text-xs flex-1">
-        <button onclick="adminSaveNote('${u.id}')" class="btn-sm-outline text-[9px] px-3">Save</button>
-      </div>
-    </div>
-    <!-- Actions -->
-    <div class="flex flex-col gap-2">
-      ${u.kycStatus==='pending' ? `
-        <div class="flex gap-2">
-          <button onclick="adminApproveKYC('${u.id}')" class="btn-primary flex-1 py-2.5 text-xs">✅ Approve KYC</button>
-          <button onclick="adminRejectKYC('${u.id}')" class="btn-sm-outline flex-1 py-2.5 text-xs text-red-400 border-red-900">❌ Reject KYC</button>
-        </div>` : ''}
-      ${u.suspended
-        ? `<button onclick="adminUnsuspendUser('${u.id}'); el('admin-user-modal').classList.add('hidden');" class="w-full py-2.5 rounded-xl text-xs font-black text-emerald-400 border border-emerald-900 hover:bg-emerald-950 transition">✅ Lift Suspension</button>`
-        : `<button onclick="adminSuspendUser('${u.id}'); el('admin-user-modal').classList.add('hidden');" class="w-full py-2.5 rounded-xl text-xs font-black text-red-400 border border-red-900 hover:bg-red-950 transition">🚫 Suspend User</button>`
-      }
-    </div>`;
-}
+// (Removed: openAdminUserModal — was part of the insecure in-app admin panel)
+
 
 function openBoostFromAnalytics(){
   // Find the vendor's most recent post to boost
@@ -15848,23 +15200,10 @@ function verifyPinPress(digit){
      MISSING HTML ELEMENTS — added to fix broken JS references
      ═══════════════════════════════════════════════════════════════════════ -->
 
-<!-- ── Admin Login Modal ── -->
-<div id="admin-login-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
-  <div class="modal-sheet flex flex-col gap-4">
-    <div class="flex justify-between items-center">
-      <h2 class="text-base font-black text-white">🛡️ Admin Login</h2>
-      <button onclick="el('admin-login-modal').classList.add('hidden')" class="text-gray-400 text-xl leading-none">×</button>
-    </div>
-    <div class="flex flex-col gap-3">
-      <input type="text" id="admin-user-inp" placeholder="Username" class="inp" />
-      <input type="password" id="admin-pass-inp" placeholder="Admin password" class="inp" />
-      <button onclick="adminLogin()" class="btn-primary py-3">Login</button>
-    </div>
-  </div>
-</div>
+<!-- (Removed: admin-login-modal — insecure leftover, use the secure admin.html dashboard instead) -->
 
 <!-- ── Auth Modal (for inline sign-in triggers) ── -->
-<div id="admin-panel-content" class="hidden"></div>
+<!-- (Removed: admin-panel-content placeholder — leftover from the removed insecure admin panel) -->
 <div id="auth-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal-sheet flex flex-col gap-4">
     <div class="flex justify-between items-center">
