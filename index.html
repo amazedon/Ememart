@@ -5553,6 +5553,9 @@ async function loadVirtualAccount(){
       el('va-bank-name').textContent = acc.bank_name;
       el('va-account-number').textContent = acc.account_number;
       displayEl?.classList.remove('hidden');
+    } else if(res.data?.reason === 'flutterwave_failed'){
+      notEligibleEl?.classList.remove('hidden');
+      notEligibleEl.innerHTML = `⚠️ We couldn't issue you a dedicated account number (${res.data.detail || 'verification issue with your BVN'}). Please use Pay with Flutterwave above instead, or contact support.`;
     } else {
       notEligibleEl?.classList.remove('hidden');
     }
