@@ -333,6 +333,73 @@ switch ($action) {
         respond(true, "Role application rejected.");
         break;
 
+    // ----------------------------------------------------------
+    // LIST VTU PRICING — fetch all pricing rows grouped by service
+    // ----------------------------------------------------------
+    case 'list_vtu_pricing':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'fees')) {
+            respond(false, "You don't have permission to manage VTU pricing.");
+        }
+
+        $stmt = $pdo->query("SELECT * FROM vtu_pricing ORDER BY service_type, provider_name, plan_name");
+        $rows = $stmt->fetchAll();
+
+        respond(true, "Pricing fetched.", ["pricing" => $rows]);
+        break;
+
+    // ----------------------------------------------------------
+    // UPSERT VTU PRICING — add or update a wholesale/selling price row
+    // ----------------------------------------------------------
+    case 'upsert_vtu_pricing':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'fees')) {
+            respond(false, "You don't have permission to manage VTU pricing.");
+        }
+
+        $service_type    = clean($body['service_type']    ?? '');
+        $provider_id     = clean($body['provider_id']     ?? '');
+        $provider_name   = clean($body['provider_name']   ?? '');
+        $plan_id         = clean($body['plan_id']         ?? null);
+        $plan_name       = clean($body['plan_name']       ?? null);
+        $wholesale_price = (float)($body['wholesale_price'] ?? 0);
+        $markup_type     = clean($body['markup_type']     ?? 'fixed');
+        $markup_value    = (float)($body['markup_value']  ?? 0);
+
+        if (empty($service_type) || empty($provider_id)) {
+            respond(false, "Service type and provider are required.");
+        }
+        if (!in_array($markup_type, ['fixed', 'percent'])) $markup_type = 'fixed';
+
+        $selling_price = $markup_type === 'percent'
+            ? round($wholesale_price * (1 + $markup_value / 100), 2)
+            : round($wholesale_price + $markup_value, 2);
+
+        $stmt = $pdo->prepare("
+            INSERT INTO vtu_pricing
+                (service_type, provider_id, provider_name, plan_id, plan_name,
+                 wholesale_price, selling_price, markup_type, markup_value, last_updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                provider_name = VALUES(provider_name),
+                plan_name = VALUES(plan_name),
+                wholesale_price = VALUES(wholesale_price),
+                selling_price = VALUES(selling_price),
+                markup_type = VALUES(markup_type),
+                markup_value = VALUES(markup_value),
+                last_updated_by = VALUES(last_updated_by)
+        ");
+        $stmt->execute([
+            $service_type, $provider_id, $provider_name, $plan_id, $plan_name,
+            $wholesale_price, $selling_price, $markup_type, $markup_value, $admin['user_id']
+        ]);
+
+        logAdminAction($pdo, $admin['user_id'], 'update_vtu_pricing', 'vtu_pricing', $provider_id,
+            "Set wholesale ₦$wholesale_price, selling ₦$selling_price for $provider_name");
+
+        respond(true, "Pricing updated. Selling price: ₦" . number_format($selling_price, 2));
+        break;
+
     case 'logout':
         $admin_id = (int)($_SESSION['admin_id'] ?? 0);
         if ($admin_id) logAdminAction($pdo, $admin_id, 'logout');
