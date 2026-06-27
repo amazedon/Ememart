@@ -1,6 +1,7 @@
 <?php
 // api/admin_kyc.php
 require_once 'config.php';
+require_once '_virtual_account_helper.php';
 session_start();
 
 // ============================================================
@@ -94,7 +95,28 @@ switch ($action) {
             VALUES (?, 'kyc_approve', 'kyc', ?, NOW())
         ")->execute([$admin_id, $kyc_id]);
 
-        respond(true, "KYC approved successfully.");
+        // ============================================================
+        // Automatically attempt to create their Flutterwave virtual account
+        // using the same BVN they already submitted — this is a SEPARATE,
+        // independent check by Flutterwave/the bank, not guaranteed by your approval
+        // ============================================================
+        $va_result = attemptCreateVirtualAccount($pdo, $record['user_id']);
+
+        if ($va_result['success'] && empty($va_result['already_existed'])) {
+            $pdo->prepare("
+                INSERT INTO notifications (user_id, title, message, type, created_at)
+                VALUES (?, 'Bank Account Ready 🏦', ?, 'virtual_account', NOW())
+            ")->execute([
+                $record['user_id'],
+                "Your dedicated bank account is ready: {$va_result['bank_name']} — {$va_result['account_number']}. Transfer to it anytime to fund your wallet."
+            ]);
+            respond(true, "KYC approved successfully. Virtual account created: {$va_result['bank_name']} {$va_result['account_number']}.");
+        } elseif (!$va_result['success']) {
+            // KYC is still approved — only the virtual account step failed
+            respond(true, "KYC approved successfully. Note: Flutterwave could not issue a virtual account for this BVN ({$va_result['message']}). The user can still fund via card/checkout.");
+        } else {
+            respond(true, "KYC approved successfully.");
+        }
         break;
 
     // ----------------------------------------------------------
