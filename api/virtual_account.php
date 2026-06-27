@@ -1,6 +1,7 @@
 <?php
 // api/virtual_account.php
 require_once 'config.php';
+require_once '_virtual_account_helper.php';
 session_start();
 
 $user_id = (int)($_SESSION['user_id'] ?? 0);
@@ -11,68 +12,14 @@ if (!$user_id) {
 $body   = getBody();
 $action = clean($body['action'] ?? 'get');
 
-// ============================================================
-// HELPER: Create a static virtual account via Flutterwave
-// ============================================================
-function createFlutterwaveVirtualAccount($pdo, $user) {
-    $tx_ref = 'ememart-va-' . $user['id'] . '-' . time();
-
-    $payload = [
-        "email"       => $user['email'],
-        "tx_ref"      => $tx_ref,
-        "phonenumber" => $user['phone'] ?: '08000000000',
-        "is_permanent"=> true,
-        "firstname"   => explode(' ', $user['full_name'])[0],
-        "lastname"    => count(explode(' ', $user['full_name'])) > 1
-                            ? explode(' ', $user['full_name'], 2)[1]
-                            : $user['full_name'],
-        "narration"   => "Ememart Wallet — " . $user['full_name'],
-        "bvn"         => $user['bvn'],
-        "amount"      => 0,
-    ];
-
-    $ch = curl_init("https://api.flutterwave.com/v3/virtual-account-numbers");
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => json_encode($payload),
-        CURLOPT_HTTPHEADER     => [
-            "Authorization: Bearer " . FLW_SECRET_KEY,
-            "Content-Type: application/json",
-        ],
-        CURLOPT_TIMEOUT => 30,
-    ]);
-    $response = curl_exec($ch);
-    $err      = curl_error($ch);
-    curl_close($ch);
-
-    if ($err) return ["success" => false, "message" => "Connection to Flutterwave failed."];
-
-    $result = json_decode($response, true);
-
-    if (
-        isset($result['status']) && $result['status'] === 'success' &&
-        !empty($result['data']['account_number'])
-    ) {
-        return [
-            "success"        => true,
-            "account_number" => $result['data']['account_number'],
-            "bank_name"      => $result['data']['bank_name'],
-            "flw_ref"        => $result['data']['flw_ref'] ?? null,
-            "order_ref"      => $result['data']['order_ref'] ?? null,
-        ];
-    }
-
-    return ["success" => false, "message" => $result['message'] ?? "Could not create virtual account."];
-}
-
 switch ($action) {
 
     // ----------------------------------------------------------
-    // GET — fetch the user's virtual account (creates one if eligible and none exists)
+    // GET — fetch the user's virtual account (created automatically
+    // by admin_kyc.php right after approval; this just retrieves it,
+    // or retries creation if it failed before for a fixable reason)
     // ----------------------------------------------------------
     case 'get':
-        // Check if already has one
         $stmt = $pdo->prepare("
             SELECT account_number, bank_name, status, created_at
             FROM virtual_accounts WHERE user_id = ? LIMIT 1
@@ -84,40 +31,31 @@ switch ($action) {
             respond(true, "Virtual account fetched.", ["account" => $existing]);
         }
 
-        // No account yet — check if user is KYC-verified (required: real BVN)
-        $stmt = $pdo->prepare("
-            SELECT u.id, u.full_name, u.email, u.phone, u.kyc_status, k.bvn
-            FROM users u
-            LEFT JOIN kyc_verifications k ON k.user_id = u.id AND k.status = 'verified'
-            WHERE u.id = ? LIMIT 1
-        ");
+        // Check KYC status to give an accurate reason
+        $stmt = $pdo->prepare("SELECT kyc_status FROM users WHERE id = ? LIMIT 1");
         $stmt->execute([$user_id]);
         $user = $stmt->fetch();
 
-        if (!$user || $user['kyc_status'] !== 'verified' || empty($user['bvn'])) {
+        if (!$user || $user['kyc_status'] !== 'verified') {
             respond(true, "No virtual account yet.", [
                 "account" => null,
                 "reason"  => "kyc_required"
             ]);
         }
 
-        // Eligible — create the virtual account now
-        $result = createFlutterwaveVirtualAccount($pdo, $user);
+        // KYC is verified but no account exists — likely failed at approval time.
+        // Let the user retry once from their side.
+        $result = attemptCreateVirtualAccount($pdo, $user_id);
 
         if (!$result['success']) {
-            respond(false, $result['message']);
+            respond(true, "No virtual account yet.", [
+                "account" => null,
+                "reason"  => "flutterwave_failed",
+                "detail"  => $result['message']
+            ]);
         }
 
-        $stmt = $pdo->prepare("
-            INSERT INTO virtual_accounts (user_id, account_number, bank_name, flw_ref, order_ref, status, created_at)
-            VALUES (?, ?, ?, ?, ?, 'active', NOW())
-        ");
-        $stmt->execute([
-            $user_id, $result['account_number'], $result['bank_name'],
-            $result['flw_ref'], $result['order_ref']
-        ]);
-
-        respond(true, "Virtual account created successfully.", [
+        respond(true, "Virtual account created.", [
             "account" => [
                 "account_number" => $result['account_number'],
                 "bank_name"      => $result['bank_name'],
