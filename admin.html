@@ -344,6 +344,7 @@ const NAV_ITEMS = [
   { id: 'disputes',    label: 'Disputes',        icon: '⚖️', perm: 'disputes' },
   { id: 'orders',      label: 'Orders',          icon: '📦', perm: 'orders' },
   { id: 'finance',     label: 'Finance & Fees',  icon: '💰', perm: 'fees' },
+  { id: 'vtu_pricing', label: 'VTU Pricing',     icon: '📶', perm: 'fees' },
   { id: 'withdrawals', label: 'Withdrawals',     icon: '🏦', perm: 'withdrawals' },
   { id: 'staff',       label: 'Staff & Roles',   icon: '🔑', perm: 'all' },
   { id: 'activity',    label: 'Activity Log',    icon: '📜', perm: 'all' },
@@ -381,6 +382,7 @@ function navigateTo(page) {
     role_apps: renderRoleApplicationsPage,
     staff: renderStaffPage,
     activity: renderActivityPage,
+    vtu_pricing: renderVtuPricingPage,
     users: renderComingSoon,
     posts: renderComingSoon,
     disputes: renderComingSoon,
@@ -555,6 +557,125 @@ async function rejectRoleApp(id) {
   const res = await adminApi('reject_role_application', { app_id: id, reason });
   alert(res.message);
   if (res.success) renderRoleApplicationsPage();
+}
+
+// ============================================================
+// VTU PRICING PAGE
+// ============================================================
+const SERVICE_LABELS = { airtime: 'Airtime', data: 'Data Bundle', electricity: 'Electricity', tv: 'Cable TV', betting: 'Betting' };
+
+async function renderVtuPricingPage() {
+  el('page-content').innerHTML = pageHeader('VTU Pricing', 'Set your selling prices above Bigisub\'s wholesale cost. Check bigisub.ng/pricing/ for the latest rates, updated daily.') + `
+    <div class="bg-amber-950/20 border border-amber-900/40 rounded-2xl p-4 mb-5 text-xs text-amber-300">
+      ⚠️ Bigisub updates wholesale prices daily. Visit <a href="https://bigisub.ng/pricing/" target="_blank" class="underline font-bold">bigisub.ng/pricing/</a> regularly and update the wholesale price below whenever it changes — your selling price recalculates automatically based on your markup.
+    </div>
+    <div class="bg-gray-900 glow-border rounded-2xl p-5 mb-5">
+      <div class="text-xs font-black text-white mb-3">Add / Update a price</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+        <select id="vp-service" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-600">
+          <option value="data">Data Bundle</option>
+          <option value="airtime">Airtime</option>
+          <option value="electricity">Electricity</option>
+          <option value="tv">Cable TV</option>
+          <option value="betting">Betting</option>
+        </select>
+        <input id="vp-provider-name" placeholder="Provider name (e.g. MTN SME)" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+        <input id="vp-provider-id" placeholder="Provider ID (e.g. mtn-sme)" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
+        <input id="vp-plan-name" placeholder="Plan name (e.g. 1GB - 30 days) — optional" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
+        <div>
+          <label class="text-[9px] text-gray-500 font-black uppercase">Bigisub wholesale price (₦)</label>
+          <input id="vp-wholesale" type="number" placeholder="e.g. 300" oninput="updateMarginPreview()" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600 mt-1">
+        </div>
+        <div>
+          <label class="text-[9px] text-gray-500 font-black uppercase">Your markup</label>
+          <div class="flex gap-1 mt-1">
+            <select id="vp-markup-type" onchange="updateMarginPreview()" class="bg-gray-950 border border-gray-800 rounded-xl px-2 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-600">
+              <option value="fixed">₦ flat</option>
+              <option value="percent">% on top</option>
+            </select>
+            <input id="vp-markup-value" type="number" placeholder="e.g. 20" oninput="updateMarginPreview()" class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
+          </div>
+        </div>
+        <div>
+          <label class="text-[9px] text-gray-500 font-black uppercase">Customer pays</label>
+          <div id="vp-selling-preview" class="bg-emerald-950/30 border border-emerald-900/40 rounded-xl px-3 py-2.5 text-sm font-black text-emerald-400 mt-1">₦0.00</div>
+        </div>
+      </div>
+      <button onclick="saveVtuPricing()" class="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs px-5 py-2.5 rounded-xl transition">Save Price</button>
+    </div>
+    <div id="vtu-pricing-list" class="bg-gray-900 glow-border rounded-2xl overflow-hidden"><div class="skel h-40"></div></div>`;
+
+  loadVtuPricingList();
+}
+
+function updateMarginPreview() {
+  const wholesale = parseFloat(el('vp-wholesale').value) || 0;
+  const markupType = el('vp-markup-type').value;
+  const markupValue = parseFloat(el('vp-markup-value').value) || 0;
+  const selling = markupType === 'percent'
+    ? wholesale * (1 + markupValue / 100)
+    : wholesale + markupValue;
+  el('vp-selling-preview').textContent = fmtCurrency(selling);
+}
+
+async function saveVtuPricing() {
+  const service_type = el('vp-service').value;
+  const provider_id = el('vp-provider-id').value.trim();
+  const provider_name = el('vp-provider-name').value.trim();
+  const plan_name = el('vp-plan-name').value.trim();
+  const plan_id = plan_name ? provider_id + '-' + plan_name.toLowerCase().replace(/\s+/g,'-') : provider_id;
+  const wholesale_price = parseFloat(el('vp-wholesale').value) || 0;
+  const markup_type = el('vp-markup-type').value;
+  const markup_value = parseFloat(el('vp-markup-value').value) || 0;
+
+  if (!provider_id || !provider_name) { alert('Provider ID and name are required.'); return; }
+
+  const res = await adminApi('upsert_vtu_pricing', {
+    service_type, provider_id, provider_name, plan_id, plan_name,
+    wholesale_price, markup_type, markup_value
+  });
+  alert(res.message);
+  if (res.success) {
+    el('vp-provider-id').value = ''; el('vp-provider-name').value = '';
+    el('vp-plan-name').value = ''; el('vp-wholesale').value = ''; el('vp-markup-value').value = '';
+    loadVtuPricingList();
+  }
+}
+
+async function loadVtuPricingList() {
+  const res = await adminApi('list_vtu_pricing');
+  const listEl = el('vtu-pricing-list');
+  if (!res.success) { listEl.innerHTML = `<div class="p-6 text-center text-sm text-red-400">${res.message}</div>`; return; }
+
+  const rows = res.pricing || [];
+  if (!rows.length) { listEl.innerHTML = `<div class="p-10 text-center text-sm text-gray-500">No prices set yet.</div>`; return; }
+
+  listEl.innerHTML = `
+    <table class="w-full text-left">
+      <thead><tr class="border-b border-gray-800 text-[9px] text-gray-500 uppercase font-black">
+        <th class="px-4 py-3">Service</th><th class="px-4 py-3">Provider</th><th class="px-4 py-3">Plan</th>
+        <th class="px-4 py-3">Wholesale</th><th class="px-4 py-3">Markup</th><th class="px-4 py-3">You Charge</th><th class="px-4 py-3">Profit</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => {
+          const profit = r.selling_price - r.wholesale_price;
+          return `
+          <tr class="border-b border-gray-900 text-xs">
+            <td class="px-4 py-3 text-gray-400">${SERVICE_LABELS[r.service_type]||r.service_type}</td>
+            <td class="px-4 py-3 font-bold text-white">${r.provider_name}</td>
+            <td class="px-4 py-3 text-gray-500">${r.plan_name||'—'}</td>
+            <td class="px-4 py-3 mono text-gray-400">${fmtCurrency(r.wholesale_price)}</td>
+            <td class="px-4 py-3 text-gray-500">${r.markup_type==='percent' ? r.markup_value+'%' : fmtCurrency(r.markup_value)}</td>
+            <td class="px-4 py-3 mono font-black text-white">${fmtCurrency(r.selling_price)}</td>
+            <td class="px-4 py-3 mono font-black ${profit>=0?'text-emerald-400':'text-red-400'}">${fmtCurrency(profit)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
 }
 
 // ============================================================
