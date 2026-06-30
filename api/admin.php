@@ -400,6 +400,145 @@ switch ($action) {
         respond(true, "Pricing updated. Selling price: ₦" . number_format($selling_price, 2));
         break;
 
+    // ----------------------------------------------------------
+    // LIST WITHDRAWALS — fetch withdrawal requests for review
+    // ----------------------------------------------------------
+    case 'list_withdrawals':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'withdrawals')) {
+            respond(false, "You don't have permission to review withdrawals.");
+        }
+
+        $status = clean($_GET['status'] ?? $body['status'] ?? 'pending');
+        $allowed = ['pending', 'approved', 'rejected', 'paid', 'all'];
+        if (!in_array($status, $allowed)) $status = 'pending';
+
+        $sql = "
+            SELECT w.id, w.user_id, w.amount, w.fee, w.total_debited,
+                   w.bank_name, w.account_no, w.account_name, w.reference,
+                   w.status, w.admin_note, w.created_at, w.reviewed_at,
+                   u.full_name, u.email, u.phone
+            FROM withdrawal_requests w
+            JOIN users u ON u.id = w.user_id
+        ";
+        if ($status !== 'all') {
+            $stmt = $pdo->prepare($sql . " WHERE w.status = ? ORDER BY w.created_at DESC");
+            $stmt->execute([$status]);
+        } else {
+            $stmt = $pdo->query($sql . " ORDER BY w.created_at DESC");
+        }
+        $withdrawals = $stmt->fetchAll();
+
+        respond(true, "Withdrawals fetched.", ["withdrawals" => $withdrawals]);
+        break;
+
+    // ----------------------------------------------------------
+    // APPROVE WITHDRAWAL — mark as approved (you still need to send
+    // the actual bank transfer yourself, or mark 'paid' once you have)
+    // ----------------------------------------------------------
+    case 'approve_withdrawal':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'withdrawals')) {
+            respond(false, "You don't have permission to approve withdrawals.");
+        }
+
+        $wid = (int)($body['withdrawal_id'] ?? 0);
+        if (!$wid) respond(false, "Withdrawal ID is required.");
+
+        $stmt = $pdo->prepare("SELECT * FROM withdrawal_requests WHERE id = ? AND status = 'pending' LIMIT 1");
+        $stmt->execute([$wid]);
+        $w = $stmt->fetch();
+        if (!$w) respond(false, "Withdrawal not found or already reviewed.");
+
+        $pdo->prepare("
+            UPDATE withdrawal_requests
+            SET status='approved', reviewed_by=?, reviewed_at=NOW()
+            WHERE id=?
+        ")->execute([$admin['user_id'], $wid]);
+
+        $pdo->prepare("
+            INSERT INTO notifications (user_id, title, message, type, created_at)
+            VALUES (?, 'Withdrawal Approved ✅', ?, 'withdrawal', NOW())
+        ")->execute([$w['user_id'], "Your withdrawal of ₦" . number_format($w['amount'],2) . " to {$w['bank_name']} has been approved and is being processed."]);
+
+        logAdminAction($pdo, $admin['user_id'], 'approve_withdrawal', 'withdrawal', $wid,
+            "₦{$w['amount']} to {$w['bank_name']} {$w['account_no']}");
+
+        respond(true, "Withdrawal approved. Remember to actually send the bank transfer, then mark it as Paid once sent.");
+        break;
+
+    // ----------------------------------------------------------
+    // MARK PAID — confirm you've actually sent the money
+    // ----------------------------------------------------------
+    case 'mark_withdrawal_paid':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'withdrawals')) {
+            respond(false, "You don't have permission to manage withdrawals.");
+        }
+
+        $wid = (int)($body['withdrawal_id'] ?? 0);
+        if (!$wid) respond(false, "Withdrawal ID is required.");
+
+        $stmt = $pdo->prepare("SELECT * FROM withdrawal_requests WHERE id = ? AND status = 'approved' LIMIT 1");
+        $stmt->execute([$wid]);
+        $w = $stmt->fetch();
+        if (!$w) respond(false, "Withdrawal not found or not yet approved.");
+
+        $pdo->prepare("UPDATE withdrawal_requests SET status='paid' WHERE id=?")->execute([$wid]);
+
+        $pdo->prepare("
+            INSERT INTO notifications (user_id, title, message, type, created_at)
+            VALUES (?, 'Withdrawal Sent 💸', ?, 'withdrawal', NOW())
+        ")->execute([$w['user_id'], "₦" . number_format($w['amount'],2) . " has been sent to your {$w['bank_name']} account ({$w['account_no']})."]);
+
+        logAdminAction($pdo, $admin['user_id'], 'mark_withdrawal_paid', 'withdrawal', $wid);
+
+        respond(true, "Withdrawal marked as paid.");
+        break;
+
+    // ----------------------------------------------------------
+    // REJECT WITHDRAWAL — refund the held funds back to the wallet
+    // ----------------------------------------------------------
+    case 'reject_withdrawal':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'withdrawals')) {
+            respond(false, "You don't have permission to reject withdrawals.");
+        }
+
+        $wid    = (int)($body['withdrawal_id'] ?? 0);
+        $reason = clean($body['reason'] ?? 'Could not verify account details.');
+        if (!$wid) respond(false, "Withdrawal ID is required.");
+
+        $stmt = $pdo->prepare("SELECT * FROM withdrawal_requests WHERE id = ? AND status = 'pending' LIMIT 1");
+        $stmt->execute([$wid]);
+        $w = $stmt->fetch();
+        if (!$w) respond(false, "Withdrawal not found or already reviewed.");
+
+        $pdo->prepare("
+            UPDATE withdrawal_requests
+            SET status='rejected', admin_note=?, reviewed_by=?, reviewed_at=NOW()
+            WHERE id=?
+        ")->execute([$reason, $admin['user_id'], $wid]);
+
+        // Refund the held funds back to the wallet
+        $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id=?")
+            ->execute([$w['total_debited'], $w['user_id']]);
+
+        $pdo->prepare("
+            INSERT INTO transactions (user_id, type, category, amount, description, reference, created_at)
+            VALUES (?, 'credit', 'refund', ?, ?, ?, NOW())
+        ")->execute([$w['user_id'], $w['total_debited'], "Withdrawal rejected — funds returned: $reason", $w['reference']]);
+
+        $pdo->prepare("
+            INSERT INTO notifications (user_id, title, message, type, created_at)
+            VALUES (?, 'Withdrawal Rejected ❌', ?, 'withdrawal', NOW())
+        ")->execute([$w['user_id'], "Your withdrawal request was rejected: $reason Your funds have been returned to your wallet."]);
+
+        logAdminAction($pdo, $admin['user_id'], 'reject_withdrawal', 'withdrawal', $wid, $reason);
+
+        respond(true, "Withdrawal rejected and funds returned to the user's wallet.");
+        break;
+
     case 'logout':
         $admin_id = (int)($_SESSION['admin_id'] ?? 0);
         if ($admin_id) logAdminAction($pdo, $admin_id, 'logout');
