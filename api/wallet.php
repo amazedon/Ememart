@@ -199,6 +199,7 @@ switch ($action) {
         if ($amount < 100)   respond(false, "Minimum withdrawal is ₦100.");
         if (empty($bank))    respond(false, "Please select a bank.");
         if (strlen($account_no) !== 10) respond(false, "Enter a valid 10-digit account number.");
+        if (empty($account_name)) respond(false, "Account name is required.");
 
         $user = getUser($pdo, $user_id);
         if (!$user) respond(false, "User not found.");
@@ -217,9 +218,8 @@ switch ($action) {
 
         // Daily withdrawal limit check (3 per day)
         $stmt = $pdo->prepare("
-            SELECT COUNT(*) as cnt FROM transactions
-            WHERE user_id = ? AND category = 'withdrawal'
-            AND DATE(created_at) = CURDATE()
+            SELECT COUNT(*) as cnt FROM withdrawal_requests
+            WHERE user_id = ? AND DATE(created_at) = CURDATE()
         ");
         $stmt->execute([$user_id]);
         $daily = $stmt->fetch();
@@ -229,25 +229,52 @@ switch ($action) {
 
         // 30-minute cooldown check
         $stmt = $pdo->prepare("
-            SELECT created_at FROM transactions
-            WHERE user_id = ? AND category = 'withdrawal'
-            ORDER BY created_at DESC LIMIT 1
+            SELECT created_at FROM withdrawal_requests
+            WHERE user_id = ? ORDER BY created_at DESC LIMIT 1
         ");
         $stmt->execute([$user_id]);
         $last = $stmt->fetch();
         if ($last && strtotime($last['created_at']) > strtotime('-30 minutes')) {
-            respond(false, "Please wait 30 minutes between withdrawals.");
+            respond(false, "Please wait 30 minutes between withdrawal requests.");
         }
 
-        // Debit wallet
+        // Check: is this the user's FIRST EVER approved withdrawal? Bank name must match KYC name.
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as cnt FROM withdrawal_requests
+            WHERE user_id = ? AND status IN ('approved','paid')
+        ");
+        $stmt->execute([$user_id]);
+        $is_first_withdrawal = ((int)$stmt->fetch()['cnt'] === 0);
+
+        // Reserve the funds immediately so the user can't spend it elsewhere
+        // while we review the request, but it is NOT yet sent anywhere.
         if (!debitWallet($pdo, $user_id, $total_debit)) {
             respond(false, "Insufficient balance.");
         }
 
-        // Log withdrawal transaction
         $ref = 'WDR-' . strtoupper(bin2hex(random_bytes(6))) . '-' . time();
+
+        $pdo->prepare("
+            INSERT INTO withdrawal_requests
+                (user_id, amount, fee, total_debited, bank_name, account_no, account_name, reference, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+        ")->execute([$user_id, $amount, $fee, $total_debit, $bank, $account_no, $account_name, $ref]);
+
+        // Log the debit (funds are now held, pending review)
         logTransaction($pdo, $user_id, 'debit', 'withdrawal', $total_debit,
-            "Withdrawal to $bank — $account_no ($account_name)", $ref);
+            "Withdrawal requested to $bank — $account_no ($account_name)", $ref);
+
+        $msg = $is_first_withdrawal
+            ? "Withdrawal request submitted. Since this is your first withdrawal, it requires manual review and may take up to 24 hours."
+            : "Withdrawal request submitted. You'll be notified once it's processed (usually within a few hours).";
+
+        $user = getUser($pdo, $user_id);
+        respond(true, $msg, [
+            "new_balance" => number_format((float)$user['wallet_balance'], 2),
+            "reference"   => $ref,
+            "status"      => "pending",
+        ]);
+        break;
 
         // Log platform fee if any
         if ($fee > 0) {
