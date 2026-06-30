@@ -5443,7 +5443,7 @@ async function vtuValidateCustomer(){
   finally { btn.textContent = '🔍 Verify Account'; btn.disabled = false; }
 }
 
-function vtuProceedToConfirm(){
+async function vtuProceedToConfirm(){
   const isNetworkInput = !el('vtu-network-input-row')?.classList.contains('hidden');
   const accountNo = (isNetworkInput ? el('vtu-account').value : el('vtu-account-generic').value).trim();
   if(!accountNo){ showPopupNotif('⚠️','Required','Enter the account/phone number.'); return; }
@@ -5454,11 +5454,19 @@ function vtuProceedToConfirm(){
   }
   if(!_vtu.amount || _vtu.amount <= 0){ showPopupNotif('⚠️','Required','Enter amount.'); return; }
 
+  // Ask the backend what the real charge will be (includes our markup/service fee)
+  const priceRes = await apiPost('vtu.php', 'preview_price', {
+    service_type: _vtu.service, service_id: _vtu.providerId,
+    plan_id: _vtu.planId, amount: _vtu.amount
+  });
+  const realCharge = priceRes.success ? priceRes.charge_amount : _vtu.amount;
+  _vtu.realCharge = realCharge;
+
   el('vtu-sum-service').textContent = vtuNames[_vtu.service];
   el('vtu-sum-provider').textContent = _vtu.providerName;
   el('vtu-sum-account').textContent = _vtu.accountNo;
-  el('vtu-sum-amount').textContent = fmtCurrency(_vtu.amount);
-  el('vtu-sum-balance-after').textContent = fmtCurrency(state.session.balance - _vtu.amount);
+  el('vtu-sum-amount').textContent = fmtCurrency(realCharge);
+  el('vtu-sum-balance-after').textContent = fmtCurrency(state.session.balance - realCharge);
   el('vtu-pin').value = '';
   vtuGoToStep(4);
 }
@@ -5485,16 +5493,18 @@ async function processVTU(){
     });
 
     if(res.success){
-      state.session.balance -= _vtu.amount;
-      // 1% cashback on every VTU purchase
-      const cashback = Math.floor(_vtu.amount * 0.01);
-      if(cashback > 0 && state.session){
-        state.session.balance += cashback;
+      // Trust the backend's authoritative numbers — it applied the real markup/fee
+      const realCharge = res.amount_charged ?? _vtu.realCharge ?? _vtu.amount;
+      const newBalance = res.new_balance ? parseFloat(String(res.new_balance).replace(/,/g,'')) : (state.session.balance - realCharge);
+      const cashback = res.cashback || 0;
+
+      state.session.balance = newBalance;
+      if(cashback > 0){
         addTransaction({ type:'credit', category:'cashback', userId:state.session.id, amount:cashback, desc:`1% cashback on ${vtuNames[_vtu.service]} purchase` });
         recordCashback(cashback, _vtu.service);
       }
       syncAccountDisplay();
-      addTransaction({ type:'debit', category:'vtu', userId: state.session.id, amount: _vtu.amount, desc: `${vtuNames[_vtu.service]} — ${_vtu.accountNo||_vtu.phone}` });
+      addTransaction({ type:'debit', category:'vtu', userId: state.session.id, amount: realCharge, desc: `${vtuNames[_vtu.service]} — ${_vtu.accountNo||_vtu.phone}` });
       setLastVTU({ service: vtuNames[_vtu.service], provider: _vtu.providerName||'', account: _vtu.accountNo||_vtu.phone, amount: _vtu.amount });
       el('vtu-modal').classList.add('hidden');
       showPopupNotif('✅', vtuNames[_vtu.service], `Purchase successful!${cashback>0?' +₦'+fmt(cashback)+' cashback credited!':''}`);
@@ -6852,14 +6862,48 @@ function openWithdrawModal(){
 }
 
 async function processWithdrawal(){
+  const amount = parseFloat(el('withdraw-amount')?.value) || 0;
+  const bank = el('withdraw-bank')?.value;
+  const account_no = el('withdraw-account-no')?.value.trim();
+  const account_name = el('withdraw-account-name')?.value.trim();
   const pin = el('withdraw-pin')?.value;
+
+  if(!bank){ showPopupNotif('⚠️','Select Bank','Please select your bank.'); return; }
+  if(!account_no || account_no.length !== 10){ showPopupNotif('⚠️','Invalid Account','Enter a valid 10-digit account number.'); return; }
+  if(!account_name){ showPopupNotif('⚠️','Account Name Required','Enter the account name — it must match your KYC name.'); return; }
+  if(!amount || amount < 100){ showPopupNotif('⚠️','Invalid Amount','Minimum withdrawal is ₦100.'); return; }
+
   if(pin && isPinSet()){
     if(hashPin(pin) !== getPinHash()){
       showPopupNotif('❌','Wrong PIN','Transaction PIN is incorrect.');
       return;
     }
   }
-  await _origProcessWithdrawal();
+
+  const btn = el('withdraw-submit-btn');
+  if(btn){ btn.textContent = 'Processing...'; btn.disabled = true; }
+
+  try {
+    const res = await apiPost('wallet.php', 'withdraw', { amount, bank, account_no, account_name });
+
+    if(res.success){
+      const newBal = res.new_balance ? parseFloat(String(res.new_balance).replace(/,/g,'')) : state.session.balance;
+      state.session.balance = newBal;
+      syncAccountDisplay();
+      el('withdraw-modal')?.classList.add('hidden');
+      el('withdraw-amount').value = '';
+      el('withdraw-account-no').value = '';
+      el('withdraw-account-name').value = '';
+      el('withdraw-pin').value = '';
+      showPopupNotif('🏦','Request Submitted', res.message);
+    } else {
+      showPopupNotif('❌','Withdrawal Failed', res.message);
+    }
+  } catch(e){
+    showPopupNotif('❌','Error','Connection failed. Please try again.');
+  } finally {
+    if(btn){ btn.textContent = '🏦 Withdraw Funds'; btn.disabled = false; }
+  }
 }
 
 // ============================================================
@@ -6873,14 +6917,43 @@ function openTransferModal(){
 }
 
 async function processTransfer(){
+  const recipient = el('transfer-recipient')?.value.trim();
+  const amount = parseFloat(el('transfer-amount')?.value) || 0;
   const pin = el('transfer-pin')?.value;
+
+  if(!recipient){ showPopupNotif('⚠️','Recipient Required','Enter an account ID or email.'); return; }
+  if(!amount || amount < 100){ showPopupNotif('⚠️','Invalid Amount','Minimum transfer is ₦100.'); return; }
+
   if(pin && isPinSet()){
     if(hashPin(pin) !== getPinHash()){
       showPopupNotif('❌','Wrong PIN','Transaction PIN is incorrect.');
       return;
     }
   }
-  await _origProcessTransfer();
+
+  const btn = el('transfer-submit-btn');
+  if(btn){ btn.textContent = 'Sending...'; btn.disabled = true; }
+
+  try {
+    const res = await apiPost('wallet.php', 'transfer', { amount, recipient });
+
+    if(res.success){
+      const newBal = res.new_balance ? parseFloat(String(res.new_balance).replace(/,/g,'')) : state.session.balance;
+      state.session.balance = newBal;
+      syncAccountDisplay();
+      el('transfer-modal')?.classList.add('hidden');
+      el('transfer-recipient').value = '';
+      el('transfer-amount').value = '';
+      el('transfer-pin').value = '';
+      showPopupNotif('✅','Transfer Successful', res.message);
+    } else {
+      showPopupNotif('❌','Transfer Failed', res.message);
+    }
+  } catch(e){
+    showPopupNotif('❌','Error','Connection failed. Please try again.');
+  } finally {
+    if(btn){ btn.textContent = '💸 Send Transfer'; btn.disabled = false; }
+  }
 }
 
 // ============================================================
@@ -10026,25 +10099,10 @@ function isWeakPin(pin){
 
 // --- Patch sensitive actions to require PIN ---
 
-// Withdraw
-const _origProcessWithdrawal = window.processWithdrawal;
-window.processWithdrawal = async function(){
-  if(pinIsSet()){
-    requirePin('Confirm Withdrawal', async () => { await _origProcessWithdrawal?.(); });
-  } else {
-    await _origProcessWithdrawal?.();
-  }
-}
+// (Withdraw monkey-patch removed — processWithdrawal() now handles PIN check + real API call directly)
 
 // Transfer
-const _origProcessTransfer = window.processTransfer;
-window.processTransfer = async function(){
-  if(pinIsSet()){
-    requirePin('Confirm Transfer', async () => { await _origProcessTransfer?.(); });
-  } else {
-    await _origProcessTransfer?.();
-  }
-}
+// (Transfer monkey-patch removed — processTransfer() now handles PIN check + real API call directly)
 
 // Deposit — prompt PIN setup on first deposit
 // Fund-wallet original opener — open the deposit modal and refresh balance display
@@ -11471,6 +11529,10 @@ function completeGoogleSignInDemo(payload){
       <input type="number" id="withdraw-account-no" placeholder="0123456789" maxlength="10" class="inp">
     </div>
     <div class="flex flex-col gap-1">
+      <label class="label-sm">Account Name</label>
+      <input type="text" id="withdraw-account-name" placeholder="Must match your KYC name" class="inp">
+    </div>
+    <div class="flex flex-col gap-1">
       <label class="label-sm">Amount (₦)</label>
       <input type="number" id="withdraw-amount" placeholder="Enter amount" class="inp" min="100">
     </div>
@@ -11478,7 +11540,7 @@ function completeGoogleSignInDemo(payload){
       <label class="label-sm">🔐 Transaction PIN</label>
       <input type="password" id="withdraw-pin" placeholder="••••" maxlength="4" class="inp text-center text-2xl tracking-widest">
     </div>
-    <button onclick="processWithdrawal()" class="btn-primary py-3">🏦 Withdraw Funds</button>
+    <button id="withdraw-submit-btn" onclick="processWithdrawal()" class="btn-primary py-3">🏦 Withdraw Funds</button>
   </div>
 </div>
 
@@ -11506,7 +11568,7 @@ function completeGoogleSignInDemo(payload){
       <label class="label-sm">🔐 Transaction PIN</label>
       <input type="password" id="transfer-pin" placeholder="••••" maxlength="4" class="inp text-center text-2xl tracking-widest">
     </div>
-    <button onclick="processTransfer()" class="btn-primary py-3">↗️ Send Money</button>
+    <button id="transfer-submit-btn" onclick="processTransfer()" class="btn-primary py-3">↗️ Send Money</button>
   </div>
 </div>
 
