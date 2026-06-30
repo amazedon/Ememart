@@ -388,7 +388,7 @@ function navigateTo(page) {
     disputes: renderComingSoon,
     orders: renderComingSoon,
     finance: renderComingSoon,
-    withdrawals: renderComingSoon,
+    withdrawals: renderWithdrawalsPage,
   };
   (renderers[page] || renderComingSoon)();
 }
@@ -676,6 +676,106 @@ async function loadVtuPricingList() {
         }).join('')}
       </tbody>
     </table>`;
+}
+
+// ============================================================
+// WITHDRAWALS PAGE
+// ============================================================
+let _currentWithdrawalFilter = 'pending';
+
+async function renderWithdrawalsPage() {
+  el('page-content').innerHTML = pageHeader('Withdrawals', 'Review withdrawal requests. Funds are already held — approve, send the bank transfer yourself, then mark as Paid.') + `
+    <div class="flex gap-2 mb-4">
+      ${['pending','approved','paid','rejected','all'].map(s => `
+        <button onclick="filterWithdrawals('${s}')" id="wf-${s}" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition ${s===_currentWithdrawalFilter ? 'bg-emerald-500 text-gray-950' : 'bg-gray-900 text-gray-500 hover:text-white'}">${s}</button>
+      `).join('')}
+    </div>
+    <div id="withdrawals-list" class="flex flex-col gap-3"><div class="skel h-32 rounded-2xl"></div></div>`;
+
+  loadWithdrawalsList();
+}
+
+function filterWithdrawals(status) {
+  _currentWithdrawalFilter = status;
+  ['pending','approved','paid','rejected','all'].forEach(s => {
+    el(`wf-${s}`)?.classList.toggle('bg-emerald-500', s === status);
+    el(`wf-${s}`)?.classList.toggle('text-gray-950', s === status);
+    el(`wf-${s}`)?.classList.toggle('bg-gray-900', s !== status);
+    el(`wf-${s}`)?.classList.toggle('text-gray-500', s !== status);
+  });
+  loadWithdrawalsList();
+}
+
+async function loadWithdrawalsList() {
+  const res = await adminApi('list_withdrawals', { status: _currentWithdrawalFilter });
+  const listEl = el('withdrawals-list');
+
+  if (!res.success) { listEl.innerHTML = `<div class="bg-red-950/30 border border-red-900/40 rounded-2xl p-6 text-center text-sm text-red-400">${res.message}</div>`; return; }
+
+  const withdrawals = res.withdrawals || [];
+  if (!withdrawals.length) {
+    listEl.innerHTML = `<div class="bg-gray-900 glow-border rounded-2xl p-12 text-center"><div class="text-3xl mb-2">✅</div><div class="text-sm text-gray-500">No ${_currentWithdrawalFilter !== 'all' ? _currentWithdrawalFilter : ''} withdrawal requests.</div></div>`;
+    return;
+  }
+
+  const statusColors = {
+    pending: 'border-amber-800 text-amber-400 bg-amber-950/30',
+    approved: 'border-sky-800 text-sky-400 bg-sky-950/30',
+    paid: 'border-emerald-800 text-emerald-400 bg-emerald-950/30',
+    rejected: 'border-red-800 text-red-400 bg-red-950/30',
+  };
+  const statusIcons = { pending: '⏳', approved: '✅', paid: '💸', rejected: '❌' };
+
+  listEl.innerHTML = withdrawals.map(w => `
+    <div class="bg-gray-900 glow-border rounded-2xl p-4 flex flex-col gap-2">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-gray-800 flex items-center justify-center font-black text-gray-300">${w.full_name.charAt(0)}</div>
+          <div><div class="text-sm font-black text-white">${w.full_name}</div><div class="text-[10px] text-gray-500">${w.email}</div></div>
+        </div>
+        <span class="badge-perm ${statusColors[w.status]}">${statusIcons[w.status]} ${w.status}</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2 bg-gray-950 border border-gray-800 rounded-xl p-3 text-xs">
+        <div><span class="text-gray-500">Amount:</span> <span class="font-black text-white mono">${fmtCurrency(w.amount)}</span></div>
+        <div><span class="text-gray-500">Fee:</span> <span class="text-gray-400 mono">${fmtCurrency(w.fee)}</span></div>
+        <div><span class="text-gray-500">Bank:</span> <span class="text-white font-bold">${w.bank_name}</span></div>
+        <div><span class="text-gray-500">Account:</span> <span class="text-white mono">${w.account_no}</span></div>
+        <div class="col-span-2"><span class="text-gray-500">Account Name:</span> <span class="text-white font-bold">${w.account_name}</span></div>
+        <div class="col-span-2"><span class="text-gray-500">Reference:</span> <span class="text-gray-400 mono">${w.reference}</span></div>
+      </div>
+      <div class="text-[10px] text-gray-600">Requested: ${fmtDate(w.created_at)}</div>
+      ${w.admin_note ? `<div class="text-[10px] text-red-400 italic">Note: ${w.admin_note}</div>` : ''}
+      ${w.status === 'pending' ? `
+        <div class="flex gap-2">
+          <button onclick="approveWithdrawal(${w.id})" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs py-2.5 rounded-xl transition">✅ Approve</button>
+          <button onclick="rejectWithdrawal(${w.id})" class="flex-1 bg-gray-800 hover:bg-red-950 border border-gray-700 hover:border-red-800 text-red-400 font-black text-xs py-2.5 rounded-xl transition">❌ Reject</button>
+        </div>` : ''}
+      ${w.status === 'approved' ? `
+        <button onclick="markWithdrawalPaid(${w.id})" class="bg-sky-500 hover:bg-sky-400 text-gray-950 font-black text-xs py-2.5 rounded-xl transition">💸 Mark as Paid (I've sent the transfer)</button>` : ''}
+    </div>
+  `).join('');
+}
+
+async function approveWithdrawal(id) {
+  if (!confirm('Approve this withdrawal? You will still need to send the actual bank transfer yourself.')) return;
+  const res = await adminApi('approve_withdrawal', { withdrawal_id: id });
+  alert(res.message);
+  if (res.success) loadWithdrawalsList();
+}
+
+async function markWithdrawalPaid(id) {
+  if (!confirm('Confirm that you have ALREADY sent this bank transfer?')) return;
+  const res = await adminApi('mark_withdrawal_paid', { withdrawal_id: id });
+  alert(res.message);
+  if (res.success) loadWithdrawalsList();
+}
+
+async function rejectWithdrawal(id) {
+  const reason = prompt('Reason for rejection (shown to the user, funds will be refunded):', 'Could not verify account details.');
+  if (reason === null) return;
+  const res = await adminApi('reject_withdrawal', { withdrawal_id: id, reason });
+  alert(res.message);
+  if (res.success) loadWithdrawalsList();
 }
 
 // ============================================================
