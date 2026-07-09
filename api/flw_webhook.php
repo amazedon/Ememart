@@ -51,19 +51,58 @@ try {
     }
 
     // ============================================================
-    // ONLY HANDLE SUCCESSFUL VIRTUAL ACCOUNT TRANSFER EVENTS
+    // ROUTE BY EVENT TYPE
     // ============================================================
-    $is_successful_charge = (
-        ($event_type === 'charge.completed' || $event_type === 'transfer.completed') &&
-        in_array($status, ['successful', 'completed'])
-    );
 
-    if (!$is_successful_charge) {
+    // ── OUTGOING TRANSFER COMPLETED (withdrawal payout) ──────────
+    if ($event_type === 'transfer.completed') {
+        $ref = $payload['data']['reference'] ?? null;
+        if (!$ref) { http_response_code(200); exit('No reference'); }
+
+        $stmt = $pdo->prepare("SELECT id, user_id, amount FROM withdrawal_requests WHERE reference = ? LIMIT 1");
+        $stmt->execute([$ref]);
+        $wr = $stmt->fetch();
+
+        if ($wr) {
+            $new_status = in_array($status, ['successful', 'completed']) ? 'paid' : 'rejected';
+            $pdo->prepare("UPDATE withdrawal_requests SET status=? WHERE id=?")->execute([$new_status, $wr['id']]);
+
+            if ($new_status === 'paid') {
+                $pdo->prepare("
+                    INSERT INTO notifications (user_id, title, message, type, created_at)
+                    VALUES (?, '💸 Withdrawal Successful', ?, 'withdrawal', NOW())
+                ")->execute([$wr['user_id'],
+                    "₦" . number_format($wr['amount'], 2) . " has been successfully sent to your bank account."
+                ]);
+            } else {
+                // Transfer failed after approval — refund the user
+                $stmt = $pdo->prepare("SELECT total_debited FROM withdrawal_requests WHERE id=? LIMIT 1");
+                $stmt->execute([$wr['id']]);
+                $amount_to_refund = (float)($stmt->fetch()['total_debited'] ?? 0);
+                if ($amount_to_refund > 0) {
+                    $pdo->prepare("UPDATE users SET wallet_balance = wallet_balance + ? WHERE id=?")
+                        ->execute([$amount_to_refund, $wr['user_id']]);
+                    $pdo->prepare("
+                        INSERT INTO notifications (user_id, title, message, type, created_at)
+                        VALUES (?, '❌ Withdrawal Failed', ?, 'withdrawal', NOW())
+                    ")->execute([$wr['user_id'],
+                        "Your withdrawal could not be completed. ₦" . number_format($amount_to_refund, 2) . " has been returned to your wallet."
+                    ]);
+                }
+            }
+        }
+
+        $pdo->prepare("UPDATE webhook_log SET processed = 1 WHERE tx_ref = ?")->execute([$tx_ref]);
         http_response_code(200);
-        exit('Event ignored (not a successful charge)');
+        exit('Transfer webhook handled');
     }
 
-    // Try to find the account number from common payload shapes
+    // ── INCOMING DEPOSIT (virtual account credit) ─────────────────
+    if ($event_type !== 'charge.completed' || !in_array($status, ['successful', 'completed'])) {
+        http_response_code(200);
+        exit('Event ignored');
+    }
+
     $account_number = $payload['data']['account_number']
         ?? $payload['data']['meta']['account_number']
         ?? null;
