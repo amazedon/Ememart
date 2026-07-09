@@ -188,46 +188,65 @@ switch ($action) {
         break;
 
     // ----------------------------------------------------------
-    // WITHDRAW — bank withdrawal
+    // GET BANKS — fetch Nigerian bank list from Flutterwave with codes
+    // ----------------------------------------------------------
+    case 'get_banks':
+        $ch = curl_init("https://api.flutterwave.com/v3/banks/NG");
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => ["Authorization: Bearer " . FLW_SECRET_KEY],
+            CURLOPT_TIMEOUT => 15,
+        ]);
+        $response = json_decode(curl_exec($ch), true);
+        curl_close($ch);
+
+        if (!empty($response['data'])) {
+            respond(true, "Banks fetched.", ["banks" => $response['data']]);
+        }
+        respond(false, "Could not fetch banks.");
+        break;
+
+    // ----------------------------------------------------------
+    // WITHDRAW — automatic bank transfer via Flutterwave
     // ----------------------------------------------------------
     case 'withdraw':
-        $amount     = (float)($body['amount']     ?? 0);
-        $bank       = clean($body['bank']         ?? '');
-        $account_no = clean($body['account_no']   ?? '');
-        $account_name = clean($body['account_name'] ?? '');
+        $amount       = (float)($body['amount']       ?? 0);
+        $bank_code    = clean($body['bank_code']      ?? '');
+        $bank_name    = clean($body['bank_name']      ?? '');
+        $account_no   = clean($body['account_no']     ?? '');
+        $account_name = clean($body['account_name']   ?? '');
 
-        if ($amount < 100)   respond(false, "Minimum withdrawal is ₦100.");
-        if (empty($bank))    respond(false, "Please select a bank.");
+        if ($amount < 100)              respond(false, "Minimum withdrawal is ₦100.");
+        if (empty($bank_code))          respond(false, "Please select a bank.");
         if (strlen($account_no) !== 10) respond(false, "Enter a valid 10-digit account number.");
-        if (empty($account_name)) respond(false, "Account name is required.");
+        if (empty($account_name))       respond(false, "Account name is required.");
 
         $user = getUser($pdo, $user_id);
         if (!$user) respond(false, "User not found.");
 
-        // Get admin withdrawal fee
+        // Get withdrawal fee from settings
         $stmt = $pdo->prepare("SELECT value FROM settings WHERE name = 'withdrawal_fee' LIMIT 1");
         $stmt->execute();
-        $fee_row = $stmt->fetch();
-        $fee = (float)($fee_row['value'] ?? 0);
-
+        $fee_row  = $stmt->fetch();
+        $fee      = (float)($fee_row['value'] ?? 0);
         $total_debit = $amount + $fee;
+
         if ($total_debit > (float)$user['wallet_balance']) {
-            respond(false, "Insufficient wallet balance. Available: ₦" .
-                number_format((float)$user['wallet_balance'], 2));
+            respond(false, "Insufficient balance. You need ₦" . number_format($total_debit, 2) .
+                " (₦" . number_format($amount, 2) . " + ₦" . number_format($fee, 2) . " fee).");
         }
 
-        // Daily withdrawal limit check (3 per day)
+        // Daily limit: 3 per day
         $stmt = $pdo->prepare("
             SELECT COUNT(*) as cnt FROM withdrawal_requests
             WHERE user_id = ? AND DATE(created_at) = CURDATE()
         ");
         $stmt->execute([$user_id]);
-        $daily = $stmt->fetch();
-        if ((int)$daily['cnt'] >= 3) {
+        if ((int)$stmt->fetch()['cnt'] >= 3) {
             respond(false, "Daily withdrawal limit reached (3 per day). Try again tomorrow.");
         }
 
-        // 30-minute cooldown check
+        // 30-minute cooldown
         $stmt = $pdo->prepare("
             SELECT created_at FROM withdrawal_requests
             WHERE user_id = ? ORDER BY created_at DESC LIMIT 1
@@ -238,42 +257,95 @@ switch ($action) {
             respond(false, "Please wait 30 minutes between withdrawal requests.");
         }
 
-        // Check: is this the user's FIRST EVER approved withdrawal? Bank name must match KYC name.
-        $stmt = $pdo->prepare("
-            SELECT COUNT(*) as cnt FROM withdrawal_requests
-            WHERE user_id = ? AND status IN ('approved','paid')
-        ");
-        $stmt->execute([$user_id]);
-        $is_first_withdrawal = ((int)$stmt->fetch()['cnt'] === 0);
-
-        // Reserve the funds immediately so the user can't spend it elsewhere
-        // while we review the request, but it is NOT yet sent anywhere.
+        // Reserve funds NOW — before calling Flutterwave
         if (!debitWallet($pdo, $user_id, $total_debit)) {
             respond(false, "Insufficient balance.");
         }
 
         $ref = 'WDR-' . strtoupper(bin2hex(random_bytes(6))) . '-' . time();
 
+        // Save the request as 'pending' before transfer attempt
         $pdo->prepare("
             INSERT INTO withdrawal_requests
                 (user_id, amount, fee, total_debited, bank_name, account_no, account_name, reference, status, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
-        ")->execute([$user_id, $amount, $fee, $total_debit, $bank, $account_no, $account_name, $ref]);
+        ")->execute([$user_id, $amount, $fee, $total_debit, $bank_name, $account_no, $account_name, $ref]);
+        $wr_id = (int)$pdo->lastInsertId();
 
-        // Log the debit (funds are now held, pending review)
-        logTransaction($pdo, $user_id, 'debit', 'withdrawal', $total_debit,
-            "Withdrawal requested to $bank — $account_no ($account_name)", $ref);
+        // ============================================================
+        // CALL FLUTTERWAVE TRANSFERS API — send money to their bank now
+        // ============================================================
+        $transfer_payload = [
+            "account_bank"   => $bank_code,
+            "account_number" => $account_no,
+            "amount"         => $amount,
+            "narration"      => "Ememart wallet withdrawal — " . $user['full_name'],
+            "currency"       => "NGN",
+            "reference"      => $ref,
+            "callback_url"   => "https://www.ememart.com/api/flw_webhook.php",
+            "debit_currency" => "NGN",
+        ];
 
-        $msg = $is_first_withdrawal
-            ? "Withdrawal request submitted. Since this is your first withdrawal, it requires manual review and may take up to 24 hours."
-            : "Withdrawal request submitted. You'll be notified once it's processed (usually within a few hours).";
-
-        $user = getUser($pdo, $user_id);
-        respond(true, $msg, [
-            "new_balance" => number_format((float)$user['wallet_balance'], 2),
-            "reference"   => $ref,
-            "status"      => "pending",
+        $ch = curl_init("https://api.flutterwave.com/v3/transfers");
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode($transfer_payload),
+            CURLOPT_HTTPHEADER     => [
+                "Authorization: Bearer " . FLW_SECRET_KEY,
+                "Content-Type: application/json",
+            ],
+            CURLOPT_TIMEOUT => 30,
         ]);
+        $flw_response = json_decode(curl_exec($ch), true);
+        $curl_err     = curl_error($ch);
+        curl_close($ch);
+
+        $flw_status = $flw_response['status']          ?? 'error';
+        $flw_data   = $flw_response['data']            ?? [];
+        $flw_tx_id  = $flw_data['id']                  ?? null;
+        $flw_tx_status = strtolower($flw_data['status'] ?? 'error');
+
+        if (!$curl_err && $flw_status === 'success' &&
+            in_array($flw_tx_status, ['new', 'pending', 'successful'])) {
+            // Transfer initiated — Flutterwave will process it
+            $final_status = in_array($flw_tx_status, ['successful']) ? 'paid' : 'approved';
+            $pdo->prepare("UPDATE withdrawal_requests SET status=? WHERE id=?")
+                ->execute([$final_status, $wr_id]);
+
+            logTransaction($pdo, $user_id, 'debit', 'withdrawal', $total_debit,
+                "Withdrawal to $bank_name — $account_no ($account_name)", $ref);
+
+            $pdo->prepare("
+                INSERT INTO notifications (user_id, title, message, type, created_at)
+                VALUES (?, '💸 Withdrawal Processing', ?, 'withdrawal', NOW())
+            ")->execute([$user_id,
+                "₦" . number_format($amount, 2) . " is being sent to your $bank_name account ($account_no). Usually arrives within minutes."
+            ]);
+
+            $user = getUser($pdo, $user_id);
+            respond(true, "Withdrawal initiated! ₦" . number_format($amount, 2) . " is on its way to your $bank_name account. Usually arrives within minutes.", [
+                "new_balance" => number_format((float)$user['wallet_balance'], 2),
+                "reference"   => $ref,
+                "status"      => $final_status,
+            ]);
+
+        } else {
+            // Transfer FAILED — immediately refund the held funds
+            creditWallet($pdo, $user_id, $total_debit);
+            $error_msg = $flw_response['message'] ?? ($curl_err ?: "Transfer failed.");
+            $pdo->prepare("UPDATE withdrawal_requests SET status='rejected', admin_note=? WHERE id=?")
+                ->execute(["Auto-rejected: Flutterwave error — $error_msg", $wr_id]);
+
+            $pdo->prepare("
+                INSERT INTO notifications (user_id, title, message, type, created_at)
+                VALUES (?, '❌ Withdrawal Failed', ?, 'withdrawal', NOW())
+            ")->execute([$user_id,
+                "Your withdrawal of ₦" . number_format($amount, 2) . " could not be processed: $error_msg Your funds have been returned to your wallet."
+            ]);
+
+            respond(false, "Withdrawal failed: $error_msg Your funds have been returned to your wallet.");
+        }
         break;
 
         // Log platform fee if any
