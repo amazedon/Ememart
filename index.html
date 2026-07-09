@@ -6854,48 +6854,67 @@ function switchFinanceTab(tab){
 // ============================================================
 // WITHDRAWAL
 // ============================================================
-function openWithdrawModal(){
+let _banksLoaded = false;
+
+async function openWithdrawModal(){
   if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in first.'); return; }
   const wBal = el('withdraw-balance-display');
   if(wBal) wBal.textContent = fmtCurrency(state.session.balance);
   el('withdraw-modal').classList.remove('hidden');
+
+  if(!_banksLoaded){
+    const bankSel = el('withdraw-bank');
+    if(bankSel) bankSel.innerHTML = '<option value="">Loading banks...</option>';
+    try {
+      const res = await apiPost('wallet.php', 'get_banks', {});
+      if(res.success && res.banks){
+        _banksLoaded = true;
+        bankSel.innerHTML = '<option value="">— Select your bank —</option>' +
+          res.banks.map(b => `<option value="${b.code}" data-name="${b.name}">${b.name}</option>`).join('');
+      } else {
+        bankSel.innerHTML = '<option value="">Could not load banks — try again</option>';
+      }
+    } catch(e){
+      el('withdraw-bank').innerHTML = '<option value="">Connection failed — try again</option>';
+    }
+  }
 }
 
 async function processWithdrawal(){
   const amount = parseFloat(el('withdraw-amount')?.value) || 0;
-  const bank = el('withdraw-bank')?.value;
+  const bankSel = el('withdraw-bank');
+  const bank_code = bankSel?.value;
+  const bank_name = bankSel?.options[bankSel.selectedIndex]?.dataset?.name || bankSel?.options[bankSel.selectedIndex]?.text || '';
   const account_no = el('withdraw-account-no')?.value.trim();
   const account_name = el('withdraw-account-name')?.value.trim();
   const pin = el('withdraw-pin')?.value;
 
-  if(!bank){ showPopupNotif('⚠️','Select Bank','Please select your bank.'); return; }
+  if(!bank_code){ showPopupNotif('⚠️','Select Bank','Please select your bank.'); return; }
   if(!account_no || account_no.length !== 10){ showPopupNotif('⚠️','Invalid Account','Enter a valid 10-digit account number.'); return; }
-  if(!account_name){ showPopupNotif('⚠️','Account Name Required','Enter the account name — it must match your KYC name.'); return; }
+  if(!account_name){ showPopupNotif('⚠️','Account Name Required','Enter the account name — it must match your bank records.'); return; }
   if(!amount || amount < 100){ showPopupNotif('⚠️','Invalid Amount','Minimum withdrawal is ₦100.'); return; }
 
-  if(pin && isPinSet()){
-    if(hashPin(pin) !== getPinHash()){
-      showPopupNotif('❌','Wrong PIN','Transaction PIN is incorrect.');
-      return;
-    }
+  if(isPinSet()){
+    if(!pin){ showPopupNotif('⚠️','PIN Required','Enter your transaction PIN to continue.'); return; }
+    if(hashPin(pin) !== getPinHash()){ showPopupNotif('❌','Wrong PIN','Transaction PIN is incorrect.'); return; }
   }
 
   const btn = el('withdraw-submit-btn');
   if(btn){ btn.textContent = 'Processing...'; btn.disabled = true; }
 
   try {
-    const res = await apiPost('wallet.php', 'withdraw', { amount, bank, account_no, account_name });
+    const res = await apiPost('wallet.php', 'withdraw', { amount, bank_code, bank_name, account_no, account_name });
 
     if(res.success){
-      const newBal = res.new_balance ? parseFloat(String(res.new_balance).replace(/,/g,'')) : state.session.balance;
+      const newBal = res.new_balance ? parseFloat(String(res.new_balance).replace(/,/g,'')) : (state.session.balance - amount);
       state.session.balance = newBal;
       syncAccountDisplay();
       el('withdraw-modal')?.classList.add('hidden');
       el('withdraw-amount').value = '';
       el('withdraw-account-no').value = '';
       el('withdraw-account-name').value = '';
-      el('withdraw-pin').value = '';
-      showPopupNotif('🏦','Request Submitted', res.message);
+      if(el('withdraw-pin')) el('withdraw-pin').value = '';
+      showPopupNotif('💸','Transfer Initiated', res.message);
     } else {
       showPopupNotif('❌','Withdrawal Failed', res.message);
     }
@@ -11467,61 +11486,7 @@ function completeGoogleSignInDemo(payload){
     <div class="flex flex-col gap-1">
       <label class="label-sm">Bank Name</label>
       <select id="withdraw-bank" class="inp text-xs">
-        <option value="">— Select bank —</option>
-        <optgroup label="💚 Mobile Money & Fintech">
-          <option>PalmPay</option>
-          <option>MTN MoMo (Mobile Money)</option>
-          <option>SmartCash (Airtel Money)</option>
-          <option>OPay</option>
-          <option>Moniepoint</option>
-          <option>Kuda Bank</option>
-          <option>Carbon (One Finance)</option>
-          <option>FairMoney</option>
-          <option>Chipper Cash</option>
-          <option>VFD Microfinance Bank</option>
-          <option>Rubies Bank</option>
-          <option>Sparkle Bank</option>
-          <option>Cowrywise</option>
-          <option>PiggyVest (Wealth.ng)</option>
-          <option>Raven Bank</option>
-          <option>Mint Finex MFB</option>
-        </optgroup>
-        <optgroup label="🏦 Major Commercial Banks">
-          <option>Access Bank</option>
-          <option>GTBank (Guaranty Trust)</option>
-          <option>Zenith Bank</option>
-          <option>First Bank of Nigeria</option>
-          <option>UBA (United Bank for Africa)</option>
-          <option>Sterling Bank</option>
-          <option>Polaris Bank</option>
-          <option>Fidelity Bank</option>
-          <option>Union Bank</option>
-          <option>Wema Bank (ALAT)</option>
-          <option>Stanbic IBTC Bank</option>
-          <option>Standard Chartered</option>
-          <option>Citibank Nigeria</option>
-          <option>Ecobank Nigeria</option>
-          <option>Heritage Bank</option>
-          <option>Keystone Bank</option>
-          <option>Unity Bank</option>
-          <option>Titan Trust Bank</option>
-          <option>Providus Bank</option>
-          <option>Globus Bank</option>
-          <option>First City Monument Bank (FCMB)</option>
-          <option>Jaiz Bank</option>
-          <option>SunTrust Bank</option>
-          <option>Coronation Bank</option>
-          <option>Parallex Bank</option>
-        </optgroup>
-        <optgroup label="🏧 Microfinance & Others">
-          <option>LAPO Microfinance Bank</option>
-          <option>AB Microfinance Bank</option>
-          <option>Accion Microfinance Bank</option>
-          <option>NPF Microfinance Bank</option>
-          <option>Mutual Trust Microfinance Bank</option>
-          <option>Fina Trust Microfinance Bank</option>
-          <option>Microvis Microfinance Bank</option>
-        </optgroup>
+        <option value="">Loading banks...</option>
       </select>
     </div>
     <div class="flex flex-col gap-1">
