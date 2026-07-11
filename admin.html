@@ -684,7 +684,7 @@ async function loadVtuPricingList() {
 let _currentWithdrawalFilter = 'pending';
 
 async function renderWithdrawalsPage() {
-  el('page-content').innerHTML = pageHeader('Withdrawals', 'Review withdrawal requests. Funds are already held — approve, send the bank transfer yourself, then mark as Paid.') + `
+  el('page-content').innerHTML = pageHeader('Withdrawals', 'Withdrawals are processed automatically via Flutterwave. Monitor status here — Pending means transfer is initiated, Paid means confirmed delivered, Rejected means funds were refunded.') + `
     <div class="flex gap-2 mb-4">
       ${['pending','approved','paid','rejected','all'].map(s => `
         <button onclick="filterWithdrawals('${s}')" id="wf-${s}" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition ${s===_currentWithdrawalFilter ? 'bg-emerald-500 text-gray-950' : 'bg-gray-900 text-gray-500 hover:text-white'}">${s}</button>
@@ -747,11 +747,8 @@ async function loadWithdrawalsList() {
       ${w.admin_note ? `<div class="text-[10px] text-red-400 italic">Note: ${w.admin_note}</div>` : ''}
       ${w.status === 'pending' ? `
         <div class="flex gap-2">
-          <button onclick="approveWithdrawal(${w.id})" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs py-2.5 rounded-xl transition">✅ Approve</button>
-          <button onclick="rejectWithdrawal(${w.id})" class="flex-1 bg-gray-800 hover:bg-red-950 border border-gray-700 hover:border-red-800 text-red-400 font-black text-xs py-2.5 rounded-xl transition">❌ Reject</button>
+          <button onclick="rejectWithdrawal(${w.id})" class="flex-1 bg-gray-800 hover:bg-red-950 border border-gray-700 hover:border-red-800 text-red-400 font-black text-xs py-2.5 rounded-xl transition">❌ Reject & Refund</button>
         </div>` : ''}
-      ${w.status === 'approved' ? `
-        <button onclick="markWithdrawalPaid(${w.id})" class="bg-sky-500 hover:bg-sky-400 text-gray-950 font-black text-xs py-2.5 rounded-xl transition">💸 Mark as Paid (I've sent the transfer)</button>` : ''}
     </div>
   `).join('');
 }
