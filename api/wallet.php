@@ -375,6 +375,11 @@ switch ($action) {
         $user = getUser($pdo, $user_id);
         if (!$user) respond(false, "User not found.");
 
+        // Transfer fee from settings
+        $tf_stmt = $pdo->prepare("SELECT value FROM settings WHERE name = 'transfer_fee' LIMIT 1");
+        $tf_stmt->execute();
+        $transfer_fee = (float)(($tf_stmt->fetch())['value'] ?? 0);
+
         // Find recipient
         if (strpos($recipient, 'EM-') === 0) {
             $rec_id = (int)str_replace('EM-', '', $recipient);
@@ -392,19 +397,25 @@ switch ($action) {
             respond(false, "Insufficient wallet balance.");
         }
 
-        // Debit sender
-        if (!debitWallet($pdo, $user_id, $amount)) {
+        $total_transfer_debit = $amount + $transfer_fee;
+        if ($total_transfer_debit > (float)$user['wallet_balance']) {
+            respond(false, "Insufficient balance. You need ₦" . number_format($total_transfer_debit, 2) .
+                " (₦" . number_format($amount, 2) . " + ₦" . number_format($transfer_fee, 2) . " fee).");
+        }
+
+        // Debit sender (amount + fee)
+        if (!debitWallet($pdo, $user_id, $total_transfer_debit)) {
             respond(false, "Insufficient balance.");
         }
 
-        // Credit recipient
+        // Credit recipient (amount only — fee stays with platform)
         creditWallet($pdo, (int)$rec['id'], $amount);
 
         $ref = 'TRF-' . strtoupper(bin2hex(random_bytes(6))) . '-' . time();
 
         // Log for sender
         logTransaction($pdo, $user_id, 'debit', 'transfer',
-            $amount, "Transfer to {$rec['full_name']} (EM-{$rec['id']})", $ref);
+            $total_transfer_debit, "Transfer to {$rec['full_name']} (EM-{$rec['id']}) + ₦{$transfer_fee} fee", $ref);
 
         // Log for recipient
         logTransaction($pdo, (int)$rec['id'], 'credit', 'transfer',
