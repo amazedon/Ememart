@@ -387,7 +387,7 @@ function navigateTo(page) {
     posts: renderComingSoon,
     disputes: renderComingSoon,
     orders: renderComingSoon,
-    finance: renderComingSoon,
+    finance: renderFinancePage,
     withdrawals: renderWithdrawalsPage,
   };
   (renderers[page] || renderComingSoon)();
@@ -680,6 +680,91 @@ async function loadVtuPricingList() {
 
 // ============================================================
 // WITHDRAWALS PAGE
+// ============================================================
+// FINANCE & FEES PAGE
+// ============================================================
+const FEE_LABELS = {
+  withdrawal_fee:      { label: 'Withdrawal Fee',          desc: 'Flat fee charged per withdrawal request (₦)',    type: 'naira' },
+  transfer_fee:        { label: 'Transfer Fee',             desc: 'Flat fee charged per wallet-to-wallet transfer (₦)', type: 'naira' },
+  kyc_fee:             { label: 'KYC Verification Fee',     desc: 'One-time fee charged when a user submits KYC (₦)', type: 'naira' },
+  escrow_fee_small:    { label: 'Escrow Fee — Small',       desc: 'Orders under ₦5,000 (₦)',                       type: 'naira' },
+  escrow_fee_medium:   { label: 'Escrow Fee — Medium',      desc: 'Orders ₦5,000 – ₦20,000 (₦)',                  type: 'naira' },
+  escrow_fee_large:    { label: 'Escrow Fee — Large',       desc: 'Orders ₦20,000 – ₦100,000 (₦)',                type: 'naira' },
+  escrow_fee_xl:       { label: 'Escrow Fee — XL',          desc: 'Orders above ₦100,000 (₦)',                    type: 'naira' },
+  boost_fee_basic:     { label: 'Boost Fee — Basic',        desc: 'Cost to boost a listing for 24 hours (₦)',     type: 'naira' },
+  boost_fee_standard:  { label: 'Boost Fee — Standard',     desc: 'Cost to boost a listing for 3 days (₦)',      type: 'naira' },
+  boost_fee_premium:   { label: 'Boost Fee — Premium',      desc: 'Cost to boost a listing for 7 days (₦)',      type: 'naira' },
+  referral_reward:     { label: 'Referral Reward',          desc: 'Amount paid to a user who refers a new signup (₦)', type: 'naira' },
+  cashback_rate:       { label: 'VTU Cashback Rate',        desc: 'Percentage cashback on VTU purchases (e.g. 0.01 = 1%)', type: 'rate' },
+  auto_release_hours:  { label: 'Escrow Auto-Release',      desc: 'Hours before escrow is auto-released to seller', type: 'hours' },
+};
+
+async function renderFinancePage() {
+  el('page-content').innerHTML = pageHeader('Finance & Fees', 'Control all platform fees. Changes take effect immediately on the next transaction.') +
+    '<div id="fees-list" class="flex flex-col gap-3"><div class="skel h-64 rounded-2xl"></div></div>';
+
+  const res = await adminApi('get_fees');
+  const listEl = el('fees-list');
+  if (!res.success) { listEl.innerHTML = '<div class="p-6 text-center text-sm text-red-400">' + res.message + '</div>'; return; }
+
+  const fees = res.fees || {};
+  const groups = [
+    { title: '💳 Transaction Fees', keys: ['withdrawal_fee', 'transfer_fee', 'kyc_fee'] },
+    { title: '🔐 Escrow Fees', keys: ['escrow_fee_small', 'escrow_fee_medium', 'escrow_fee_large', 'escrow_fee_xl'] },
+    { title: '🚀 Boost Fees', keys: ['boost_fee_basic', 'boost_fee_standard', 'boost_fee_premium'] },
+    { title: '🎁 Rewards & Cashback', keys: ['referral_reward', 'cashback_rate'] },
+    { title: '⏱️ Escrow Settings', keys: ['auto_release_hours'] },
+  ];
+
+  listEl.innerHTML = '';
+  groups.forEach(function(g) {
+    const section = document.createElement('div');
+    section.className = 'bg-gray-900 glow-border rounded-2xl overflow-hidden';
+    const header = document.createElement('div');
+    header.className = 'px-4 py-3 border-b border-gray-800 text-xs font-black text-white';
+    header.textContent = g.title;
+    section.appendChild(header);
+
+    g.keys.forEach(function(key) {
+      const meta = FEE_LABELS[key] || { label: key, desc: '', type: 'naira' };
+      const val = fees[key] !== undefined ? fees[key] : '';
+      const row = document.createElement('div');
+      row.className = 'px-4 py-3 border-b border-gray-900 flex items-center justify-between gap-3';
+      row.innerHTML =
+        '<div class="flex-1">' +
+          '<div class="text-xs font-bold text-white">' + meta.label + '</div>' +
+          '<div class="text-[10px] text-gray-500 mt-0.5">' + meta.desc + '</div>' +
+        '</div>' +
+        '<div class="flex items-center gap-2">' +
+          (meta.type === 'naira' ? '<span class="text-xs text-gray-500">₦</span>' : '') +
+          '<input type="number" id="fee-' + key + '" value="' + val + '" step="' + (meta.type === 'rate' ? '0.001' : '1') + '" ' +
+            'class="bg-gray-950 border border-gray-800 rounded-lg px-2 py-1.5 text-sm font-black text-white w-24 text-right focus:outline-none focus:border-emerald-600 mono">' +
+          '<button data-key="' + key + '" class="save-fee-btn bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-[10px] px-3 py-1.5 rounded-lg transition">Save</button>' +
+        '</div>';
+      section.appendChild(row);
+    });
+    listEl.appendChild(section);
+  });
+
+  // Wire save buttons via event delegation — avoids all quoting issues
+  listEl.addEventListener('click', function(e) {
+    const btn = e.target.closest('.save-fee-btn');
+    if (btn) saveFee(btn.dataset.key);
+  });
+}
+
+async function saveFee(name) {
+  const input = el('fee-' + name);
+  const value = input ? input.value.trim() : '';
+  if (value === '') { alert('Enter a value.'); return; }
+  const res = await adminApi('update_fee', { name, value });
+  if (res.success) {
+    if (input) { input.style.borderColor = '#10b981'; setTimeout(function(){ if(input) input.style.borderColor = ''; }, 2000); }
+  } else {
+    alert(res.message);
+  }
+}
+
 // ============================================================
 let _currentWithdrawalFilter = 'pending';
 
