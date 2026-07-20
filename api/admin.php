@@ -539,6 +539,55 @@ switch ($action) {
         respond(true, "Withdrawal rejected and funds returned to the user's wallet.");
         break;
 
+    // ----------------------------------------------------------
+    // GET FEES — fetch all platform fee settings
+    // ----------------------------------------------------------
+    case 'get_fees':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'fees')) {
+            respond(false, "You don't have permission to manage fees.");
+        }
+
+        $stmt = $pdo->query("SELECT name, value FROM settings ORDER BY name");
+        $rows = $stmt->fetchAll();
+        $fees = [];
+        foreach ($rows as $r) $fees[$r['name']] = $r['value'];
+
+        respond(true, "Fees fetched.", ["fees" => $fees]);
+        break;
+
+    // ----------------------------------------------------------
+    // UPDATE FEE — change a single fee setting
+    // ----------------------------------------------------------
+    case 'update_fee':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'fees')) {
+            respond(false, "You don't have permission to manage fees.");
+        }
+
+        $name  = clean($body['name']  ?? '');
+        $value = clean($body['value'] ?? '');
+
+        if (empty($name)) respond(false, "Fee name is required.");
+
+        // Only allow known settings to be changed (prevent SQL injection via name)
+        $allowed = [
+            'withdrawal_fee', 'transfer_fee', 'kyc_fee',
+            'escrow_fee_small', 'escrow_fee_medium', 'escrow_fee_large', 'escrow_fee_xl',
+            'boost_fee_basic', 'boost_fee_standard', 'boost_fee_premium',
+            'referral_reward', 'cashback_rate', 'auto_release_hours'
+        ];
+        if (!in_array($name, $allowed)) respond(false, "Unknown fee setting: $name");
+
+        $pdo->prepare("UPDATE settings SET value = ? WHERE name = ?")
+            ->execute([$value, $name]);
+
+        logAdminAction($pdo, $admin['user_id'], 'update_fee', 'settings', $name,
+            "Changed $name to $value");
+
+        respond(true, "Fee updated successfully.");
+        break;
+
     case 'logout':
         $admin_id = (int)($_SESSION['admin_id'] ?? 0);
         if ($admin_id) logAdminAction($pdo, $admin_id, 'logout');
