@@ -16,7 +16,7 @@ if (!$user_id) {
 // Get these from your Bigisub dashboard
 // ============================================================
 define('BIGISUB_BASE_URL', 'https://bigisub.com/api');
-define('CASHBACK_RATE',    0.01);                     // 1% cashback
+// CASHBACK_RATE is loaded from settings table per-request (see purchase action)
 
 // ============================================================
 // HELPER: Call Bigisub API
@@ -92,7 +92,7 @@ $action = clean($body['action'] ?? $_GET['action'] ?? '');
 switch ($action) {
 
     // ----------------------------------------------------------
-    // GET PLANS — fetch data/TV/internet plans from Bigisub
+    // GET PLANS — fetch data/TV plans from Bigisub
     // Called via apiGet('vtu.php', { action:'get_plans', ... })
     // ----------------------------------------------------------
     case 'get_plans':
@@ -105,9 +105,8 @@ switch ($action) {
 
         // Map frontend category to Bigisub endpoint
         $endpoint_map = [
-            'data'     => '/data/plans',
-            'tv'       => '/tv/plans',
-            'internet' => '/internet/plans',
+            'data' => '/data/plans',
+            'tv'   => '/tv/plans',
         ];
 
         $endpoint = $endpoint_map[$category] ?? '/data/plans';
@@ -153,33 +152,113 @@ switch ($action) {
         break;
 
     // ----------------------------------------------------------
-    // PURCHASE — buy airtime / data / electricity / TV / betting / internet
+    // PURCHASE — buy airtime / data / electricity / TV / betting
     // ----------------------------------------------------------
+    // ----------------------------------------------------------
+    // PREVIEW PRICE — tell the frontend what the real charge will be
+    // (including our markup), before the customer confirms
+    // ----------------------------------------------------------
+    case 'preview_price':
+        $service_type = clean($body['service_type'] ?? '');
+        $service_id   = clean($body['service_id']   ?? '');
+        $plan_id      = clean($body['plan_id']       ?? '');
+        $requested_amount = (float)($body['amount']  ?? 0);
+
+        $charge_amount = $requested_amount;
+
+        if ($service_type === 'data' || $service_type === 'tv') {
+            $stmt = $pdo->prepare("
+                SELECT selling_price FROM vtu_pricing
+                WHERE service_type = ? AND provider_id = ? AND plan_id = ? LIMIT 1
+            ");
+            $stmt->execute([$service_type, $service_id, $plan_id]);
+            $pricing = $stmt->fetch();
+            if ($pricing) $charge_amount = (float)$pricing['selling_price'];
+        } else {
+            $stmt = $pdo->prepare("
+                SELECT markup_type, markup_value FROM vtu_pricing
+                WHERE service_type = ? AND provider_id = 'all' LIMIT 1
+            ");
+            $stmt->execute([$service_type]);
+            $fee = $stmt->fetch();
+            if ($fee) {
+                $fee_amount = $fee['markup_type'] === 'percent'
+                    ? round($requested_amount * ((float)$fee['markup_value'] / 100), 2)
+                    : (float)$fee['markup_value'];
+                $charge_amount = $requested_amount + $fee_amount;
+            }
+        }
+
+        respond(true, "Price calculated.", ["charge_amount" => $charge_amount]);
+        break;
+
     case 'purchase':
         $service_type = clean($body['service_type'] ?? '');
         $service_id   = clean($body['service_id']   ?? '');
-        $amount       = (float)($body['amount']      ?? 0);
+        $requested_amount = (float)($body['amount']  ?? 0);
         $phone        = clean($body['phone']         ?? '');
         $account_no   = clean($body['account_no']   ?? $body['phone'] ?? '');
         $plan_id      = clean($body['plan_id']       ?? '');
 
         // Validate inputs
         if (empty($service_type)) respond(false, "Service type is required.");
-        if ($amount < 50)         respond(false, "Minimum purchase is ₦50.");
         if (empty($account_no))   respond(false, "Account number or phone is required.");
 
-        $allowed_services = ['airtime', 'data', 'electricity', 'tv', 'betting', 'internet'];
+        $allowed_services = ['airtime', 'data', 'electricity', 'tv', 'betting'];
         if (!in_array($service_type, $allowed_services)) {
             respond(false, "Invalid service type.");
         }
 
-        // Check wallet balance
+        // ============================================================
+        // DETERMINE THE REAL CHARGE — never trust the amount sent by the
+        // frontend on its own. Look up your set pricing instead.
+        // ============================================================
+        $wholesale_amount = $requested_amount; // what we'll send to Bigisub
+        $charge_amount    = $requested_amount; // what we'll debit the customer
+
+        if ($service_type === 'data' || $service_type === 'tv') {
+            // Plan-based services: look up the exact plan's wholesale + selling price
+            $stmt = $pdo->prepare("
+                SELECT wholesale_price, selling_price FROM vtu_pricing
+                WHERE service_type = ? AND provider_id = ? AND plan_id = ? LIMIT 1
+            ");
+            $stmt->execute([$service_type, $service_id, $plan_id]);
+            $pricing = $stmt->fetch();
+
+            if ($pricing) {
+                $wholesale_amount = (float)$pricing['wholesale_price'];
+                $charge_amount    = (float)$pricing['selling_price'];
+            }
+            // If no pricing row exists yet, falls back to the raw amount sent
+            // (i.e. no markup applied) — set this in admin "VTU Pricing" to fix.
+        } else {
+            // Flat-fee services (airtime, electricity, betting): customer chooses
+            // the top-up amount, your markup is an added service fee on top
+            $stmt = $pdo->prepare("
+                SELECT markup_type, markup_value FROM vtu_pricing
+                WHERE service_type = ? AND provider_id = 'all' LIMIT 1
+            ");
+            $stmt->execute([$service_type]);
+            $fee = $stmt->fetch();
+
+            if ($fee) {
+                $fee_amount = $fee['markup_type'] === 'percent'
+                    ? round($requested_amount * ((float)$fee['markup_value'] / 100), 2)
+                    : (float)$fee['markup_value'];
+                $charge_amount = $requested_amount + $fee_amount;
+            }
+            $wholesale_amount = $requested_amount; // Bigisub still gets the exact top-up amount requested
+        }
+
+        if ($charge_amount < 50) respond(false, "Minimum purchase is ₦50.");
+
+        // Check wallet balance against the REAL charge (with your markup)
         $stmt = $pdo->prepare("SELECT wallet_balance FROM users WHERE id = ? LIMIT 1");
         $stmt->execute([$user_id]);
         $user = $stmt->fetch();
 
-        if (!$user || (float)$user['wallet_balance'] < $amount) {
-            respond(false, "Insufficient wallet balance. Please fund your wallet.");
+        if (!$user || (float)$user['wallet_balance'] < $charge_amount) {
+            respond(false, "Insufficient wallet balance. You need " . number_format($charge_amount, 2) . " (includes service fee). Please fund your wallet.");
         }
 
         // Generate unique reference
@@ -192,22 +271,21 @@ switch ($action) {
             'electricity' => '/electricity/purchase',
             'tv'          => '/tv/purchase',
             'betting'     => '/betting/purchase',
-            'internet'    => '/internet/purchase',
         ];
         $endpoint = $endpoint_map[$service_type];
 
-        // Build payload for Bigisub
+        // Build payload for Bigisub — uses the WHOLESALE amount, not what we charge the customer
         $payload = [
             'reference'  => $reference,
             'service_id' => $service_id,
-            'amount'     => $amount,
+            'amount'     => $wholesale_amount,
             'phone'      => $phone ?: $account_no,
             'account_no' => $account_no,
         ];
         if (!empty($plan_id)) $payload['plan_id'] = $plan_id;
 
-        // Debit wallet BEFORE calling API (reserve funds)
-        if (!debitWallet($pdo, $user_id, $amount)) {
+        // Debit wallet BEFORE calling API (reserve funds) — debit the REAL charge
+        if (!debitWallet($pdo, $user_id, $charge_amount)) {
             respond(false, "Insufficient wallet balance.");
         }
 
@@ -220,7 +298,6 @@ switch ($action) {
             'electricity' => 'Electricity (NEPA)',
             'tv'          => 'TV Subscription',
             'betting'     => 'Bet Funding',
-            'internet'    => 'Internet Bill',
         ];
         $service_label = $service_labels[$service_type];
 
@@ -229,12 +306,23 @@ switch ($action) {
             isset($result['status']) &&
             in_array($result['status'], ['success', 'successful', 'delivered'])
         ) {
-            // SUCCESS — log debit transaction
-            logTxn($pdo, $user_id, 'debit', 'vtu', $amount,
+            // SUCCESS — log debit transaction (the real amount charged, including your markup)
+            logTxn($pdo, $user_id, 'debit', 'vtu', $charge_amount,
                 "$service_label — $account_no", $reference);
 
-            // Apply 1% cashback
-            $cashback = (int)floor($amount * CASHBACK_RATE);
+            // Log your profit margin separately for your own records
+            $profit = round($charge_amount - $wholesale_amount, 2);
+            if ($profit > 0) {
+                logTxn($pdo, $user_id, 'debit', 'vtu_margin_internal', 0,
+                    "Internal: margin ₦$profit on $service_label ($reference)", $reference);
+            }
+
+            // Apply 1% cashback (based on what the customer actually paid)
+            // Apply cashback (rate loaded live from settings table)
+            $cr_stmt = $pdo->prepare("SELECT value FROM settings WHERE name = 'cashback_rate' LIMIT 1");
+            $cr_stmt->execute();
+            $cashback_rate = (float)(($cr_stmt->fetch())['value'] ?? 0.01);
+            $cashback = (int)floor($charge_amount * $cashback_rate);
             if ($cashback > 0) {
                 creditWallet($pdo, $user_id, $cashback);
                 logTxn($pdo, $user_id, 'credit', 'cashback', $cashback,
@@ -250,13 +338,14 @@ switch ($action) {
                 "reference"   => $reference,
                 "token"       => $result['data']['token']  ?? null, // electricity token
                 "new_balance" => number_format((float)$updated['wallet_balance'], 2),
+                "amount_charged" => $charge_amount,
                 "cashback"    => $cashback,
             ]);
 
         } else {
-            // FAILED — refund wallet
-            creditWallet($pdo, $user_id, $amount);
-            logTxn($pdo, $user_id, 'credit', 'refund', $amount,
+            // FAILED — refund wallet the full amount we actually charged
+            creditWallet($pdo, $user_id, $charge_amount);
+            logTxn($pdo, $user_id, 'credit', 'refund', $charge_amount,
                 "Refund: failed $service_label purchase", $reference);
 
             $error = $result['message'] ?? "Purchase failed. Your wallet has been refunded.";
