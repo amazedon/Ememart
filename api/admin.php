@@ -588,6 +588,213 @@ switch ($action) {
         respond(true, "Fee updated successfully.");
         break;
 
+    // ----------------------------------------------------------
+    // USERS — list, suspend, unsuspend, view profile
+    // ----------------------------------------------------------
+    case 'list_users':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'users')) respond(false, "Permission denied.");
+
+        $search = clean($body['search'] ?? $_GET['search'] ?? '');
+        $role   = clean($body['role']   ?? $_GET['role']   ?? '');
+        $page   = max(1, (int)($body['page'] ?? $_GET['page'] ?? 1));
+        $limit  = 20;
+        $offset = ($page - 1) * $limit;
+
+        $where = [];
+        $params = [];
+        if ($search) {
+            $where[] = "(full_name LIKE ? OR email LIKE ? OR phone LIKE ?)";
+            $params[] = "%$search%"; $params[] = "%$search%"; $params[] = "%$search%";
+        }
+        if ($role) { $where[] = "role = ?"; $params[] = $role; }
+        $whereSQL = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        $total_stmt = $pdo->prepare("SELECT COUNT(*) FROM users $whereSQL");
+        $total_stmt->execute($params);
+        $total = (int)$total_stmt->fetchColumn();
+
+        $stmt = $pdo->prepare("
+            SELECT id, full_name, email, phone, role, kyc_status, vendor_tier,
+                   wallet_balance, is_suspended, created_at, last_login
+            FROM users $whereSQL ORDER BY created_at DESC LIMIT $limit OFFSET $offset
+        ");
+        $stmt->execute($params);
+        $users = $stmt->fetchAll();
+
+        respond(true, "Users fetched.", [
+            "users" => $users,
+            "total" => $total,
+            "page"  => $page,
+            "pages" => ceil($total / $limit),
+        ]);
+        break;
+
+    case 'suspend_user':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'users')) respond(false, "Permission denied.");
+
+        $uid    = (int)($body['user_id'] ?? 0);
+        $reason = clean($body['reason'] ?? 'Violation of platform terms.');
+        if (!$uid) respond(false, "User ID required.");
+
+        $pdo->prepare("UPDATE users SET is_suspended = 1 WHERE id = ?")->execute([$uid]);
+        $pdo->prepare("
+            INSERT INTO notifications (user_id, title, message, type, created_at)
+            VALUES (?, 'Account Suspended 🚫', ?, 'system', NOW())
+        ")->execute([$uid, "Your account has been suspended: $reason. Contact help@ememart.com to appeal."]);
+
+        logAdminAction($pdo, $admin['user_id'], 'suspend_user', 'user', $uid, $reason);
+        respond(true, "User suspended.");
+        break;
+
+    case 'unsuspend_user':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'users')) respond(false, "Permission denied.");
+
+        $uid = (int)($body['user_id'] ?? 0);
+        if (!$uid) respond(false, "User ID required.");
+
+        $pdo->prepare("UPDATE users SET is_suspended = 0 WHERE id = ?")->execute([$uid]);
+        $pdo->prepare("
+            INSERT INTO notifications (user_id, title, message, type, created_at)
+            VALUES (?, 'Account Reinstated ✅', 'Your account has been reinstated. Welcome back!', 'system', NOW())
+        ")->execute([$uid]);
+
+        logAdminAction($pdo, $admin['user_id'], 'unsuspend_user', 'user', $uid);
+        respond(true, "User unsuspended.");
+        break;
+
+    // ----------------------------------------------------------
+    // POSTS — list, delete, clear reports
+    // ----------------------------------------------------------
+    case 'list_posts':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'posts')) respond(false, "Permission denied.");
+
+        $search = clean($body['search'] ?? $_GET['search'] ?? '');
+        $page   = max(1, (int)($body['page'] ?? $_GET['page'] ?? 1));
+        $limit  = 20;
+        $offset = ($page - 1) * $limit;
+
+        $where  = $search ? "WHERE p.caption LIKE ? OR u.full_name LIKE ?" : '';
+        $params = $search ? ["%$search%", "%$search%"] : [];
+
+        $total_stmt = $pdo->prepare("SELECT COUNT(*) FROM posts p JOIN users u ON u.id = p.author_id $where");
+        $total_stmt->execute($params);
+        $total = (int)$total_stmt->fetchColumn();
+
+        $stmt = $pdo->prepare("
+            SELECT p.id, p.caption, p.author_id, p.author_role, p.status,
+                   p.is_food, p.escrow_enabled, p.created_at,
+                   u.full_name as author_name, u.is_suspended as author_suspended
+            FROM posts p JOIN users u ON u.id = p.author_id
+            $where ORDER BY p.created_at DESC LIMIT $limit OFFSET $offset
+        ");
+        $stmt->execute($params);
+        $posts = $stmt->fetchAll();
+
+        respond(true, "Posts fetched.", [
+            "posts" => $posts, "total" => $total,
+            "page" => $page, "pages" => ceil($total / $limit),
+        ]);
+        break;
+
+    case 'delete_post':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'posts')) respond(false, "Permission denied.");
+
+        $pid = clean($body['post_id'] ?? '');
+        if (!$pid) respond(false, "Post ID required.");
+
+        $pdo->prepare("UPDATE posts SET status = 'deleted' WHERE id = ?")->execute([$pid]);
+        logAdminAction($pdo, $admin['user_id'], 'delete_post', 'post', $pid);
+        respond(true, "Post deleted.");
+        break;
+
+    // ----------------------------------------------------------
+    // DISPUTES — list, resolve
+    // ----------------------------------------------------------
+    case 'list_disputes':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'disputes')) respond(false, "Permission denied.");
+
+        $status = clean($body['status'] ?? $_GET['status'] ?? 'open');
+        $where  = $status !== 'all' ? "WHERE d.status = ?" : '';
+        $params = $status !== 'all' ? [$status] : [];
+
+        $stmt = $pdo->prepare("
+            SELECT d.id, d.order_id, d.reason, d.description, d.status,
+                   d.resolution, d.created_at,
+                   u1.full_name as raised_by_name, u1.email as raised_by_email,
+                   u2.full_name as against_name
+            FROM disputes d
+            JOIN users u1 ON u1.id = d.raised_by
+            JOIN users u2 ON u2.id = d.against
+            $where ORDER BY d.created_at DESC
+        ");
+        $stmt->execute($params);
+        $disputes = $stmt->fetchAll();
+
+        respond(true, "Disputes fetched.", ["disputes" => $disputes]);
+        break;
+
+    case 'resolve_dispute':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'disputes')) respond(false, "Permission denied.");
+
+        $did        = (int)($body['dispute_id'] ?? 0);
+        $resolution = clean($body['resolution'] ?? '');
+        $winner     = clean($body['winner'] ?? ''); // 'buyer' or 'seller'
+        if (!$did || !$resolution) respond(false, "Dispute ID and resolution are required.");
+
+        $pdo->prepare("
+            UPDATE disputes SET status='resolved', resolution=?, resolved_by=?, resolved_at=NOW()
+            WHERE id=?
+        ")->execute([$resolution, $admin['user_id'], $did]);
+
+        logAdminAction($pdo, $admin['user_id'], 'resolve_dispute', 'dispute', $did, "Winner: $winner — $resolution");
+        respond(true, "Dispute resolved.");
+        break;
+
+    // ----------------------------------------------------------
+    // ORDERS — list, view details
+    // ----------------------------------------------------------
+    case 'list_orders':
+        $admin = getAdminContext($pdo);
+        if (!hasPermission($admin, 'orders')) respond(false, "Permission denied.");
+
+        $status = clean($body['status'] ?? $_GET['status'] ?? 'all');
+        $page   = max(1, (int)($body['page'] ?? $_GET['page'] ?? 1));
+        $limit  = 20;
+        $offset = ($page - 1) * $limit;
+
+        $where  = $status !== 'all' ? "WHERE o.status = ?" : '';
+        $params = $status !== 'all' ? [$status] : [];
+
+        $total_stmt = $pdo->prepare("SELECT COUNT(*) FROM orders o $where");
+        $total_stmt->execute($params);
+        $total = (int)$total_stmt->fetchColumn();
+
+        $stmt = $pdo->prepare("
+            SELECT o.id, o.post_id, o.amount, o.status, o.escrow_status,
+                   o.created_at, o.updated_at,
+                   u1.full_name as buyer_name, u1.email as buyer_email,
+                   u2.full_name as seller_name, u2.email as seller_email
+            FROM orders o
+            JOIN users u1 ON u1.id = o.buyer_id
+            JOIN users u2 ON u2.id = o.seller_id
+            $where ORDER BY o.created_at DESC LIMIT $limit OFFSET $offset
+        ");
+        $stmt->execute($params);
+        $orders = $stmt->fetchAll();
+
+        respond(true, "Orders fetched.", [
+            "orders" => $orders, "total" => $total,
+            "page" => $page, "pages" => ceil($total / $limit),
+        ]);
+        break;
+
     case 'logout':
         $admin_id = (int)($_SESSION['admin_id'] ?? 0);
         if ($admin_id) logAdminAction($pdo, $admin_id, 'logout');
