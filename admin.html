@@ -383,10 +383,10 @@ function navigateTo(page) {
     staff: renderStaffPage,
     activity: renderActivityPage,
     vtu_pricing: renderVtuPricingPage,
-    users: renderComingSoon,
-    posts: renderComingSoon,
-    disputes: renderComingSoon,
-    orders: renderComingSoon,
+    users: renderUsersPage,
+    posts: renderPostsPage,
+    disputes: renderDisputesPage,
+    orders: renderOrdersPage,
     finance: renderFinancePage,
     withdrawals: renderWithdrawalsPage,
   };
@@ -978,6 +978,317 @@ async function renderActivityPage() {
 // INIT
 // ============================================================
 checkExistingSession();
+
+// ============================================================
+// USERS PAGE
+// ============================================================
+let _userSearch = '', _userRole = '', _userPage = 1;
+
+async function renderUsersPage() {
+  el('page-content').innerHTML = pageHeader('Users', 'Manage all registered users — view profiles, suspend or reinstate accounts.') +
+    `<div class="flex gap-2 mb-4 flex-wrap">
+      <input id="user-search" placeholder="Search name, email, phone..." value="${_userSearch}"
+        class="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
+      <select id="user-role-filter" class="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+        <option value="">All roles</option>
+        <option value="user">User</option>
+        <option value="vendor">Vendor</option>
+        <option value="artisan">Artisan</option>
+        <option value="rider">Rider</option>
+      </select>
+      <button onclick="searchUsers()" class="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs px-4 py-2 rounded-xl">Search</button>
+    </div>
+    <div id="users-list" class="bg-gray-900 glow-border rounded-2xl overflow-hidden"><div class="skel h-40"></div></div>
+    <div id="users-pagination" class="flex justify-center gap-2 mt-4"></div>`;
+
+  el('user-search').value = _userSearch;
+  el('user-role-filter').value = _userRole;
+  loadUsersList();
+}
+
+function searchUsers() {
+  _userSearch = el('user-search').value.trim();
+  _userRole = el('user-role-filter').value;
+  _userPage = 1;
+  loadUsersList();
+}
+
+async function loadUsersList() {
+  const res = await adminApi('list_users', { search: _userSearch, role: _userRole, page: _userPage });
+  const listEl = el('users-list');
+  if (!res.success) { listEl.innerHTML = `<div class="p-6 text-center text-sm text-red-400">${res.message}</div>`; return; }
+
+  const users = res.users || [];
+  if (!users.length) { listEl.innerHTML = `<div class="p-10 text-center text-sm text-gray-500">No users found.</div>`; return; }
+
+  const kycColors = { verified: 'text-emerald-400', pending: 'text-amber-400', unverified: 'text-gray-500' };
+  listEl.innerHTML = `
+    <table class="w-full text-left">
+      <thead><tr class="border-b border-gray-800 text-[9px] text-gray-500 uppercase font-black">
+        <th class="px-4 py-3">User</th><th class="px-4 py-3">Role</th><th class="px-4 py-3">KYC</th>
+        <th class="px-4 py-3">Balance</th><th class="px-4 py-3">Joined</th><th class="px-4 py-3">Actions</th>
+      </tr></thead>
+      <tbody>
+        ${users.map(u => `
+          <tr class="border-b border-gray-900 text-xs ${u.is_suspended ? 'opacity-50' : ''}">
+            <td class="px-4 py-3">
+              <div class="font-bold text-white">${u.full_name}</div>
+              <div class="text-gray-500">${u.email}</div>
+              <div class="text-gray-600">${u.phone||'—'}</div>
+            </td>
+            <td class="px-4 py-3"><span class="badge-perm border-sky-800 text-sky-400 bg-sky-950/30">${u.role}</span></td>
+            <td class="px-4 py-3 font-bold ${kycColors[u.kyc_status]||'text-gray-500'}">${u.kyc_status}</td>
+            <td class="px-4 py-3 mono text-white font-bold">${fmtCurrency(u.wallet_balance)}</td>
+            <td class="px-4 py-3 text-gray-500">${fmtDate(u.created_at)}</td>
+            <td class="px-4 py-3">
+              ${u.is_suspended
+                ? `<button onclick="unsuspendUser(${u.id})" class="text-[10px] font-black text-emerald-400 hover:text-emerald-300">Reinstate</button>`
+                : `<button onclick="suspendUser(${u.id})" class="text-[10px] font-black text-red-400 hover:text-red-300">Suspend</button>`}
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  // Pagination
+  const pages = res.pages || 1;
+  const paginEl = el('users-pagination');
+  if (pages > 1) {
+    paginEl.innerHTML = Array.from({length: pages}, (_, i) => i+1).map(p =>
+      `<button onclick="goUserPage(${p})" class="px-3 py-1.5 rounded-full text-[10px] font-black ${p===_userPage ? 'bg-emerald-500 text-gray-950' : 'bg-gray-900 text-gray-500 hover:text-white'}">${p}</button>`
+    ).join('');
+  } else { paginEl.innerHTML = ''; }
+}
+
+function goUserPage(p) { _userPage = p; loadUsersList(); }
+
+async function suspendUser(id) {
+  const reason = prompt('Reason for suspension:', 'Violation of platform terms.');
+  if (!reason) return;
+  const res = await adminApi('suspend_user', { user_id: id, reason });
+  alert(res.message);
+  if (res.success) loadUsersList();
+}
+
+async function unsuspendUser(id) {
+  if (!confirm('Reinstate this user?')) return;
+  const res = await adminApi('unsuspend_user', { user_id: id });
+  alert(res.message);
+  if (res.success) loadUsersList();
+}
+
+// ============================================================
+// POSTS PAGE
+// ============================================================
+let _postSearch = '', _postPage = 1;
+
+async function renderPostsPage() {
+  el('page-content').innerHTML = pageHeader('Posts', 'Review and moderate platform listings. Deleting a post hides it from all feeds.') +
+    `<div class="flex gap-2 mb-4">
+      <input id="post-search" placeholder="Search by caption or author name..." value="${_postSearch}"
+        class="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
+      <button onclick="searchPosts()" class="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs px-4 py-2 rounded-xl">Search</button>
+    </div>
+    <div id="posts-list" class="bg-gray-900 glow-border rounded-2xl overflow-hidden"><div class="skel h-40"></div></div>
+    <div id="posts-pagination" class="flex justify-center gap-2 mt-4"></div>`;
+
+  el('post-search').value = _postSearch;
+  loadPostsList();
+}
+
+function searchPosts() { _postSearch = el('post-search').value.trim(); _postPage = 1; loadPostsList(); }
+
+async function loadPostsList() {
+  const res = await adminApi('list_posts', { search: _postSearch, page: _postPage });
+  const listEl = el('posts-list');
+  if (!res.success) { listEl.innerHTML = `<div class="p-6 text-center text-sm text-red-400">${res.message}</div>`; return; }
+
+  const posts = res.posts || [];
+  if (!posts.length) { listEl.innerHTML = `<div class="p-10 text-center text-sm text-gray-500">No posts found.</div>`; return; }
+
+  listEl.innerHTML = `
+    <table class="w-full text-left">
+      <thead><tr class="border-b border-gray-800 text-[9px] text-gray-500 uppercase font-black">
+        <th class="px-4 py-3">Caption</th><th class="px-4 py-3">Author</th>
+        <th class="px-4 py-3">Type</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Posted</th><th class="px-4 py-3"></th>
+      </tr></thead>
+      <tbody>
+        ${posts.map(p => `
+          <tr class="border-b border-gray-900 text-xs">
+            <td class="px-4 py-3 text-white max-w-xs truncate">${p.caption||'(no caption)'}</td>
+            <td class="px-4 py-3">
+              <div class="font-bold text-white">${p.author_name}</div>
+              <div class="text-gray-500">${p.author_role}</div>
+            </td>
+            <td class="px-4 py-3 text-gray-400">${p.is_food ? '🍲 Food' : '📦 Product'}</td>
+            <td class="px-4 py-3"><span class="font-bold ${p.status==='active'?'text-emerald-400':'text-red-400'}">${p.status}</span></td>
+            <td class="px-4 py-3 text-gray-500">${fmtDate(p.created_at)}</td>
+            <td class="px-4 py-3">
+              ${p.status !== 'deleted' ? `<button onclick="deletePost('${p.id}')" class="text-[10px] font-black text-red-400 hover:text-red-300">Delete</button>` : '<span class="text-gray-600 text-[10px]">Deleted</span>'}
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  const pages = res.pages || 1;
+  const paginEl = el('posts-pagination');
+  if (pages > 1) {
+    paginEl.innerHTML = Array.from({length: pages}, (_, i) => i+1).map(p =>
+      `<button onclick="goPostPage(${p})" class="px-3 py-1.5 rounded-full text-[10px] font-black ${p===_postPage ? 'bg-emerald-500 text-gray-950' : 'bg-gray-900 text-gray-500 hover:text-white'}">${p}</button>`
+    ).join('');
+  } else { paginEl.innerHTML = ''; }
+}
+
+function goPostPage(p) { _postPage = p; loadPostsList(); }
+
+async function deletePost(id) {
+  if (!confirm('Delete this post? It will be hidden from all feeds.')) return;
+  const res = await adminApi('delete_post', { post_id: id });
+  alert(res.message);
+  if (res.success) loadPostsList();
+}
+
+// ============================================================
+// DISPUTES PAGE
+// ============================================================
+let _disputeFilter = 'open';
+
+async function renderDisputesPage() {
+  el('page-content').innerHTML = pageHeader('Disputes', 'Resolve buyer and seller conflicts. Your decision is final and will be communicated to both parties.') +
+    `<div class="flex gap-2 mb-4">
+      ${['open','reviewing','resolved','all'].map(s =>
+        `<button onclick="filterDisputes('${s}')" id="df-${s}" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition ${s===_disputeFilter?'bg-emerald-500 text-gray-950':'bg-gray-900 text-gray-500 hover:text-white'}">${s}</button>`
+      ).join('')}
+    </div>
+    <div id="disputes-list" class="flex flex-col gap-3"><div class="skel h-32 rounded-2xl"></div></div>`;
+
+  loadDisputesList();
+}
+
+function filterDisputes(s) {
+  _disputeFilter = s;
+  ['open','reviewing','resolved','all'].forEach(x => {
+    el('df-'+x)?.classList.toggle('bg-emerald-500', x===s);
+    el('df-'+x)?.classList.toggle('text-gray-950', x===s);
+    el('df-'+x)?.classList.toggle('bg-gray-900', x!==s);
+    el('df-'+x)?.classList.toggle('text-gray-500', x!==s);
+  });
+  loadDisputesList();
+}
+
+async function loadDisputesList() {
+  const res = await adminApi('list_disputes', { status: _disputeFilter });
+  const listEl = el('disputes-list');
+  if (!res.success) { listEl.innerHTML = `<div class="bg-red-950/30 border border-red-900/40 rounded-2xl p-6 text-center text-sm text-red-400">${res.message}</div>`; return; }
+
+  const disputes = res.disputes || [];
+  if (!disputes.length) { listEl.innerHTML = `<div class="bg-gray-900 glow-border rounded-2xl p-12 text-center"><div class="text-3xl mb-2">✅</div><div class="text-sm text-gray-500">No ${_disputeFilter !== 'all' ? _disputeFilter : ''} disputes.</div></div>`; return; }
+
+  listEl.innerHTML = disputes.map(d => `
+    <div class="bg-gray-900 glow-border rounded-2xl p-4 flex flex-col gap-2">
+      <div class="flex items-center justify-between">
+        <div class="text-xs font-black text-white">Order #${d.order_id}</div>
+        <span class="badge-perm ${d.status==='open'?'border-red-800 text-red-400 bg-red-950/30':d.status==='resolved'?'border-emerald-800 text-emerald-400 bg-emerald-950/30':'border-amber-800 text-amber-400 bg-amber-950/30'}">${d.status}</span>
+      </div>
+      <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 text-xs">
+        <div class="text-gray-400">Raised by: <span class="text-white font-bold">${d.raised_by_name}</span> vs <span class="text-white font-bold">${d.against_name}</span></div>
+        <div class="text-gray-400 mt-1">Reason: <span class="text-amber-400">${d.reason}</span></div>
+        ${d.description ? `<div class="text-gray-500 mt-1 italic">"${d.description}"</div>` : ''}
+        <div class="text-gray-600 mt-1">${fmtDate(d.created_at)}</div>
+      </div>
+      ${d.resolution ? `<div class="text-xs text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 rounded-xl p-2">Resolution: ${d.resolution}</div>` : ''}
+      ${d.status !== 'resolved' ? `
+        <div class="flex gap-2">
+          <button onclick="resolveDispute(${d.id},'buyer')" class="flex-1 bg-sky-500 hover:bg-sky-400 text-gray-950 font-black text-xs py-2 rounded-xl">👤 Rule for Buyer</button>
+          <button onclick="resolveDispute(${d.id},'seller')" class="flex-1 bg-purple-500 hover:bg-purple-400 text-gray-950 font-black text-xs py-2 rounded-xl">🏪 Rule for Seller</button>
+        </div>` : ''}
+    </div>
+  `).join('');
+}
+
+async function resolveDispute(id, winner) {
+  const resolution = prompt(`Rule in favour of the ${winner}. Enter your resolution note (shown to both parties):`,
+    winner === 'buyer' ? 'Refund approved. Seller failed to deliver as described.' : 'Payment released to seller. Buyer claim was not substantiated.');
+  if (!resolution) return;
+  const res = await adminApi('resolve_dispute', { dispute_id: id, resolution, winner });
+  alert(res.message);
+  if (res.success) loadDisputesList();
+}
+
+// ============================================================
+// ORDERS PAGE
+// ============================================================
+let _orderFilter = 'all', _orderPage = 1;
+
+async function renderOrdersPage() {
+  el('page-content').innerHTML = pageHeader('Orders', 'Monitor all platform orders and escrow transactions.') +
+    `<div class="flex gap-2 mb-4 flex-wrap">
+      ${['all','pending','accepted','delivered','completed','cancelled','disputed'].map(s =>
+        `<button onclick="filterOrders('${s}')" id="of-${s}" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition ${s===_orderFilter?'bg-emerald-500 text-gray-950':'bg-gray-900 text-gray-500 hover:text-white'}">${s}</button>`
+      ).join('')}
+    </div>
+    <div id="orders-list" class="bg-gray-900 glow-border rounded-2xl overflow-hidden"><div class="skel h-40"></div></div>
+    <div id="orders-pagination" class="flex justify-center gap-2 mt-4"></div>`;
+
+  loadOrdersList();
+}
+
+function filterOrders(s) {
+  _orderFilter = s; _orderPage = 1;
+  ['all','pending','accepted','delivered','completed','cancelled','disputed'].forEach(x => {
+    el('of-'+x)?.classList.toggle('bg-emerald-500', x===s);
+    el('of-'+x)?.classList.toggle('text-gray-950', x===s);
+    el('of-'+x)?.classList.toggle('bg-gray-900', x!==s);
+    el('of-'+x)?.classList.toggle('text-gray-500', x!==s);
+  });
+  loadOrdersList();
+}
+
+async function loadOrdersList() {
+  const res = await adminApi('list_orders', { status: _orderFilter, page: _orderPage });
+  const listEl = el('orders-list');
+  if (!res.success) { listEl.innerHTML = `<div class="p-6 text-center text-sm text-red-400">${res.message}</div>`; return; }
+
+  const orders = res.orders || [];
+  if (!orders.length) { listEl.innerHTML = `<div class="p-10 text-center text-sm text-gray-500">No ${_orderFilter !== 'all' ? _orderFilter : ''} orders.</div>`; return; }
+
+  const statusColors = { pending:'text-amber-400', accepted:'text-sky-400', delivered:'text-blue-400', completed:'text-emerald-400', cancelled:'text-gray-500', disputed:'text-red-400' };
+
+  listEl.innerHTML = `
+    <table class="w-full text-left">
+      <thead><tr class="border-b border-gray-800 text-[9px] text-gray-500 uppercase font-black">
+        <th class="px-4 py-3">Order ID</th><th class="px-4 py-3">Buyer</th><th class="px-4 py-3">Seller</th>
+        <th class="px-4 py-3">Amount</th><th class="px-4 py-3">Escrow</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Date</th>
+      </tr></thead>
+      <tbody>
+        ${orders.map(o => `
+          <tr class="border-b border-gray-900 text-xs">
+            <td class="px-4 py-3 mono text-gray-400 text-[10px]">${o.id.slice(0,12)}...</td>
+            <td class="px-4 py-3">
+              <div class="font-bold text-white">${o.buyer_name}</div>
+              <div class="text-gray-500 text-[10px]">${o.buyer_email}</div>
+            </td>
+            <td class="px-4 py-3">
+              <div class="font-bold text-white">${o.seller_name}</div>
+              <div class="text-gray-500 text-[10px]">${o.seller_email}</div>
+            </td>
+            <td class="px-4 py-3 mono font-black text-white">${fmtCurrency(o.amount)}</td>
+            <td class="px-4 py-3 text-[10px] font-bold ${o.escrow_status==='held'?'text-amber-400':o.escrow_status==='released'?'text-emerald-400':'text-gray-500'}">${o.escrow_status||'—'}</td>
+            <td class="px-4 py-3 font-bold ${statusColors[o.status]||'text-gray-400'}">${o.status}</td>
+            <td class="px-4 py-3 text-gray-500 text-[10px]">${fmtDate(o.created_at)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  const pages = res.pages || 1;
+  const paginEl = el('orders-pagination');
+  if (pages > 1) {
+    paginEl.innerHTML = Array.from({length: pages}, (_, i) => i+1).map(p =>
+      `<button onclick="goOrderPage(${p})" class="px-3 py-1.5 rounded-full text-[10px] font-black ${p===_orderPage?'bg-emerald-500 text-gray-950':'bg-gray-900 text-gray-500 hover:text-white'}">${p}</button>`
+    ).join('');
+  } else { paginEl.innerHTML = ''; }
+}
+
+function goOrderPage(p) { _orderPage = p; loadOrdersList(); }
 </script>
 </body>
 </html>
