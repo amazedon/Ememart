@@ -5210,18 +5210,46 @@ async function vtuAction(service){
   // Populate provider grid
   const grid = el('vtu-providers-grid');
   if(grid){
-    const providers = VTU_PROVIDERS[service] || [];
-    grid.innerHTML = providers.map(p => `
-      <button onclick='vtuSelectProvider(${JSON.stringify(p).replace(/'/g,"&#39;")})' class="bg-gray-800 border border-gray-700 rounded-xl py-3 flex flex-col items-center gap-1.5 text-[9px] font-black text-gray-300 hover:border-emerald-500 hover:bg-gray-700 transition">
-        ${p.svgIcon
-          ? p.svgIcon
-          : p.logo
-            ? `<img src="${p.logo}" alt="${p.name}" class="w-9 h-9 rounded-full object-cover bg-white" onerror="this.outerHTML='<span class=text-xl>📡</span>'">`
-            : `<span class="text-xl">${p.icon||'📡'}</span>`
+    if(service === 'electricity' || service === 'betting'){
+      grid.innerHTML = '<div class="col-span-3 text-center py-4 text-xs text-gray-500">Loading providers...</div>';
+      try {
+        const apiAction = service === 'electricity' ? 'get_electricity_providers' : 'get_betting_products';
+        const res = await apiGet('vtu.php', { action: apiAction });
+        const raw = res.providers || res.products || [];
+        // Normalize Bigisub's real field names into { id, name } — field
+        // names are unconfirmed until tested live, so check a few options.
+        const providers = raw.map(x => ({
+          id:   x.company || x.biller_code || x.code || x.slug || x.id,
+          name: x.name || x.display_name || x.company || x.biller_code || 'Unknown',
+        }));
+        _vtu.dynamicProviders = providers;
+        if(providers.length){
+          grid.innerHTML = providers.map(p => `
+            <button onclick='vtuSelectProvider(${JSON.stringify(p).replace(/'/g,"&#39;")})' class="bg-gray-800 border border-gray-700 rounded-xl py-3 flex flex-col items-center gap-1.5 text-[9px] font-black text-gray-300 hover:border-emerald-500 hover:bg-gray-700 transition">
+              <span class="text-xl">${service==='electricity'?'💡':'⚽'}</span>
+              ${p.name}
+            </button>
+          `).join('');
+        } else {
+          grid.innerHTML = '<div class="col-span-3 text-center text-xs text-red-400">Could not load providers. Try again.</div>';
         }
-        ${p.name}
-      </button>
-    `).join('');
+      } catch(e){
+        grid.innerHTML = '<div class="col-span-3 text-center text-xs text-red-400">Connection error loading providers.</div>';
+      }
+    } else {
+      const providers = VTU_PROVIDERS[service] || [];
+      grid.innerHTML = providers.map(p => `
+        <button onclick='vtuSelectProvider(${JSON.stringify(p).replace(/'/g,"&#39;")})' class="bg-gray-800 border border-gray-700 rounded-xl py-3 flex flex-col items-center gap-1.5 text-[9px] font-black text-gray-300 hover:border-emerald-500 hover:bg-gray-700 transition">
+          ${p.svgIcon
+            ? p.svgIcon
+            : p.logo
+              ? `<img src="${p.logo}" alt="${p.name}" class="w-9 h-9 rounded-full object-cover bg-white" onerror="this.outerHTML='<span class=text-xl>📡</span>'">`
+              : `<span class="text-xl">${p.icon||'📡'}</span>`
+          }
+          ${p.name}
+        </button>
+      `).join('');
+    }
   }
 
   vtuGoToStep(1);
@@ -5386,7 +5414,8 @@ async function vtuSelectProvider(p){
         plansArr.forEach(plan => {
           const btn = document.createElement('button');
           btn.className = 'w-full flex justify-between items-center p-3 bg-gray-950 border border-gray-800 rounded-xl hover:border-emerald-500 transition text-left mb-1';
-          btn.innerHTML = `<div><div class="text-xs font-black text-white">${plan.name}</div><div class="text-[10px] text-gray-400">${plan.validity||''}</div></div><div class="text-sm font-black text-emerald-400 mono">₦${parseFloat(plan.amount||plan.variation_amount||0).toLocaleString()}</div>`;
+          const displayName = vtuPlanDisplayName(plan);
+          btn.innerHTML = `<div><div class="text-xs font-black text-white">${displayName}</div><div class="text-[10px] text-gray-400">${plan.validity||''}</div></div><div class="text-sm font-black text-emerald-400 mono">₦${parseFloat(plan.amount||plan.variation_amount||plan.plan_amount||0).toLocaleString()}</div>`;
           btn.onclick = () => vtuSelectPlan(plan);
           list.appendChild(btn);
         });
@@ -5399,13 +5428,26 @@ async function vtuSelectProvider(p){
   }
 }
 
+// Bigisub's data/cable plan objects don't have a "name" field — build a
+// readable label from whatever fields they do have (plantype/size/plan_volume,
+// or fall back to variation_code/id).
+function vtuPlanDisplayName(plan){
+  if(plan.name) return plan.name;
+  if(plan.size && plan.plan_volume){
+    return `${plan.size}${plan.plan_volume} ${plan.plantype||''}`.trim();
+  }
+  if(plan.plan_name) return plan.plan_name;
+  if(plan.variation_name) return plan.variation_name;
+  return plan.plantype || plan.validity || `Plan ${plan.id||plan.variation_code||''}`;
+}
+
 function vtuSelectPlan(plan){
   _vtu.planId = plan.id || plan.variation_code;
-  _vtu.planName = plan.name;
-  _vtu.amount = parseFloat(plan.amount || plan.variation_amount || 0);
+  _vtu.planName = vtuPlanDisplayName(plan);
+  _vtu.amount = parseFloat(plan.amount || plan.variation_amount || plan.plan_amount || 0);
   vtuGoToStep(3);
   el('vtu-selected-plan-display').classList.remove('hidden');
-  el('vtu-plan-name').textContent = `${plan.name} — ₦${_vtu.amount.toLocaleString()}`;
+  el('vtu-plan-name').textContent = `${_vtu.planName} — ₦${_vtu.amount.toLocaleString()}`;
   el('vtu-amount-row').classList.add('hidden');
   el('vtu-step3-back').onclick = () => vtuGoToStep(2);
 
@@ -5432,9 +5474,11 @@ async function vtuValidateCustomer(){
   const btn = el('vtu-validate-btn');
   btn.textContent = 'Verifying...'; btn.disabled = true;
   try {
-    const res = await apiPost('vtu.php','validate_customer',{ service_id: _vtu.providerId, account_no: accountNo });
+    const res = await apiPost('vtu.php','validate_customer',{ service_type: _vtu.service, service_id: _vtu.providerId, account_no: accountNo, meter_type: 'prepaid' });
     if(res.success){
       const customerName = res.customer_name || res.data?.customer_name;
+      _vtu.customerName = customerName;
+      _vtu.validationRef = res.validation_reference || null; // required for betting purchase
       el('vtu-customer-name').textContent = customerName;
       el('vtu-customer-verified').classList.remove('hidden');
       showPopupNotif('✅','Verified!', customerName);
@@ -5490,6 +5534,8 @@ async function processVTU(){
       phone: _vtu.phone || state.session.phone,
       account_no: _vtu.accountNo,
       plan_id: _vtu.planId,
+      customer_name: _vtu.customerName || '',
+      validation_reference: _vtu.validationRef || '',
     });
 
     if(res.success){
