@@ -45,6 +45,87 @@ define('FLW_ENCRYPTION_KEY', 'b51b432c80dccbf5932daf47');
 // BIGISUB (used by vtu.php)
 // ============================================================
 define('BIGISUB_API_KEY', '9b0069d04cc75b91d4c552f8b5a71a84e01c367a');
+define('BIGISUB_BASE_URL', 'https://api.bigisub.ng/api/v2');
+
+// Bigisub endpoints (relative to BIGISUB_BASE_URL)
+define('BIGISUB_ENDPOINTS', [
+    'login'                   => '/auth/login/',
+    'airtime_purchase'        => '/vtu/airtime/purchase/',
+    'data_plans'              => '/vtu/data/plans/',
+    'data_purchase'           => '/vtu/data/purchase/',
+    'cable_plans'             => '/vtu/cable/plans/',
+    'cable_purchase'          => '/vtu/cable/purchase/',
+    'electricity_providers'   => '/bills/electricity/providers/',
+    'electricity_purchase'    => '/bills/electricity/purchase/',
+    'betting_billers'         => '/betting/billers/',
+    'betting_purchase'        => '/betting/purchase/',
+    'sms_pricing'             => '/communications/sms/pricing/',
+    'sms_send'                => '/communications/sms/send/',
+    'result_checker_prices'   => '/bills/result-checker/prices/',
+    'result_checker_purchase' => '/bills/result-checker/purchase/',
+    'transaction_requery'     => '/anubis/transactions/{tranx_id}/requery/',
+    'marketinghub_pricing'    => '/marketinghub/pricing-summary/',
+    'recharge_pin_plans'      => '/vtu/recharge-pin/plans/',
+    'recharge_pin_purchase'   => '/vtu/recharge-pin/purchase/',
+]);
+
+// ============================================================
+// HELPER: Call the Bigisub API
+// $endpointKey  -> key from BIGISUB_ENDPOINTS (e.g. 'airtime_purchase')
+// $method       -> 'GET' or 'POST'
+// $payload      -> array of data to send (POST only)
+// $urlParams    -> array to replace {placeholders} in the endpoint path,
+//                  e.g. ['tranx_id' => 'abc123']
+// Returns: ['success' => bool, 'status' => int, 'data' => array|null, 'raw' => string]
+// ============================================================
+function bigisubRequest($endpointKey, $method = 'GET', $payload = [], $urlParams = []) {
+    $endpoints = BIGISUB_ENDPOINTS;
+    if (!isset($endpoints[$endpointKey])) {
+        return ['success' => false, 'status' => 0, 'data' => null, 'raw' => 'Unknown Bigisub endpoint: ' . $endpointKey];
+    }
+
+    $path = $endpoints[$endpointKey];
+    foreach ($urlParams as $key => $value) {
+        $path = str_replace('{' . $key . '}', urlencode($value), $path);
+    }
+
+    $url = BIGISUB_BASE_URL . $path;
+
+    $headers = [
+        'Authorization: Token ' . BIGISUB_API_KEY,
+        'Content-Type: application/json',
+    ];
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => $headers,
+        CURLOPT_TIMEOUT        => 30,
+    ]);
+
+    if (strtoupper($method) === 'POST') {
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+    }
+
+    $response  = curl_exec($ch);
+    $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($response === false) {
+        return ['success' => false, 'status' => 0, 'data' => null, 'raw' => 'cURL error: ' . $curlError];
+    }
+
+    $decoded = json_decode($response, true);
+
+    return [
+        'success' => $httpCode >= 200 && $httpCode < 300,
+        'status'  => $httpCode,
+        'data'    => $decoded,
+        'raw'     => $response,
+    ];
+}
 
 // ============================================================
 // CLOUDINARY (used by media.php)
