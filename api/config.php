@@ -50,7 +50,7 @@ define('BIGISUB_BASE_URL', 'https://api.bigisub.ng/api/v2');
 // Bigisub's own transaction PIN (set in your Bigisub dashboard, NOT the
 // customer's PIN). Required by cable/electricity/betting/data purchase
 // endpoints. Replace the placeholder before going live.
-define('BIGISUB_PIN', 'REPLACE_WITH_YOUR_BIGISUB_PIN');
+define('BIGISUB_PIN', '2255');
 
 // Bigisub endpoints (relative to BIGISUB_BASE_URL) — confirmed against the
 // live "View Full API Documentation" page in the Bigisub app (v2.0.0)
