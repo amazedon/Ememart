@@ -47,23 +47,34 @@ define('FLW_ENCRYPTION_KEY', 'b51b432c80dccbf5932daf47');
 define('BIGISUB_API_KEY', '9b0069d04cc75b91d4c552f8b5a71a84e01c367a');
 define('BIGISUB_BASE_URL', 'https://api.bigisub.ng/api/v2');
 
-// Bigisub endpoints (relative to BIGISUB_BASE_URL)
+// Bigisub's own transaction PIN (set in your Bigisub dashboard, NOT the
+// customer's PIN). Required by cable/electricity/betting/data purchase
+// endpoints. Replace the placeholder before going live.
+define('BIGISUB_PIN', 'REPLACE_WITH_YOUR_BIGISUB_PIN');
+
+// Bigisub endpoints (relative to BIGISUB_BASE_URL) — confirmed against the
+// live "View Full API Documentation" page in the Bigisub app (v2.0.0)
 define('BIGISUB_ENDPOINTS', [
     'login'                   => '/auth/login/',
     'airtime_purchase'        => '/vtu/airtime/purchase/',
     'data_plans'              => '/vtu/data/plans/',
     'data_purchase'           => '/vtu/data/purchase/',
-    'cable_plans'             => '/vtu/cable/plans/',
+    'cable_pricing'           => '/vtu/cable/pricing/',
+    'cable_verify'            => '/vtu/cable/verify/',
     'cable_purchase'          => '/vtu/cable/purchase/',
     'electricity_providers'   => '/bills/electricity/providers/',
-    'electricity_purchase'    => '/bills/electricity/purchase/',
-    'betting_billers'         => '/betting/billers/',
-    'betting_purchase'        => '/betting/purchase/',
+    'electricity_verify'      => '/bills/electricity/verify/',
+    'electricity_pay'         => '/bills/electricity/pay/',
+    'betting_products'        => '/betting/products/',
+    'betting_validate'        => '/betting/validate/',
+    'betting_fund'            => '/betting/fund/',
+    'betting_requery'         => '/betting/requery/',
+    'betting_history'         => '/betting/history/',
     'sms_pricing'             => '/communications/sms/pricing/',
     'sms_send'                => '/communications/sms/send/',
     'result_checker_prices'   => '/bills/result-checker/prices/',
     'result_checker_purchase' => '/bills/result-checker/purchase/',
-    'transaction_requery'     => '/anubis/transactions/{tranx_id}/requery/',
+    'transaction_status'      => '/anubis/transactions/{tranx_id}/',
     'marketinghub_pricing'    => '/marketinghub/pricing-summary/',
     'recharge_pin_plans'      => '/vtu/recharge-pin/plans/',
     'recharge_pin_purchase'   => '/vtu/recharge-pin/purchase/',
