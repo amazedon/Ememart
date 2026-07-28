@@ -72,35 +72,44 @@ switch ($action) {
             respond(false, "Service ID is required.");
         }
 
-        // Map frontend category to the confirmed Bigisub endpoint key
-        // (config.php BIGISUB_ENDPOINTS). Bigisub's /plans/ endpoints
-        // return the FULL plan list — there's no service_id filter param
-        // confirmed in their API, so we fetch everything and filter by
-        // network/service_id here instead.
-        $endpoint_key_map = [
-            'data' => 'data_plans',
-            'tv'   => 'cable_pricing',
-        ];
-        $endpoint_key = $endpoint_key_map[$category] ?? 'data_plans';
+        if ($category === 'tv') {
+            // Cable pricing's REAL shape (confirmed live): data.providers is an
+            // array of { provider, provider_code, plans:[{name,code,amount,...}] }
+            // — nested one level deeper than data plans, grouped per provider.
+            $result = bigisubRequest('cable_pricing', 'GET');
+            if (!$result['success'] || empty($result['data']['data']['providers'])) {
+                respond(false, "Could not fetch plans. Please try again.");
+            }
+            $providers = $result['data']['data']['providers'];
+            $match = null;
+            foreach ($providers as $prov) {
+                if (strcasecmp($prov['provider_code'] ?? '', $service_id) === 0) {
+                    $match = $prov;
+                    break;
+                }
+            }
+            if (!$match) {
+                respond(false, "No plans found for this provider.");
+            }
+            // Each plan already has a real "name" — add "id" alias so the
+            // frontend's generic plan.id lookup works the same as for data.
+            $plans = array_map(function ($p) {
+                $p['id'] = $p['code'];
+                return $p;
+            }, $match['plans']);
+            respond(true, "Plans fetched.", ["plans" => $plans]);
+            break;
+        }
 
-        $result = bigisubRequest($endpoint_key, 'GET');
-
+        // DATA — flat list, filter by network (confirmed working shape)
+        $result = bigisubRequest('data_plans', 'GET');
         if (!$result['success'] || empty($result['data']['data'])) {
             respond(false, "Could not fetch plans. Please try again.");
         }
-
         $all_plans = $result['data']['data'];
-
-        // Filter to the requested network/provider if service_id is a network id.
-        // Field name varies by service (data uses "network", cable's real shape
-        // is unconfirmed) so check a few common possibilities.
         $plans = array_values(array_filter($all_plans, function ($p) use ($service_id) {
-            foreach (['network', 'cable_name', 'provider', 'network_name'] as $field) {
-                if (isset($p[$field]) && (string)$p[$field] === (string)$service_id) return true;
-            }
-            return false;
+            return isset($p['network']) && (string)$p['network'] === (string)$service_id;
         }));
-
         respond(true, "Plans fetched.", ["plans" => $plans ?: $all_plans]);
         break;
 
@@ -113,7 +122,8 @@ switch ($action) {
         if (!$result['success']) {
             respond(false, "Could not fetch electricity providers.");
         }
-        $providers = $result['data']['data'] ?? $result['data'] ?? [];
+        // Real shape (confirmed live): data.providers is the actual list
+        $providers = $result['data']['data']['providers'] ?? $result['data']['data'] ?? [];
         respond(true, "Providers fetched.", ["providers" => $providers]);
         break;
 
@@ -126,7 +136,12 @@ switch ($action) {
         if (!$result['success']) {
             respond(false, "Could not fetch betting products.");
         }
-        $products = $result['data']['data'] ?? $result['data'] ?? [];
+        // Same nested pattern as electricity_providers/cable_pricing —
+        // Bigisub wraps most list endpoints in an extra named key.
+        $products = $result['data']['data']['products']
+                 ?? $result['data']['data']['billers']
+                 ?? $result['data']['data']
+                 ?? [];
         respond(true, "Products fetched.", ["products" => $products]);
         break;
 
