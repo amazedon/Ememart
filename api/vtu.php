@@ -91,12 +91,43 @@ switch ($action) {
 
         $all_plans = $result['data']['data'];
 
-        // Filter to the requested network/provider if service_id is a network id
+        // Filter to the requested network/provider if service_id is a network id.
+        // Field name varies by service (data uses "network", cable's real shape
+        // is unconfirmed) so check a few common possibilities.
         $plans = array_values(array_filter($all_plans, function ($p) use ($service_id) {
-            return (string)($p['network'] ?? '') === (string)$service_id;
+            foreach (['network', 'cable_name', 'provider', 'network_name'] as $field) {
+                if (isset($p[$field]) && (string)$p[$field] === (string)$service_id) return true;
+            }
+            return false;
         }));
 
         respond(true, "Plans fetched.", ["plans" => $plans ?: $all_plans]);
+        break;
+
+    // ----------------------------------------------------------
+    // GET ELECTRICITY PROVIDERS — real disco slugs from Bigisub
+    // (frontend must use these instead of guessed IDs)
+    // ----------------------------------------------------------
+    case 'get_electricity_providers':
+        $result = bigisubRequest('electricity_providers', 'GET');
+        if (!$result['success']) {
+            respond(false, "Could not fetch electricity providers.");
+        }
+        $providers = $result['data']['data'] ?? $result['data'] ?? [];
+        respond(true, "Providers fetched.", ["providers" => $providers]);
+        break;
+
+    // ----------------------------------------------------------
+    // GET BETTING PRODUCTS — real biller codes from Bigisub
+    // (frontend must use these instead of guessed IDs)
+    // ----------------------------------------------------------
+    case 'get_betting_products':
+        $result = bigisubRequest('betting_products', 'GET');
+        if (!$result['success']) {
+            respond(false, "Could not fetch betting products.");
+        }
+        $products = $result['data']['data'] ?? $result['data'] ?? [];
+        respond(true, "Products fetched.", ["products" => $products]);
         break;
 
     // ----------------------------------------------------------
