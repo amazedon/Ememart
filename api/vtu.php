@@ -79,7 +79,7 @@ switch ($action) {
         // network/service_id here instead.
         $endpoint_key_map = [
             'data' => 'data_plans',
-            'tv'   => 'cable_plans',
+            'tv'   => 'cable_pricing',
         ];
         $endpoint_key = $endpoint_key_map[$category] ?? 'data_plans';
 
@@ -103,34 +103,64 @@ switch ($action) {
     // VALIDATE CUSTOMER — verify meter/smartcard/account before purchase
     // ----------------------------------------------------------
     case 'validate_customer':
-        $service_id = clean($body['service_id'] ?? '');
-        $account_no = clean($body['account_no'] ?? '');
+        // NOTE: the frontend currently sends { service_id, account_no } only.
+        // It ALSO needs to send service_type ('tv' | 'electricity' | 'betting')
+        // since each one hits a different Bigisub endpoint with different
+        // field names. Add `service_type: _vtu.service` to the apiPost call
+        // in index.html (around the validate_customer call, ~line 5435).
+        $service_type = clean($body['service_type'] ?? '');
+        $service_id   = clean($body['service_id']   ?? ''); // provider/company/biller code
+        $account_no   = clean($body['account_no']   ?? ''); // meter/card/customer id
 
-        if (empty($service_id) || empty($account_no)) {
-            respond(false, "Service ID and account number are required.");
+        if (empty($service_type) || empty($account_no)) {
+            respond(false, "Service type and account number are required.");
         }
 
-        // TODO: '/validate' is NOT a confirmed Bigisub endpoint — it wasn't in
-        // the documented endpoint list (see config.php BIGISUB_ENDPOINTS).
-        // Check Bigisub's docs for the real meter/smartcard verification path
-        // (likely something under /bills/electricity/ or /vtu/cable/) before
-        // relying on this in production. Left as a direct call for now so it's
-        // obvious this needs a real endpoint key added to config.php.
-        $result = bigisubRequest('validate', 'POST', [
-            'service_id' => $service_id,
-            'account_no' => $account_no,
-        ]);
+        if ($service_type === 'tv') {
+            $result = bigisubRequest('cable_verify', 'POST', [
+                'cable_name' => $service_id,   // e.g. "dstv"
+                'card_no'    => $account_no,
+            ]);
+            if (!$result['success'] || empty($result['data'])) {
+                respond(false, "Could not validate smartcard. Check the number and try again.");
+            }
+            respond(true, "Customer validated.", [
+                "customer_name" => $result['data']['Customer_Name'] ?? $result['data']['customer_name'] ?? 'Verified',
+            ]);
 
-        if (!$result['success'] || empty($result['data']['data'])) {
-            respond(false, "Could not validate account. Check the number and try again.");
+        } elseif ($service_type === 'electricity') {
+            $result = bigisubRequest('electricity_verify', 'POST', [
+                'company'    => $service_id,   // e.g. "ikeja-electric"
+                'meter_no'   => $account_no,
+                'meter_type' => clean($body['meter_type'] ?? 'prepaid'),
+            ]);
+            if (!$result['success'] || empty($result['data'])) {
+                respond(false, "Could not validate meter. Check the number and try again.");
+            }
+            respond(true, "Customer validated.", [
+                "customer_name" => $result['data']['Customer_Name'] ?? $result['data']['customer_name'] ?? 'Verified',
+                "address"       => $result['data']['Address'] ?? '',
+            ]);
+
+        } elseif ($service_type === 'betting') {
+            $result = bigisubRequest('betting_validate', 'POST', [
+                'biller_code' => $service_id,   // e.g. "BET9JA"
+                'customer_id' => $account_no,
+            ]);
+            if (!$result['success'] || empty($result['data'])) {
+                respond(false, "Could not validate betting account. Check the ID and try again.");
+            }
+            // IMPORTANT: betting needs this validation_reference passed back
+            // into the 'purchase' action's request body — store it on the
+            // frontend (_vtu.validationRef) and send it along with 'purchase'.
+            respond(true, "Customer validated.", [
+                "customer_name"        => $result['data']['customer_name'] ?? 'Verified',
+                "validation_reference" => $result['data']['validation_reference'] ?? null,
+            ]);
+
+        } else {
+            respond(false, "Unknown service type for validation.");
         }
-
-        $data = $result['data']['data'];
-        respond(true, "Customer validated.", [
-            "customer_name"    => $data['customer_name']    ?? 'Verified',
-            "customer_address" => $data['customer_address'] ?? '',
-            "meter_type"       => $data['meter_type']       ?? '',
-        ]);
         break;
 
     // ----------------------------------------------------------
@@ -250,39 +280,73 @@ switch ($action) {
         $endpoint_key_map = [
             'airtime'     => 'airtime_purchase',
             'data'        => 'data_purchase',
-            'electricity' => 'electricity_purchase',
+            'electricity' => 'electricity_pay',
             'tv'          => 'cable_purchase',
-            'betting'     => 'betting_purchase',
+            'betting'     => 'betting_fund',
         ];
         $endpoint_key = $endpoint_key_map[$service_type];
 
-        // Build payload for Bigisub — uses the WHOLESALE amount, not what we
-        // charge the customer. Field names below are CONFIRMED for airtime
-        // only (from Bigisub's documented curl example). Data/electricity/
-        // tv/betting payload fields are best-guess and unconfirmed — check
-        // Bigisub's docs and adjust before going live with those services.
+        // Payloads below match Bigisub's confirmed v2 curl examples exactly —
+        // note the inconsistent field names/casing across services, that's
+        // how their API actually is (cable_type vs cable_name, Customer vs
+        // Customer_name, pin vs pin_code).
         if ($service_type === 'airtime') {
             $payload = [
                 'network'      => (int)$service_id,       // Bigisub network id, e.g. 1 = MTN
                 'phone_number' => $phone ?: $account_no,
                 'amount'       => (string)$wholesale_amount,
                 'airtime_type' => 'vtu',
-                // TODO: Bigisub's example includes a 'pin' field (their VTU
-                // dashboard PIN, not the customer's) — store it in config.php
-                // as a constant and include it here once confirmed.
+                'pin'          => BIGISUB_PIN,
             ];
-        } else {
-            // TODO: unconfirmed payload shape for data/electricity/tv/betting —
-            // verify field names against Bigisub's docs for each endpoint.
+
+        } elseif ($service_type === 'data') {
             $payload = [
-                'reference'  => $reference,
-                'network'    => $service_id,
-                'amount'     => $wholesale_amount,
-                'phone_number' => $phone ?: $account_no,
-                'account_no' => $account_no,
+                'network'        => (int)$service_id,      // Bigisub network id
+                'plan'           => (int)$plan_id,          // Bigisub plan id
+                'phone_number'   => $phone ?: $account_no,
+                'pin'            => BIGISUB_PIN,
+                'ported_number'  => (bool)($body['ported_number'] ?? false),
+            ];
+
+        } elseif ($service_type === 'tv') {
+            $payload = [
+                'cable_type'  => $service_id,               // e.g. "dstv"
+                'card_no'     => $account_no,
+                'phone_number'=> $phone ?: $account_no,
+                'amount'      => $wholesale_amount,
+                'Customer'    => clean($body['customer_name'] ?? ''), // from validate step
+                'pin'         => BIGISUB_PIN,
+            ];
+
+        } elseif ($service_type === 'electricity') {
+            $payload = [
+                'company'        => $service_id,            // e.g. "ikeja-electric"
+                'meter_no'       => $account_no,
+                'meter_type'     => clean($body['meter_type'] ?? 'prepaid'),
+                'phone_number'   => $phone ?: $account_no,
+                'amount'         => $wholesale_amount,
+                'Customer_name'  => clean($body['customer_name'] ?? ''),
+                'pin'            => BIGISUB_PIN,
+            ];
+
+        } elseif ($service_type === 'betting') {
+            // Betting REQUIRES the validation_reference returned by the
+            // 'validate_customer' action's betting branch — the frontend
+            // must send it back here as body.validation_reference.
+            $validation_reference = clean($body['validation_reference'] ?? '');
+            if (empty($validation_reference)) {
+                respond(false, "Please validate the betting account before funding.");
+            }
+            $payload = [
+                'biller_code'          => $service_id,      // e.g. "BET9JA"
+                'customer_id'          => $account_no,
+                'customer_name'        => clean($body['customer_name'] ?? ''),
+                'amount'               => $wholesale_amount,
+                'validation_reference' => $validation_reference,
+                'pin_code'             => BIGISUB_PIN,       // note: pin_code here, not pin
             ];
         }
-        if (!empty($plan_id)) $payload['plan_id'] = $plan_id;
+        // (plan_id is already included inside the 'data' branch above as 'plan')
 
         // Debit wallet BEFORE calling API (reserve funds) — debit the REAL charge
         if (!debitWallet($pdo, $user_id, $charge_amount)) {
