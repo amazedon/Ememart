@@ -12,44 +12,13 @@ if (!$user_id) {
 }
 
 // ============================================================
-// BIGISUB API CREDENTIALS
-// Get these from your Bigisub dashboard
+// BIGISUB — base URL, endpoint map, and bigisubRequest() helper
+// all live in config.php (already required above). Do NOT
+// redefine BIGISUB_BASE_URL or write a local bigisub() here —
+// that caused a wrong domain + wrong auth header (Bearer instead
+// of Token) that made every VTU call fail.
 // ============================================================
-define('BIGISUB_BASE_URL', 'https://bigisub.com/api');
 // CASHBACK_RATE is loaded from settings table per-request (see purchase action)
-
-// ============================================================
-// HELPER: Call Bigisub API
-// ============================================================
-function bigisub($endpoint, $payload = [], $method = 'POST') {
-    $url = BIGISUB_BASE_URL . $endpoint;
-    $ch  = curl_init($url);
-
-    $headers = [
-        'Authorization: Bearer ' . BIGISUB_API_KEY,
-        'Content-Type: application/json',
-        'Accept: application/json',
-    ];
-
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_HTTPHEADER     => $headers,
-        CURLOPT_TIMEOUT        => 30,
-    ]);
-
-    if ($method === 'POST') {
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-    }
-
-    $response = curl_exec($ch);
-    $err      = curl_error($ch);
-    curl_close($ch);
-
-    if ($err) return null;
-    return json_decode($response, true);
-}
 
 // ============================================================
 // HELPER: Debit wallet
@@ -103,21 +72,31 @@ switch ($action) {
             respond(false, "Service ID is required.");
         }
 
-        // Map frontend category to Bigisub endpoint
-        $endpoint_map = [
-            'data' => '/data/plans',
-            'tv'   => '/tv/plans',
+        // Map frontend category to the confirmed Bigisub endpoint key
+        // (config.php BIGISUB_ENDPOINTS). Bigisub's /plans/ endpoints
+        // return the FULL plan list — there's no service_id filter param
+        // confirmed in their API, so we fetch everything and filter by
+        // network/service_id here instead.
+        $endpoint_key_map = [
+            'data' => 'data_plans',
+            'tv'   => 'cable_plans',
         ];
+        $endpoint_key = $endpoint_key_map[$category] ?? 'data_plans';
 
-        $endpoint = $endpoint_map[$category] ?? '/data/plans';
-        $result   = bigisub($endpoint . '?service_id=' . urlencode($service_id), [], 'GET');
+        $result = bigisubRequest($endpoint_key, 'GET');
 
-        if (!$result || !isset($result['data'])) {
-            // Return cached/default plans if API fails
+        if (!$result['success'] || empty($result['data']['data'])) {
             respond(false, "Could not fetch plans. Please try again.");
         }
 
-        respond(true, "Plans fetched.", ["plans" => $result['data']]);
+        $all_plans = $result['data']['data'];
+
+        // Filter to the requested network/provider if service_id is a network id
+        $plans = array_values(array_filter($all_plans, function ($p) use ($service_id) {
+            return (string)($p['network'] ?? '') === (string)$service_id;
+        }));
+
+        respond(true, "Plans fetched.", ["plans" => $plans ?: $all_plans]);
         break;
 
     // ----------------------------------------------------------
@@ -131,23 +110,26 @@ switch ($action) {
             respond(false, "Service ID and account number are required.");
         }
 
-        $result = bigisub('/validate', [
+        // TODO: '/validate' is NOT a confirmed Bigisub endpoint — it wasn't in
+        // the documented endpoint list (see config.php BIGISUB_ENDPOINTS).
+        // Check Bigisub's docs for the real meter/smartcard verification path
+        // (likely something under /bills/electricity/ or /vtu/cable/) before
+        // relying on this in production. Left as a direct call for now so it's
+        // obvious this needs a real endpoint key added to config.php.
+        $result = bigisubRequest('validate', 'POST', [
             'service_id' => $service_id,
             'account_no' => $account_no,
         ]);
 
-        if (!$result || empty($result['data'])) {
+        if (!$result['success'] || empty($result['data']['data'])) {
             respond(false, "Could not validate account. Check the number and try again.");
         }
 
-        if (isset($result['status']) && $result['status'] === 'error') {
-            respond(false, $result['message'] ?? "Invalid account number.");
-        }
-
+        $data = $result['data']['data'];
         respond(true, "Customer validated.", [
-            "customer_name"    => $result['data']['customer_name']    ?? 'Verified',
-            "customer_address" => $result['data']['customer_address'] ?? '',
-            "meter_type"       => $result['data']['meter_type']       ?? '',
+            "customer_name"    => $data['customer_name']    ?? 'Verified',
+            "customer_address" => $data['customer_address'] ?? '',
+            "meter_type"       => $data['meter_type']       ?? '',
         ]);
         break;
 
@@ -264,24 +246,42 @@ switch ($action) {
         // Generate unique reference
         $reference = 'VTU-' . strtoupper(bin2hex(random_bytes(6))) . '-' . time();
 
-        // Map service type to Bigisub endpoint
-        $endpoint_map = [
-            'airtime'     => '/airtime/purchase',
-            'data'        => '/data/purchase',
-            'electricity' => '/electricity/purchase',
-            'tv'          => '/tv/purchase',
-            'betting'     => '/betting/purchase',
+        // Map service type to the confirmed bigisubRequest() endpoint key
+        $endpoint_key_map = [
+            'airtime'     => 'airtime_purchase',
+            'data'        => 'data_purchase',
+            'electricity' => 'electricity_purchase',
+            'tv'          => 'cable_purchase',
+            'betting'     => 'betting_purchase',
         ];
-        $endpoint = $endpoint_map[$service_type];
+        $endpoint_key = $endpoint_key_map[$service_type];
 
-        // Build payload for Bigisub — uses the WHOLESALE amount, not what we charge the customer
-        $payload = [
-            'reference'  => $reference,
-            'service_id' => $service_id,
-            'amount'     => $wholesale_amount,
-            'phone'      => $phone ?: $account_no,
-            'account_no' => $account_no,
-        ];
+        // Build payload for Bigisub — uses the WHOLESALE amount, not what we
+        // charge the customer. Field names below are CONFIRMED for airtime
+        // only (from Bigisub's documented curl example). Data/electricity/
+        // tv/betting payload fields are best-guess and unconfirmed — check
+        // Bigisub's docs and adjust before going live with those services.
+        if ($service_type === 'airtime') {
+            $payload = [
+                'network'      => (int)$service_id,       // Bigisub network id, e.g. 1 = MTN
+                'phone_number' => $phone ?: $account_no,
+                'amount'       => (string)$wholesale_amount,
+                'airtime_type' => 'vtu',
+                // TODO: Bigisub's example includes a 'pin' field (their VTU
+                // dashboard PIN, not the customer's) — store it in config.php
+                // as a constant and include it here once confirmed.
+            ];
+        } else {
+            // TODO: unconfirmed payload shape for data/electricity/tv/betting —
+            // verify field names against Bigisub's docs for each endpoint.
+            $payload = [
+                'reference'  => $reference,
+                'network'    => $service_id,
+                'amount'     => $wholesale_amount,
+                'phone_number' => $phone ?: $account_no,
+                'account_no' => $account_no,
+            ];
+        }
         if (!empty($plan_id)) $payload['plan_id'] = $plan_id;
 
         // Debit wallet BEFORE calling API (reserve funds) — debit the REAL charge
@@ -290,7 +290,8 @@ switch ($action) {
         }
 
         // Call Bigisub
-        $result = bigisub($endpoint, $payload);
+        $api_result = bigisubRequest($endpoint_key, 'POST', $payload);
+        $result     = $api_result['data'];
 
         $service_labels = [
             'airtime'     => 'Airtime Top-up',
@@ -302,6 +303,7 @@ switch ($action) {
         $service_label = $service_labels[$service_type];
 
         if (
+            $api_result['success'] &&
             $result &&
             isset($result['status']) &&
             in_array($result['status'], ['success', 'successful', 'delivered'])
