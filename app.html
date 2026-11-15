@@ -1696,6 +1696,11 @@ document.addEventListener('click', function askOnce(){
         <button onclick="openTransferModal()" class="bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition"><span class="text-lg">↗️</span>Transfer</button>
         <button onclick="openSavingsModal()" class="bg-amber-950/50 border border-amber-900/60 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-amber-400 uppercase tracking-wider hover:bg-amber-950 transition"><span class="text-lg">🏦</span>Save</button>
       </div>
+      <!-- My bookings -->
+      <div class="bg-sky-950/30 border border-sky-900/40 rounded-xl p-3 flex items-center justify-between">
+        <div><div class="text-[10px] text-sky-300 uppercase font-black tracking-wider">📅 My bookings</div><div class="text-[9px] text-gray-500 mt-0.5">Pre-orders you made or received</div></div>
+        <button onclick="openMyBookings()" class="btn-sm-outline text-sky-300 border-sky-900/50 text-[9px]">Open</button>
+      </div>
       <!-- Loyalty Points -->
       <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex items-center justify-between">
         <div>
@@ -2685,7 +2690,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 5. Start expiration checker
-  setInterval(checkExpirations, 10000);
+  // expiry checks are scheduled by rules.js
 
   // 6. Show onboarding for first-time visitors
   checkOnboarding();
@@ -3845,10 +3850,10 @@ function relistPost(postId){
   // Reset expiry — give it another 4 hours from now
   post.expired = false;
   post.nearExpiry = false;
-  post.expiresAt = Date.now() + (4 * 3600000);
+  post.expiresAt = Date.now() + (FOOD_HOURS * 3600000);
   post.ts = Date.now();
   renderFeed();
-  showPopupNotif('🔄', 'Listing Relisted!', `"${post.foodName}" is now live again for 4 hours.`);
+  showPopupNotif('🔄', 'Listing Relisted!', `"${post.foodName}" is now live again for 24 hours.`);
 }
 
 
@@ -3952,7 +3957,7 @@ function buildPostCard(post){
   // Order/contact button — open post detail first
   let actionBtn = '';
   if(isFood && !expired && !soldOut && isOpen && !isMine){
-    actionBtn = `<button onclick="event.stopPropagation(); openPostDetail('${post.id}')" class="btn-primary flex-1 py-2.5 rounded-xl text-xs">🛒 Order Now</button>`;
+    actionBtn = `<button onclick="event.stopPropagation(); openPostDetail('${post.id}')" class="btn-primary flex-1 py-2.5 rounded-xl text-xs">${post.isBooking?'📅 Book':'🛒 Order Now'}</button>`;
   } else if((isRider || isArtisan) && !isMine){
     actionBtn = `<button onclick="event.stopPropagation(); openPostDetail('${post.id}')" class="btn-primary flex-1 py-2.5 rounded-xl text-xs">💬 Contact</button>`;
   } else if(isMine){
@@ -4002,6 +4007,11 @@ function buildPostCard(post){
     }
   }
 
+  if(isFood && !post.expiresAt){
+    if(post.isBooking) expiryHtml = `<div class="text-[10px] font-black text-sky-300 bg-sky-950/40 border border-sky-900/50 rounded-lg px-2 py-1">📅 Pre-order · book ${post.bookingMeta?.leadHours||24}h or more ahead · ${post.bookingMeta?.depositPct??30}% deposit</div>`;
+    else if(post.retention==='open') expiryHtml = `<div class="text-[10px] font-black text-emerald-300 bg-emerald-950/40 border border-emerald-900/50 rounded-lg px-2 py-1">🟢 Open now</div>`;
+  }
+
   const card = document.createElement('div');
   card.className = 'bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden fade-up';
   card.dataset.postId = post.id;
@@ -4033,7 +4043,7 @@ function buildPostCard(post){
               ${post.foodName || post.bizServiceName || post.authorName}
             </div>
             <div class="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
-              <span class="cursor-pointer hover:text-emerald-400" onclick="event.stopPropagation(); openPostDetail('${post.id}')">${post.authorName}</span>
+              <span class="cursor-pointer hover:text-emerald-400" onclick="event.stopPropagation(); openPostDetail('${post.id}')">${post.authorName}</span>${post.verified && typeof blueTick==='function' ? blueTick(12) : ''}
               <span>·</span>
               <span>${pinIcon(11)} ${post.location || ''}</span>
               <span>·</span>
@@ -7701,7 +7711,7 @@ function openPostDetail(postId){
     orderBar.classList.remove('hidden');
     el('pd-order-price').textContent = `₦${fmt(post.flashSale&&post.flashPrice?post.flashPrice:post.price)}`;
     el('pd-order-avail').textContent = post.qty > 0 ? `${post.qty} portions left` : '';
-    el('pd-order-btn').textContent   = '🛒 Order Now';
+    el('pd-order-btn').textContent   = post.isBooking ? '📅 Book' : '🛒 Order Now';
     el('pd-order-btn').onclick       = () => { closePostDetail(); placeOrder(postId); };
   } else if(canContact){
     orderBar.classList.remove('hidden');
@@ -9359,8 +9369,7 @@ function buildPreviewPost(){
     if(post.flashSale){
       post.flashPrice = parseFloat(el('post-flash-price')?.value) || Math.floor(post.price * 0.8);
     }
-    post.expiresAt = Date.now() + 8 * 3600000;
-    post.expired   = false;
+    applyFoodRetention(post);   // 24h, leave open (verified) or pre-order: see rules.js
   } else if(isBiz){
     post.bizServiceName = el('biz-service-name')?.value.trim() || '';
     post.bizType        = el('biz-artisan-type')?.value || '';
@@ -13950,8 +13959,7 @@ function buildPreviewPostObject(){
     if(post.flashSale){
       post.flashPrice = parseFloat(el('post-flash-price')?.value) || Math.floor(post.price * 0.8);
     }
-    post.expiresAt = Date.now() + 8 * 3600000;
-    post.expired   = false;
+    applyFoodRetention(post);   // 24h, leave open (verified) or pre-order: see rules.js
   } else if(isBiz){
     post.bizServiceName = el('biz-service-name')?.value.trim() || '';
     post.bizType        = el('biz-artisan-type')?.value || '';
@@ -15680,4 +15688,8 @@ function requirePin(action, callback){
 }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="rules.js"></script>
 <script src="backend.js"></script>
+<script src="posts-live.js"></script>
+<script src="orders-live.js"></script>
+<script src="notifications-live.js"></script>
