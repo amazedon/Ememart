@@ -6,7 +6,7 @@
 
   // ---- 1. YOUR SETTINGS ----------------------------------------------------------------------
   const SUPABASE_URL = 'https://jjiiuwhybqagorygfarh.supabase.co';
-  const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY_HERE';   // Supabase > Project Settings > API > "anon public" key (safe to put here)
+  const SUPABASE_ANON_KEY = 'sb_publishable_V87YLH0V1lQ_45ZHR_XiRw_zbi1bVLc';   // Supabase > Project Settings > API > "anon public" key (safe to put here)
   const API = SUPABASE_URL + '/functions/v1/api';
   // ---------------------------------------------------------------------------------------------
 
@@ -30,6 +30,7 @@
     const notYet = { success: false, message: 'Dev mode: this feature is not connected to the new backend yet.' };
     window.apiPost = async function () { return notYet; };
     window.apiGet = async function () { return notYet; };
+    window.EMEMART_BACKEND = { mode: 'dev' };
     window.fundWallet = async function () { return notYet; };
     window.submitVerification = async function () { return notYet; };
     window.handleSignOut = function () { showPopupNotif('ℹ️', 'Dev mode', 'Login is switched off while the app is being built.'); };
@@ -276,6 +277,17 @@
         document_path: document_path || undefined, selfie_path: selfie_path || undefined,
       });
     } catch (e) { return { success: false, message: 'Upload failed: ' + ((e && e.message) || 'try again') }; }
+  };
+
+  // ---- bookings and escrow actions used by rules.js -------------------------------------------
+  window.EMEMART_BACKEND = {
+    mode: 'live',
+    createBooking: function (b) { return callApi('POST', '/bookings', b); },
+    listBookings: function () { return callApi('GET', '/bookings'); },
+    respondBooking: function (id, accept) { return callApi('POST', '/bookings/' + id + '/respond', { accept: !!accept }); },
+    fulfilBooking: function (id) { return callApi('POST', '/bookings/' + id + '/fulfil'); },
+    confirmOrder: function (orderId) { return callApi('POST', '/orders/' + orderId + '/confirm'); },
+    disputeOrder: function (orderId, reason) { return callApi('POST', '/orders/' + orderId + '/dispute', { reason: reason }); },
   };
 
   // ---- 5. restore the session when the page opens --------------------------------------------
