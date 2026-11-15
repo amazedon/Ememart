@@ -1,1294 +1,270 @@
-<!DOCTYPE html>
+<!doctype html>
+<!-- admin.html  (save in the SAME folder as app.html). Ememart admin panel, talks to the Supabase API. -->
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ememart — Admin Dashboard</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Ememart Admin</title>
 <style>
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0e14;color:#e5e7eb}
-  .mono{font-family:'SF Mono',Consolas,monospace}
-  .glow-border{border:1px solid #1f2937}
-  ::-webkit-scrollbar{width:6px;height:6px}
-  ::-webkit-scrollbar-thumb{background:#374151;border-radius:3px}
-  .sidebar-link.active{background:rgba(16,185,129,.12);color:#34d399;border-left:2px solid #34d399}
-  .sidebar-link{border-left:2px solid transparent}
-  .badge-perm{font-size:9px;font-weight:900;padding:2px 8px;border-radius:999px;border:1px solid}
-  .fade-in{animation:fadeIn .2s ease-out}
-  @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-  .skel{background:linear-gradient(90deg,#1f2937 25%,#374151 50%,#1f2937 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
-  @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  :root { --bg:#0b1210; --panel:#121c18; --line:#223029; --text:#e8f0ec; --mute:#8aa398; --ok:#34d399; --bad:#f87171; --warn:#fbbf24; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--line); gap:12px; flex-wrap:wrap; }
+  header b { font-size:16px; }
+  nav { display:flex; gap:6px; flex-wrap:wrap; padding:10px 16px; border-bottom:1px solid var(--line); }
+  nav button, .btn { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 12px; cursor:pointer; font:inherit; }
+  nav button.on { background:var(--ok); color:#06201a; border-color:var(--ok); font-weight:600; }
+  .btn.ok { background:var(--ok); color:#06201a; border-color:var(--ok); font-weight:600; }
+  .btn.bad { background:transparent; color:var(--bad); border-color:var(--bad); }
+  main { padding:16px; max-width:1000px; margin:0 auto; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .grow { flex:1; min-width:140px; }
+  input, select, textarea { background:#0b1210; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font:inherit; width:100%; }
+  .mute { color:var(--mute); } .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+  .big { font-size:22px; font-weight:700; }
+  table { width:100%; border-collapse:collapse; } td, th { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  a { color:var(--ok); }
+  #login { max-width:360px; margin:12vh auto; }
+  .hidden { display:none !important; }
 </style>
 </head>
-<body class="min-h-screen">
+<body>
 
-<!-- ============================================================ -->
-<!-- LOGIN SCREEN -->
-<!-- ============================================================ -->
-<div id="login-screen" class="min-h-screen flex items-center justify-center p-6">
-  <div class="w-full max-w-sm">
-    <div class="text-center mb-8">
-      <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-2xl">🛡️</div>
-      <h1 class="text-xl font-black text-white">Ememart Admin</h1>
-      <p class="text-xs text-gray-500 mt-1">Staff access only · Role-based dashboard</p>
-    </div>
-    <div class="bg-gray-900 glow-border rounded-2xl p-6 flex flex-col gap-4">
-      <div class="flex flex-col gap-1.5">
-        <label class="text-[10px] font-black text-gray-400 uppercase tracking-wide">Email</label>
-        <input id="login-email" type="email" placeholder="you@ememart.com" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
-      </div>
-      <div class="flex flex-col gap-1.5">
-        <label class="text-[10px] font-black text-gray-400 uppercase tracking-wide">Password</label>
-        <input id="login-password" type="password" placeholder="••••••••" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600" onkeydown="if(event.key==='Enter')doAdminLogin()">
-      </div>
-      <div id="login-error" class="hidden text-[11px] text-red-400 bg-red-950/30 border border-red-900/40 rounded-lg px-3 py-2"></div>
-      <button id="login-btn" onclick="doAdminLogin()" class="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-sm py-3 rounded-xl transition">Sign In</button>
-      <button onclick="openForgotPasswordModal()" class="text-[11px] text-gray-500 hover:text-emerald-400 transition text-center">Forgot password?</button>
-    </div>
-    <p class="text-center text-[10px] text-gray-600 mt-6">Access requires an admin role assigned by a Super Admin.</p>
+<section id="login" class="card hidden">
+  <h2 style="margin-top:0">Ememart Admin</h2>
+  <p class="mute">Sign in with your admin email.</p>
+  <div class="row" style="flex-direction:column;align-items:stretch">
+    <input id="l-email" type="email" placeholder="Email" autocomplete="username">
+    <input id="l-pass" type="password" placeholder="Password" autocomplete="current-password">
+    <button class="btn ok" id="l-btn">Sign in</button>
+    <div id="l-err" class="bad"></div>
   </div>
-</div>
+</section>
 
-<!-- ============================================================ -->
-<!-- FORGOT PASSWORD MODAL -->
-<!-- ============================================================ -->
-<div id="forgot-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-  <div class="bg-gray-900 glow-border rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4">
-    <div class="flex items-center justify-between">
-      <h2 class="text-sm font-black text-white">Reset Password</h2>
-      <button onclick="closeForgotPasswordModal()" class="text-gray-500 hover:text-white text-lg">✕</button>
-    </div>
+<section id="app" class="hidden">
+  <header><b>Ememart Admin</b><span class="row"><span id="who" class="mute"></span><button class="btn" id="out">Sign out</button></span></header>
+  <nav id="tabs"></nav>
+  <main id="view"></main>
+</section>
 
-    <!-- Step 1: enter email -->
-    <div id="forgot-step-1" class="flex flex-col gap-3">
-      <p class="text-[11px] text-gray-400">Enter your admin email — we'll send a 6-digit code.</p>
-      <input id="forgot-email" type="email" placeholder="you@ememart.com" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
-      <button id="forgot-send-btn" onclick="sendForgotOtp()" class="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-sm py-2.5 rounded-xl transition">Send Code</button>
-    </div>
-
-    <!-- Step 2: enter OTP + new password -->
-    <div id="forgot-step-2" class="hidden flex flex-col gap-3">
-      <p class="text-[11px] text-gray-400">Enter the code sent to <span id="forgot-email-display" class="text-emerald-400 font-bold"></span> and choose a new password.</p>
-      <input id="forgot-otp" type="text" maxlength="6" placeholder="6-digit code" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white text-center tracking-widest placeholder-gray-600 focus:outline-none focus:border-emerald-600">
-      <input id="forgot-new-password" type="password" placeholder="New password (min 8 characters)" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
-      <button id="forgot-reset-btn" onclick="resetForgotPassword()" class="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-sm py-2.5 rounded-xl transition">Reset Password</button>
-    </div>
-
-    <div id="forgot-error" class="hidden text-[11px] text-red-400 bg-red-950/30 border border-red-900/40 rounded-lg px-3 py-2"></div>
-    <div id="forgot-success" class="hidden text-[11px] text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 rounded-lg px-3 py-2"></div>
-  </div>
-</div>
-
-<!-- ============================================================ -->
-<!-- MAIN DASHBOARD (hidden until login) -->
-<!-- ============================================================ -->
-<div id="dashboard" class="hidden min-h-screen flex">
-
-  <!-- Sidebar -->
-  <aside class="w-60 bg-gray-950 border-r border-gray-900 flex flex-col fixed h-screen overflow-y-auto">
-    <div class="p-5 border-b border-gray-900">
-      <div class="flex items-center gap-2">
-        <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-sm">🛡️</div>
-        <div>
-          <div class="text-sm font-black text-white">Ememart</div>
-          <div class="text-[9px] text-gray-500 -mt-0.5">Admin Dashboard</div>
-        </div>
-      </div>
-    </div>
-
-    <nav class="flex-1 py-3 flex flex-col gap-0.5" id="sidebar-nav">
-      <!-- Populated by JS based on permissions -->
-    </nav>
-
-    <div class="p-3 border-t border-gray-900">
-      <div class="bg-gray-900 rounded-xl p-3 flex items-center gap-2.5 mb-2">
-        <div id="admin-avatar" class="w-8 h-8 rounded-full bg-emerald-900 flex items-center justify-center text-xs font-black text-emerald-300 flex-shrink-0">A</div>
-        <div class="flex-1 min-w-0">
-          <div id="admin-name" class="text-xs font-black text-white truncate">—</div>
-          <div id="admin-role" class="text-[9px] text-emerald-400 font-bold truncate">—</div>
-        </div>
-      </div>
-      <button onclick="openChangePasswordModal()" class="w-full text-[10px] font-black text-gray-500 hover:text-emerald-400 transition py-1.5">Change Password</button>
-      <button onclick="doAdminLogout()" class="w-full text-[10px] font-black text-gray-500 hover:text-red-400 transition py-1.5">Sign Out</button>
-    </div>
-  </aside>
-
-  <!-- Main content -->
-  <main class="flex-1 ml-60 p-6">
-    <div id="page-content" class="fade-in"></div>
-  </main>
-</div>
-
-<!-- ============================================================ -->
-<!-- CHANGE PASSWORD MODAL -->
-<!-- ============================================================ -->
-<div id="change-pw-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-  <div class="bg-gray-900 glow-border rounded-2xl p-6 w-full max-w-sm flex flex-col gap-4">
-    <div class="flex items-center justify-between">
-      <h2 class="text-sm font-black text-white">Change Password</h2>
-      <button onclick="el('change-pw-modal').classList.add('hidden')" class="text-gray-500 hover:text-white text-lg">✕</button>
-    </div>
-    <input id="change-pw-current" type="password" placeholder="Current password" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
-    <input id="change-pw-new" type="password" placeholder="New password (min 8 characters)" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
-    <div id="change-pw-error" class="hidden text-[11px] text-red-400 bg-red-950/30 border border-red-900/40 rounded-lg px-3 py-2"></div>
-    <div id="change-pw-success" class="hidden text-[11px] text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 rounded-lg px-3 py-2"></div>
-    <button id="change-pw-btn" onclick="doChangePassword()" class="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-sm py-2.5 rounded-xl transition">Update Password</button>
-  </div>
-</div>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
-const API_BASE = 'https://www.ememart.com/api';
-let CURRENT_ADMIN = null;
-let CURRENT_PAGE = 'overview';
+// ---- YOUR SETTINGS (same two values as in backend.js) ----------------------------------------
+var SUPABASE_URL = 'https://jjiiuwhybqagorygfarh.supabase.co';
+var SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_KEY_HERE';
+// -----------------------------------------------------------------------------------------------
+var API = SUPABASE_URL + '/functions/v1/api';
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+var ROLE = null;
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function naira(k) { return '₦' + (Number(k || 0) / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 }); }
+function when(d) { return d ? new Date(d).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' }) : ''; }
+function safeUrl(u) { return /^https:\/\//.test(u || '') ? u : ''; }
 
-// ============================================================
-// API HELPER
-// ============================================================
-async function adminApi(action, data = {}) {
+async function api(method, path, body) {
+  var s = (await sb.auth.getSession()).data.session;
+  var res;
   try {
-    const res = await fetch(`${API_BASE}/admin.php`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, ...data })
-    });
-    return await res.json();
-  } catch (e) {
-    return { success: false, message: 'Connection failed. Check your internet.' };
-  }
+    res = await fetch(API + path, { method: method, body: body ? JSON.stringify(body) : undefined,
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + (s ? s.access_token : '') } });
+  } catch (e) { return { ok: false, error: 'Connection failed' }; }
+  var data = {}; try { data = await res.json(); } catch (e) {}
+  data._ok = res.ok; if (!res.ok) data._err = data.error || 'Request failed';
+  return data;
 }
+function say(msg, bad) { alert(msg); }
 
-async function kycApi(action, data = {}) {
-  try {
-    const res = await fetch(`${API_BASE}/admin_kyc.php`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, ...data })
-    });
-    return await res.json();
-  } catch (e) {
-    return { success: false, message: 'Connection failed.' };
-  }
+// ---- sign in / out ---------------------------------------------------------------------------
+async function boot() {
+  var s = (await sb.auth.getSession()).data.session;
+  if (!s) { $('login').classList.remove('hidden'); $('app').classList.add('hidden'); return; }
+  var me = await api('GET', '/me');
+  ROLE = me.admin_role || null;
+  if (!ROLE) { await sb.auth.signOut(); $('l-err').textContent = 'This account is not an admin.'; $('login').classList.remove('hidden'); $('app').classList.add('hidden'); return; }
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  $('who').textContent = (me.profile && me.profile.full_name || '') + ' (' + ROLE.replace('_', ' ') + ')';
+  buildTabs();
 }
+$('l-btn').onclick = async function () {
+  $('l-err').textContent = '';
+  var r = await sb.auth.signInWithPassword({ email: $('l-email').value.trim(), password: $('l-pass').value });
+  if (r.error) { $('l-err').textContent = 'Wrong email or password'; return; }
+  boot();
+};
+$('out').onclick = async function () { await sb.auth.signOut(); location.reload(); };
 
-function el(id) { return document.getElementById(id); }
-function hasPerm(perm) {
-  if (!CURRENT_ADMIN) return false;
-  return !!(CURRENT_ADMIN.permissions.all || CURRENT_ADMIN.permissions[perm]);
-}
-function fmtCurrency(n) { return '₦' + parseFloat(n||0).toLocaleString('en-NG',{minimumFractionDigits:2}); }
-function fmtDate(d) { return new Date(d).toLocaleString('en-NG', { dateStyle:'medium', timeStyle:'short' }); }
-
-// ============================================================
-// FORGOT PASSWORD FLOW
-// ============================================================
-function openForgotPasswordModal() {
-  el('forgot-modal').classList.remove('hidden');
-  el('forgot-step-1').classList.remove('hidden');
-  el('forgot-step-2').classList.add('hidden');
-  el('forgot-error').classList.add('hidden');
-  el('forgot-success').classList.add('hidden');
-  el('forgot-email').value = '';
-  el('forgot-otp').value = '';
-  el('forgot-new-password').value = '';
-}
-
-function closeForgotPasswordModal() {
-  el('forgot-modal').classList.add('hidden');
-}
-
-async function sendForgotOtp() {
-  const email = el('forgot-email').value.trim();
-  const errBox = el('forgot-error');
-  errBox.classList.add('hidden');
-
-  if (!email) { errBox.textContent = 'Enter your email.'; errBox.classList.remove('hidden'); return; }
-
-  const btn = el('forgot-send-btn');
-  btn.textContent = 'Sending...'; btn.disabled = true;
-  const res = await adminApi('forgot_password_send_otp', { email });
-  btn.textContent = 'Send Code'; btn.disabled = false;
-
-  if (res.success) {
-    el('forgot-email-display').textContent = email;
-    el('forgot-step-1').classList.add('hidden');
-    el('forgot-step-2').classList.remove('hidden');
-  } else {
-    errBox.textContent = res.message;
-    errBox.classList.remove('hidden');
-  }
-}
-
-async function resetForgotPassword() {
-  const email = el('forgot-email').value.trim();
-  const otp = el('forgot-otp').value.trim();
-  const new_password = el('forgot-new-password').value;
-  const errBox = el('forgot-error');
-  const successBox = el('forgot-success');
-  errBox.classList.add('hidden');
-  successBox.classList.add('hidden');
-
-  if (!otp || !new_password) { errBox.textContent = 'Enter the code and a new password.'; errBox.classList.remove('hidden'); return; }
-
-  const btn = el('forgot-reset-btn');
-  btn.textContent = 'Resetting...'; btn.disabled = true;
-  const res = await adminApi('forgot_password_reset', { email, otp, new_password });
-  btn.textContent = 'Reset Password'; btn.disabled = false;
-
-  if (res.success) {
-    successBox.textContent = 'Password reset! You can now sign in.';
-    successBox.classList.remove('hidden');
-    setTimeout(() => closeForgotPasswordModal(), 2000);
-  } else {
-    errBox.textContent = res.message;
-    errBox.classList.remove('hidden');
-  }
-}
-
-// ============================================================
-// LOGIN / LOGOUT
-// ============================================================
-async function doAdminLogin() {
-  const email = el('login-email').value.trim();
-  const password = el('login-password').value;
-  const btn = el('login-btn');
-  const errBox = el('login-error');
-  errBox.classList.add('hidden');
-
-  if (!email || !password) {
-    errBox.textContent = 'Enter both email and password.';
-    errBox.classList.remove('hidden');
-    return;
-  }
-
-  btn.textContent = 'Signing in...'; btn.disabled = true;
-  const res = await adminApi('login', { email, password });
-  btn.textContent = 'Sign In'; btn.disabled = false;
-
-  if (res.success) {
-    CURRENT_ADMIN = res.admin;
-    enterDashboard();
-  } else {
-    errBox.textContent = res.message || 'Login failed.';
-    errBox.classList.remove('hidden');
-  }
-}
-
-async function doAdminLogout() {
-  await adminApi('logout');
-  CURRENT_ADMIN = null;
-  el('dashboard').classList.add('hidden');
-  el('login-screen').classList.remove('hidden');
-  el('login-email').value = '';
-  el('login-password').value = '';
-}
-
-async function checkExistingSession() {
-  const res = await adminApi('me');
-  if (res.success) {
-    CURRENT_ADMIN = res.admin;
-    enterDashboard();
-  }
-}
-
-// ============================================================
-// CHANGE PASSWORD (for logged-in admin)
-// ============================================================
-function openChangePasswordModal() {
-  el('change-pw-modal').classList.remove('hidden');
-  el('change-pw-current').value = '';
-  el('change-pw-new').value = '';
-  el('change-pw-error').classList.add('hidden');
-  el('change-pw-success').classList.add('hidden');
-}
-
-async function doChangePassword() {
-  const current_password = el('change-pw-current').value;
-  const new_password = el('change-pw-new').value;
-  const errBox = el('change-pw-error');
-  const successBox = el('change-pw-success');
-  errBox.classList.add('hidden');
-  successBox.classList.add('hidden');
-
-  if (!current_password || !new_password) {
-    errBox.textContent = 'Fill in both fields.';
-    errBox.classList.remove('hidden');
-    return;
-  }
-
-  const btn = el('change-pw-btn');
-  btn.textContent = 'Updating...'; btn.disabled = true;
-  const res = await adminApi('change_password', { current_password, new_password });
-  btn.textContent = 'Update Password'; btn.disabled = false;
-
-  if (res.success) {
-    successBox.textContent = 'Password updated successfully.';
-    successBox.classList.remove('hidden');
-    setTimeout(() => el('change-pw-modal').classList.add('hidden'), 1500);
-  } else {
-    errBox.textContent = res.message;
-    errBox.classList.remove('hidden');
-  }
-}
-
-// ============================================================
-// SIDEBAR NAV — built dynamically from permissions
-// ============================================================
-const NAV_ITEMS = [
-  { id: 'overview',   label: 'Overview',        icon: '📊', perm: null },
-  { id: 'kyc',         label: 'KYC Review',      icon: '🪪', perm: 'kyc' },
-  { id: 'role_apps',   label: 'Role Applications', icon: '🔄', perm: 'role_applications' },
-  { id: 'users',       label: 'Users',           icon: '👥', perm: 'users' },
-  { id: 'posts',       label: 'Posts',           icon: '📝', perm: 'posts' },
-  { id: 'disputes',    label: 'Disputes',        icon: '⚖️', perm: 'disputes' },
-  { id: 'orders',      label: 'Orders',          icon: '📦', perm: 'orders' },
-  { id: 'finance',     label: 'Finance & Fees',  icon: '💰', perm: 'fees' },
-  { id: 'vtu_pricing', label: 'VTU Pricing',     icon: '📶', perm: 'fees' },
-  { id: 'withdrawals', label: 'Withdrawals',     icon: '🏦', perm: 'withdrawals' },
-  { id: 'staff',       label: 'Staff & Roles',   icon: '🔑', perm: 'all' },
-  { id: 'activity',    label: 'Activity Log',    icon: '📜', perm: 'all' },
+// ---- tabs (only what this admin role may use) ------------------------------------------------
+var TABS = [
+  ['verifications', 'Verification', ['super_admin', 'verification_reviewer']],
+  ['roles', 'Rider / artisan requests', ['super_admin', 'verification_reviewer']],
+  ['disputes', 'Disputes', ['super_admin', 'support']],
+  ['users', 'Users', ['super_admin', 'support', 'verification_reviewer']],
+  ['finance', 'Finance', ['super_admin', 'finance']],
+  ['team', 'Admin team', ['super_admin']],
+  ['audit', 'Activity log', ['super_admin']],
 ];
-
-function buildSidebar() {
-  const nav = el('sidebar-nav');
-  nav.innerHTML = NAV_ITEMS
-    .filter(item => !item.perm || hasPerm(item.perm) || (item.id === 'role_apps' && hasPerm('users')))
-    .map(item => `
-      <button onclick="navigateTo('${item.id}')" id="nav-${item.id}" class="sidebar-link flex items-center gap-3 px-5 py-2.5 text-xs font-bold text-gray-400 hover:text-white hover:bg-gray-900 transition">
-        <span class="text-base">${item.icon}</span>${item.label}
-      </button>
-    `).join('');
-}
-
-function enterDashboard() {
-  el('login-screen').classList.add('hidden');
-  el('dashboard').classList.remove('hidden');
-  el('admin-name').textContent = CURRENT_ADMIN.full_name;
-  el('admin-role').textContent = CURRENT_ADMIN.role_label;
-  el('admin-avatar').textContent = CURRENT_ADMIN.full_name.charAt(0).toUpperCase();
-  buildSidebar();
-  navigateTo('overview');
-}
-
-function navigateTo(page) {
-  CURRENT_PAGE = page;
-  document.querySelectorAll('.sidebar-link').forEach(b => b.classList.remove('active'));
-  el(`nav-${page}`)?.classList.add('active');
-
-  const renderers = {
-    overview: renderOverviewPage,
-    kyc: renderKycPage,
-    role_apps: renderRoleApplicationsPage,
-    staff: renderStaffPage,
-    activity: renderActivityPage,
-    vtu_pricing: renderVtuPricingPage,
-    users: renderUsersPage,
-    posts: renderPostsPage,
-    disputes: renderDisputesPage,
-    orders: renderOrdersPage,
-    finance: renderFinancePage,
-    withdrawals: renderWithdrawalsPage,
-  };
-  (renderers[page] || renderComingSoon)();
-}
-
-function pageHeader(title, subtitle) {
-  return `<div class="mb-6"><h1 class="text-xl font-black text-white">${title}</h1><p class="text-xs text-gray-500 mt-1">${subtitle}</p></div>`;
-}
-
-function renderComingSoon() {
-  el('page-content').innerHTML = pageHeader(
-    NAV_ITEMS.find(i=>i.id===CURRENT_PAGE)?.label || 'Page',
-    'This section is being built next.'
-  ) + `<div class="bg-gray-900 glow-border rounded-2xl p-12 text-center"><div class="text-3xl mb-2">🚧</div><div class="text-sm text-gray-500">Coming soon</div></div>`;
-}
-
-// ============================================================
-// OVERVIEW PAGE
-// ============================================================
-function renderOverviewPage() {
-  el('page-content').innerHTML = pageHeader('Overview', `Welcome back, ${CURRENT_ADMIN.full_name.split(' ')[0]}.`) + `
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="bg-gray-900 glow-border rounded-2xl p-5">
-        <div class="text-[10px] text-gray-500 font-black uppercase">Your Role</div>
-        <div class="text-lg font-black text-emerald-400 mt-1">${CURRENT_ADMIN.role_label}</div>
-      </div>
-      <div class="bg-gray-900 glow-border rounded-2xl p-5">
-        <div class="text-[10px] text-gray-500 font-black uppercase">Access Level</div>
-        <div class="text-lg font-black text-white mt-1">${CURRENT_ADMIN.permissions.all ? 'Full Access' : Object.keys(CURRENT_ADMIN.permissions).length + ' permission(s)'}</div>
-      </div>
-      <div class="bg-gray-900 glow-border rounded-2xl p-5">
-        <div class="text-[10px] text-gray-500 font-black uppercase">Signed in as</div>
-        <div class="text-sm font-bold text-white mt-1 truncate">${CURRENT_ADMIN.email}</div>
-      </div>
-    </div>
-    <div class="mt-6 bg-gray-900 glow-border rounded-2xl p-5">
-      <div class="text-xs font-black text-white mb-3">Your accessible sections</div>
-      <div class="flex flex-wrap gap-2">
-        ${NAV_ITEMS.filter(i=>!i.perm||hasPerm(i.perm)).map(i=>`<span class="badge-perm border-emerald-800 text-emerald-400 bg-emerald-950/30">${i.icon} ${i.label}</span>`).join('')}
-      </div>
-    </div>`;
-}
-
-// ============================================================
-// KYC REVIEW PAGE
-// ============================================================
-async function renderKycPage() {
-  el('page-content').innerHTML = pageHeader('KYC Review', 'Manually verify user identity submissions.') +
-    `<div id="kyc-list" class="flex flex-col gap-4"><div class="skel h-32 rounded-2xl"></div></div>`;
-
-  const res = await kycApi('list', { status: 'pending' });
-  const list = el('kyc-list');
-
-  if (!res.success) {
-    list.innerHTML = `<div class="bg-red-950/30 border border-red-900/40 rounded-2xl p-6 text-center text-sm text-red-400">${res.message}</div>`;
-    return;
-  }
-
-  const submissions = res.submissions || [];
-  if (!submissions.length) {
-    list.innerHTML = `<div class="bg-gray-900 glow-border rounded-2xl p-12 text-center"><div class="text-3xl mb-2">✅</div><div class="text-sm text-gray-500">No pending KYC submissions.</div></div>`;
-    return;
-  }
-
-  list.innerHTML = submissions.map(k => `
-    <div class="bg-gray-900 glow-border rounded-2xl p-5 flex flex-col gap-3">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-amber-950 border border-amber-800 flex items-center justify-center font-black text-amber-300">${k.full_name.charAt(0)}</div>
-          <div><div class="text-sm font-black text-white">${k.full_name}</div><div class="text-[10px] text-gray-500">${k.role} · ${k.email}</div></div>
-        </div>
-        <span class="badge-perm border-amber-800 text-amber-400 bg-amber-950/30">⏳ Pending</span>
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <div class="text-[9px] text-gray-500 uppercase font-black mb-1">Selfie with ID</div>
-          <img src="${k.selfie}" class="w-full h-40 object-cover rounded-xl border border-gray-800 cursor-pointer" onclick="window.open('${k.selfie}','_blank')">
-        </div>
-        ${k.utility_bill ? `<div><div class="text-[9px] text-gray-500 uppercase font-black mb-1">Utility Bill</div><img src="${k.utility_bill}" class="w-full h-40 object-cover rounded-xl border border-gray-800 cursor-pointer" onclick="window.open('${k.utility_bill}','_blank')"></div>` : `<div class="flex items-center justify-center text-xs text-gray-600 italic">No utility bill provided</div>`}
-      </div>
-      <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 text-xs text-gray-400 flex flex-col gap-1">
-        <span>🆔 BVN: <span class="mono text-gray-300">${k.bvn}</span></span>
-        <span>🪪 NIN: <span class="mono text-gray-300">${k.nin}</span></span>
-        <span>📅 Submitted: ${fmtDate(k.created_at)}</span>
-      </div>
-      <div class="flex gap-2">
-        <button onclick="approveKyc(${k.id})" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs py-2.5 rounded-xl transition">✅ Approve</button>
-        <button onclick="rejectKyc(${k.id})" class="flex-1 bg-gray-800 hover:bg-red-950 border border-gray-700 hover:border-red-800 text-red-400 font-black text-xs py-2.5 rounded-xl transition">❌ Reject</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-async function approveKyc(id) {
-  if (!confirm('Approve this KYC submission?')) return;
-  const res = await kycApi('approve', { kyc_id: id });
-  alert(res.message);
-  if (res.success) renderKycPage();
-}
-
-async function rejectKyc(id) {
-  const reason = prompt('Reason for rejection (shown to the user):', 'Documents unclear. Please retake your selfie with better lighting.');
-  if (reason === null) return;
-  const res = await kycApi('reject', { kyc_id: id, reason });
-  alert(res.message);
-  if (res.success) renderKycPage();
-}
-
-// ============================================================
-// ROLE APPLICATIONS PAGE
-// ============================================================
-async function renderRoleApplicationsPage() {
-  el('page-content').innerHTML = pageHeader('Role Applications', 'Review requests from users to become vendors, riders, or artisans.') +
-    `<div id="role-apps-list" class="flex flex-col gap-4"><div class="skel h-32 rounded-2xl"></div></div>`;
-
-  const res = await adminApi('list_role_applications', { status: 'pending' });
-  const list = el('role-apps-list');
-
-  if (!res.success) {
-    list.innerHTML = `<div class="bg-red-950/30 border border-red-900/40 rounded-2xl p-6 text-center text-sm text-red-400">${res.message}</div>`;
-    return;
-  }
-
-  const applications = res.applications || [];
-  if (!applications.length) {
-    list.innerHTML = `<div class="bg-gray-900 glow-border rounded-2xl p-12 text-center"><div class="text-3xl mb-2">✅</div><div class="text-sm text-gray-500">No pending role applications.</div></div>`;
-    return;
-  }
-
-  const roleIcons = { vendor: '🍲', rider: '🏍️', artisan: '🔧' };
-
-  list.innerHTML = applications.map(a => `
-    <div class="bg-gray-900 glow-border rounded-2xl p-5 flex flex-col gap-3">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-sky-950 border border-sky-800 flex items-center justify-center font-black text-sky-300">${a.full_name.charAt(0)}</div>
-          <div><div class="text-sm font-black text-white">${a.full_name}</div><div class="text-[10px] text-gray-500">${a.email} · ${a.phone||'no phone'}</div></div>
-        </div>
-        <span class="badge-perm border-amber-800 text-amber-400 bg-amber-950/30">⏳ Pending</span>
-      </div>
-      <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex items-center gap-3">
-        <span class="text-xs text-gray-500 font-bold">${a.current_role}</span>
-        <span class="text-gray-600">→</span>
-        <span class="text-sm font-black text-emerald-400">${roleIcons[a.new_role]||''} ${a.new_role}</span>
-      </div>
-      ${a.business_name ? `<div class="text-xs text-gray-400"><span class="text-gray-600 font-bold">Business name:</span> ${a.business_name}</div>` : ''}
-      <div class="text-xs text-gray-400 bg-gray-950 border border-gray-800 rounded-xl p-3">"${a.reason}"</div>
-      <div class="text-[10px] text-gray-600">Submitted: ${fmtDate(a.created_at)}</div>
-      <div class="flex gap-2">
-        <button onclick="approveRoleApp(${a.id})" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs py-2.5 rounded-xl transition">✅ Approve</button>
-        <button onclick="rejectRoleApp(${a.id})" class="flex-1 bg-gray-800 hover:bg-red-950 border border-gray-700 hover:border-red-800 text-red-400 font-black text-xs py-2.5 rounded-xl transition">❌ Reject</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-async function approveRoleApp(id) {
-  if (!confirm('Approve this role application? The user\'s role will change immediately.')) return;
-  const res = await adminApi('approve_role_application', { app_id: id });
-  alert(res.message);
-  if (res.success) renderRoleApplicationsPage();
-}
-
-async function rejectRoleApp(id) {
-  const reason = prompt('Reason for rejection (shown to the user):', 'Application did not meet our requirements.');
-  if (reason === null) return;
-  const res = await adminApi('reject_role_application', { app_id: id, reason });
-  alert(res.message);
-  if (res.success) renderRoleApplicationsPage();
-}
-
-// ============================================================
-// VTU PRICING PAGE
-// ============================================================
-const SERVICE_LABELS = { airtime: 'Airtime', data: 'Data Bundle', electricity: 'Electricity', tv: 'Cable TV', betting: 'Betting' };
-
-async function renderVtuPricingPage() {
-  el('page-content').innerHTML = pageHeader('VTU Pricing', 'Set your selling prices above Bigisub\'s wholesale cost. Check bigisub.ng/pricing/ for the latest rates, updated daily.') + `
-    <div class="bg-amber-950/20 border border-amber-900/40 rounded-2xl p-4 mb-5 text-xs text-amber-300">
-      ⚠️ Bigisub updates wholesale prices daily. Visit <a href="https://bigisub.ng/pricing/" target="_blank" class="underline font-bold">bigisub.ng/pricing/</a> regularly and update the wholesale price below whenever it changes — your selling price recalculates automatically based on your markup.
-    </div>
-    <div class="bg-gray-900 glow-border rounded-2xl p-5 mb-5">
-      <div class="text-xs font-black text-white mb-3">Add / Update a price</div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-        <select id="vp-service" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-600">
-          <option value="data">Data Bundle</option>
-          <option value="airtime">Airtime</option>
-          <option value="electricity">Electricity</option>
-          <option value="tv">Cable TV</option>
-          <option value="betting">Betting</option>
-        </select>
-        <input id="vp-provider-name" placeholder="Provider name (e.g. MTN SME)" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-        <input id="vp-provider-id" placeholder="Provider ID (e.g. mtn-sme)" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
-        <input id="vp-plan-name" placeholder="Plan name (e.g. 1GB - 30 days) — optional" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-3">
-        <div>
-          <label class="text-[9px] text-gray-500 font-black uppercase">Bigisub wholesale price (₦)</label>
-          <input id="vp-wholesale" type="number" placeholder="e.g. 300" oninput="updateMarginPreview()" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600 mt-1">
-        </div>
-        <div>
-          <label class="text-[9px] text-gray-500 font-black uppercase">Your markup</label>
-          <div class="flex gap-1 mt-1">
-            <select id="vp-markup-type" onchange="updateMarginPreview()" class="bg-gray-950 border border-gray-800 rounded-xl px-2 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-600">
-              <option value="fixed">₦ flat</option>
-              <option value="percent">% on top</option>
-            </select>
-            <input id="vp-markup-value" type="number" placeholder="e.g. 20" oninput="updateMarginPreview()" class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
-          </div>
-        </div>
-        <div>
-          <label class="text-[9px] text-gray-500 font-black uppercase">Customer pays</label>
-          <div id="vp-selling-preview" class="bg-emerald-950/30 border border-emerald-900/40 rounded-xl px-3 py-2.5 text-sm font-black text-emerald-400 mt-1">₦0.00</div>
-        </div>
-      </div>
-      <button onclick="saveVtuPricing()" class="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs px-5 py-2.5 rounded-xl transition">Save Price</button>
-    </div>
-    <div id="vtu-pricing-list" class="bg-gray-900 glow-border rounded-2xl overflow-hidden"><div class="skel h-40"></div></div>`;
-
-  loadVtuPricingList();
-}
-
-function updateMarginPreview() {
-  const wholesale = parseFloat(el('vp-wholesale').value) || 0;
-  const markupType = el('vp-markup-type').value;
-  const markupValue = parseFloat(el('vp-markup-value').value) || 0;
-  const selling = markupType === 'percent'
-    ? wholesale * (1 + markupValue / 100)
-    : wholesale + markupValue;
-  el('vp-selling-preview').textContent = fmtCurrency(selling);
-}
-
-async function saveVtuPricing() {
-  const service_type = el('vp-service').value;
-  const provider_id = el('vp-provider-id').value.trim();
-  const provider_name = el('vp-provider-name').value.trim();
-  const plan_name = el('vp-plan-name').value.trim();
-  const plan_id = plan_name ? provider_id + '-' + plan_name.toLowerCase().replace(/\s+/g,'-') : provider_id;
-  const wholesale_price = parseFloat(el('vp-wholesale').value) || 0;
-  const markup_type = el('vp-markup-type').value;
-  const markup_value = parseFloat(el('vp-markup-value').value) || 0;
-
-  if (!provider_id || !provider_name) { alert('Provider ID and name are required.'); return; }
-
-  const res = await adminApi('upsert_vtu_pricing', {
-    service_type, provider_id, provider_name, plan_id, plan_name,
-    wholesale_price, markup_type, markup_value
+var VIEWS = {};
+function buildTabs() {
+  var box = $('tabs'); box.innerHTML = '';
+  TABS.filter(function (t) { return t[2].indexOf(ROLE) >= 0; }).forEach(function (t, i) {
+    var b = document.createElement('button'); b.textContent = t[1]; b.dataset.k = t[0];
+    b.onclick = function () { open(t[0]); }; box.appendChild(b);
+    if (i === 0) open(t[0]);
   });
-  alert(res.message);
-  if (res.success) {
-    el('vp-provider-id').value = ''; el('vp-provider-name').value = '';
-    el('vp-plan-name').value = ''; el('vp-wholesale').value = ''; el('vp-markup-value').value = '';
-    loadVtuPricingList();
-  }
 }
-
-async function loadVtuPricingList() {
-  const res = await adminApi('list_vtu_pricing');
-  const listEl = el('vtu-pricing-list');
-  if (!res.success) { listEl.innerHTML = `<div class="p-6 text-center text-sm text-red-400">${res.message}</div>`; return; }
-
-  const rows = res.pricing || [];
-  if (!rows.length) { listEl.innerHTML = `<div class="p-10 text-center text-sm text-gray-500">No prices set yet.</div>`; return; }
-
-  listEl.innerHTML = `
-    <table class="w-full text-left">
-      <thead><tr class="border-b border-gray-800 text-[9px] text-gray-500 uppercase font-black">
-        <th class="px-4 py-3">Service</th><th class="px-4 py-3">Provider</th><th class="px-4 py-3">Plan</th>
-        <th class="px-4 py-3">Wholesale</th><th class="px-4 py-3">Markup</th><th class="px-4 py-3">You Charge</th><th class="px-4 py-3">Profit</th>
-      </tr></thead>
-      <tbody>
-        ${rows.map(r => {
-          const profit = r.selling_price - r.wholesale_price;
-          return `
-          <tr class="border-b border-gray-900 text-xs">
-            <td class="px-4 py-3 text-gray-400">${SERVICE_LABELS[r.service_type]||r.service_type}</td>
-            <td class="px-4 py-3 font-bold text-white">${r.provider_name}</td>
-            <td class="px-4 py-3 text-gray-500">${r.plan_name||'—'}</td>
-            <td class="px-4 py-3 mono text-gray-400">${fmtCurrency(r.wholesale_price)}</td>
-            <td class="px-4 py-3 text-gray-500">${r.markup_type==='percent' ? r.markup_value+'%' : fmtCurrency(r.markup_value)}</td>
-            <td class="px-4 py-3 mono font-black text-white">${fmtCurrency(r.selling_price)}</td>
-            <td class="px-4 py-3 mono font-black ${profit>=0?'text-emerald-400':'text-red-400'}">${fmtCurrency(profit)}</td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table>`;
+function open(k) {
+  Array.prototype.forEach.call($('tabs').children, function (b) { b.classList.toggle('on', b.dataset.k === k); });
+  $('view').innerHTML = '<p class="mute">Loading…</p>'; VIEWS[k]();
 }
+function view(html) { $('view').innerHTML = html; }
+function ask(msg) { var r = prompt(msg); return r && r.trim() ? r.trim() : null; }
 
-// ============================================================
-// WITHDRAWALS PAGE
-// ============================================================
-// FINANCE & FEES PAGE
-// ============================================================
-const FEE_LABELS = {
-  withdrawal_fee:      { label: 'Withdrawal Fee',          desc: 'Flat fee charged per withdrawal request (₦)',    type: 'naira' },
-  transfer_fee:        { label: 'Transfer Fee',             desc: 'Flat fee charged per wallet-to-wallet transfer (₦)', type: 'naira' },
-  kyc_fee:             { label: 'KYC Verification Fee',     desc: 'One-time fee charged when a user submits KYC (₦)', type: 'naira' },
-  escrow_fee_small:    { label: 'Escrow Fee — Small',       desc: 'Orders under ₦5,000 (₦)',                       type: 'naira' },
-  escrow_fee_medium:   { label: 'Escrow Fee — Medium',      desc: 'Orders ₦5,000 – ₦20,000 (₦)',                  type: 'naira' },
-  escrow_fee_large:    { label: 'Escrow Fee — Large',       desc: 'Orders ₦20,000 – ₦100,000 (₦)',                type: 'naira' },
-  escrow_fee_xl:       { label: 'Escrow Fee — XL',          desc: 'Orders above ₦100,000 (₦)',                    type: 'naira' },
-  boost_fee_basic:     { label: 'Boost Fee — Basic',        desc: 'Cost to boost a listing for 24 hours (₦)',     type: 'naira' },
-  boost_fee_standard:  { label: 'Boost Fee — Standard',     desc: 'Cost to boost a listing for 3 days (₦)',      type: 'naira' },
-  boost_fee_premium:   { label: 'Boost Fee — Premium',      desc: 'Cost to boost a listing for 7 days (₦)',      type: 'naira' },
-  referral_reward:     { label: 'Referral Reward',          desc: 'Amount paid to a user who refers a new signup (₦)', type: 'naira' },
-  cashback_rate:       { label: 'VTU Cashback Rate',        desc: 'Percentage cashback on VTU purchases (e.g. 0.01 = 1%)', type: 'rate' },
-  auto_release_hours:  { label: 'Escrow Auto-Release',      desc: 'Hours before escrow is auto-released to seller', type: 'hours' },
+// ---- verification ----------------------------------------------------------------------------
+VIEWS.verifications = async function () {
+  var r = await api('GET', '/admin/verifications?status=pending');
+  if (!r._ok) return view('<p class="bad">' + esc(r._err) + '</p>');
+  var list = r.requests || [];
+  view('<h3>Pending verification (' + list.length + ')</h3>' + (list.length ? '' : '<p class="mute">Nothing waiting.</p>') +
+    list.map(function (v) {
+      var p = v.profiles || {};
+      return '<div class="card"><div class="row"><b class="grow">' + esc(p.full_name) + '</b><span class="mute">' + esc(String(v.kind).toUpperCase()) + ' · ' + esc(when(v.created_at)) + '</span></div>' +
+        '<div class="mute">' + esc(p.email) + ' · ' + esc(p.phone) + ' · ' + esc(p.role) + '</div>' +
+        '<p>Document number: <b>' + esc(v.document_number || 'not given') + '</b></p>' +
+        '<div class="row">' + (safeUrl(v.document_url) ? '<a target="_blank" rel="noopener" href="' + esc(v.document_url) + '">Open document</a>' : '') +
+        (safeUrl(v.selfie_url) ? '<a target="_blank" rel="noopener" href="' + esc(v.selfie_url) + '">Open selfie</a>' : '') + '</div>' +
+        '<div class="row" style="margin-top:10px"><button class="btn ok" data-a="approve" data-id="' + esc(v.id) + '">Approve</button>' +
+        '<button class="btn bad" data-a="reject" data-id="' + esc(v.id) + '">Reject</button></div></div>';
+    }).join(''));
+  $('view').onclick = async function (e) {
+    var b = e.target.closest('button[data-a]'); if (!b) return;
+    var approve = b.dataset.a === 'approve', reason = null;
+    if (!approve) { reason = ask('Reason for rejecting (the user will see this):'); if (!reason) return; }
+    var x = await api('POST', '/admin/verifications/' + b.dataset.id + '/review', { approve: approve, reason: reason || undefined });
+    if (!x._ok) return say(x._err); VIEWS.verifications();
+  };
 };
 
-async function renderFinancePage() {
-  el('page-content').innerHTML = pageHeader('Finance & Fees', 'Control all platform fees. Changes take effect immediately on the next transaction.') +
-    '<div id="fees-list" class="flex flex-col gap-3"><div class="skel h-64 rounded-2xl"></div></div>';
-
-  const res = await adminApi('get_fees');
-  const listEl = el('fees-list');
-  if (!res.success) { listEl.innerHTML = '<div class="p-6 text-center text-sm text-red-400">' + res.message + '</div>'; return; }
-
-  const fees = res.fees || {};
-  const groups = [
-    { title: '💳 Transaction Fees', keys: ['withdrawal_fee', 'transfer_fee', 'kyc_fee'] },
-    { title: '🔐 Escrow Fees', keys: ['escrow_fee_small', 'escrow_fee_medium', 'escrow_fee_large', 'escrow_fee_xl'] },
-    { title: '🚀 Boost Fees', keys: ['boost_fee_basic', 'boost_fee_standard', 'boost_fee_premium'] },
-    { title: '🎁 Rewards & Cashback', keys: ['referral_reward', 'cashback_rate'] },
-    { title: '⏱️ Escrow Settings', keys: ['auto_release_hours'] },
-  ];
-
-  listEl.innerHTML = '';
-  groups.forEach(function(g) {
-    const section = document.createElement('div');
-    section.className = 'bg-gray-900 glow-border rounded-2xl overflow-hidden';
-    const header = document.createElement('div');
-    header.className = 'px-4 py-3 border-b border-gray-800 text-xs font-black text-white';
-    header.textContent = g.title;
-    section.appendChild(header);
-
-    g.keys.forEach(function(key) {
-      const meta = FEE_LABELS[key] || { label: key, desc: '', type: 'naira' };
-      const val = fees[key] !== undefined ? fees[key] : '';
-      const row = document.createElement('div');
-      row.className = 'px-4 py-3 border-b border-gray-900 flex items-center justify-between gap-3';
-      row.innerHTML =
-        '<div class="flex-1">' +
-          '<div class="text-xs font-bold text-white">' + meta.label + '</div>' +
-          '<div class="text-[10px] text-gray-500 mt-0.5">' + meta.desc + '</div>' +
-        '</div>' +
-        '<div class="flex items-center gap-2">' +
-          (meta.type === 'naira' ? '<span class="text-xs text-gray-500">₦</span>' : '') +
-          '<input type="number" id="fee-' + key + '" value="' + val + '" step="' + (meta.type === 'rate' ? '0.001' : '1') + '" ' +
-            'class="bg-gray-950 border border-gray-800 rounded-lg px-2 py-1.5 text-sm font-black text-white w-24 text-right focus:outline-none focus:border-emerald-600 mono">' +
-          '<button data-key="' + key + '" class="save-fee-btn bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-[10px] px-3 py-1.5 rounded-lg transition">Save</button>' +
-        '</div>';
-      section.appendChild(row);
-    });
-    listEl.appendChild(section);
-  });
-
-  // Wire save buttons via event delegation — avoids all quoting issues
-  listEl.addEventListener('click', function(e) {
-    const btn = e.target.closest('.save-fee-btn');
-    if (btn) saveFee(btn.dataset.key);
-  });
-}
-
-async function saveFee(name) {
-  const input = el('fee-' + name);
-  const value = input ? input.value.trim() : '';
-  if (value === '') { alert('Enter a value.'); return; }
-  const res = await adminApi('update_fee', { name, value });
-  if (res.success) {
-    if (input) { input.style.borderColor = '#10b981'; setTimeout(function(){ if(input) input.style.borderColor = ''; }, 2000); }
-  } else {
-    alert(res.message);
-  }
-}
-
-// ============================================================
-let _currentWithdrawalFilter = 'pending';
-
-async function renderWithdrawalsPage() {
-  el('page-content').innerHTML = pageHeader('Withdrawals', 'Withdrawals are processed automatically via Flutterwave. Monitor status here — Pending means transfer is initiated, Paid means confirmed delivered, Rejected means funds were refunded.') + `
-    <div class="flex gap-2 mb-4">
-      ${['pending','approved','paid','rejected','all'].map(s => `
-        <button onclick="filterWithdrawals('${s}')" id="wf-${s}" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition ${s===_currentWithdrawalFilter ? 'bg-emerald-500 text-gray-950' : 'bg-gray-900 text-gray-500 hover:text-white'}">${s}</button>
-      `).join('')}
-    </div>
-    <div id="withdrawals-list" class="flex flex-col gap-3"><div class="skel h-32 rounded-2xl"></div></div>`;
-
-  loadWithdrawalsList();
-}
-
-function filterWithdrawals(status) {
-  _currentWithdrawalFilter = status;
-  ['pending','approved','paid','rejected','all'].forEach(s => {
-    el(`wf-${s}`)?.classList.toggle('bg-emerald-500', s === status);
-    el(`wf-${s}`)?.classList.toggle('text-gray-950', s === status);
-    el(`wf-${s}`)?.classList.toggle('bg-gray-900', s !== status);
-    el(`wf-${s}`)?.classList.toggle('text-gray-500', s !== status);
-  });
-  loadWithdrawalsList();
-}
-
-async function loadWithdrawalsList() {
-  const res = await adminApi('list_withdrawals', { status: _currentWithdrawalFilter });
-  const listEl = el('withdrawals-list');
-
-  if (!res.success) { listEl.innerHTML = `<div class="bg-red-950/30 border border-red-900/40 rounded-2xl p-6 text-center text-sm text-red-400">${res.message}</div>`; return; }
-
-  const withdrawals = res.withdrawals || [];
-  if (!withdrawals.length) {
-    listEl.innerHTML = `<div class="bg-gray-900 glow-border rounded-2xl p-12 text-center"><div class="text-3xl mb-2">✅</div><div class="text-sm text-gray-500">No ${_currentWithdrawalFilter !== 'all' ? _currentWithdrawalFilter : ''} withdrawal requests.</div></div>`;
-    return;
-  }
-
-  const statusColors = {
-    pending: 'border-amber-800 text-amber-400 bg-amber-950/30',
-    approved: 'border-sky-800 text-sky-400 bg-sky-950/30',
-    paid: 'border-emerald-800 text-emerald-400 bg-emerald-950/30',
-    rejected: 'border-red-800 text-red-400 bg-red-950/30',
+// ---- rider / artisan requests ----------------------------------------------------------------
+VIEWS.roles = async function () {
+  var r = await api('GET', '/admin/role-applications');
+  if (!r._ok) return view('<p class="bad">' + esc(r._err) + '</p>');
+  var list = r.applications || [];
+  view('<h3>Rider and artisan requests (' + list.length + ')</h3>' + (list.length ? '' : '<p class="mute">Nothing waiting.</p>') +
+    list.map(function (a) {
+      var p = a.profiles || {};
+      return '<div class="card"><div class="row"><b class="grow">' + esc(p.full_name) + '</b><span>' + esc(a.role) + '</span></div>' +
+        '<div class="mute">' + esc(p.phone) + ' · ' + esc(when(a.created_at)) + '</div><pre class="mute" style="white-space:pre-wrap">' + esc(JSON.stringify(a.details || {}, null, 1)) + '</pre>' +
+        '<div class="row"><button class="btn ok" data-a="1" data-id="' + esc(a.id) + '">Approve</button><button class="btn bad" data-a="0" data-id="' + esc(a.id) + '">Decline</button></div></div>';
+    }).join(''));
+  $('view').onclick = async function (e) {
+    var b = e.target.closest('button[data-a]'); if (!b) return;
+    var approve = b.dataset.a === '1', reason = null;
+    if (!approve) { reason = ask('Reason for declining:'); if (!reason) return; }
+    var x = await api('POST', '/admin/role-applications/' + b.dataset.id + '/review', { approve: approve, reason: reason || undefined });
+    if (!x._ok) return say(x._err); VIEWS.roles();
   };
-  const statusIcons = { pending: '⏳', approved: '✅', paid: '💸', rejected: '❌' };
+};
 
-  listEl.innerHTML = withdrawals.map(w => `
-    <div class="bg-gray-900 glow-border rounded-2xl p-4 flex flex-col gap-2">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-gray-800 flex items-center justify-center font-black text-gray-300">${w.full_name.charAt(0)}</div>
-          <div><div class="text-sm font-black text-white">${w.full_name}</div><div class="text-[10px] text-gray-500">${w.email}</div></div>
-        </div>
-        <span class="badge-perm ${statusColors[w.status]}">${statusIcons[w.status]} ${w.status}</span>
-      </div>
-      <div class="grid grid-cols-2 gap-2 bg-gray-950 border border-gray-800 rounded-xl p-3 text-xs">
-        <div><span class="text-gray-500">Amount:</span> <span class="font-black text-white mono">${fmtCurrency(w.amount)}</span></div>
-        <div><span class="text-gray-500">Fee:</span> <span class="text-gray-400 mono">${fmtCurrency(w.fee)}</span></div>
-        <div><span class="text-gray-500">Bank:</span> <span class="text-white font-bold">${w.bank_name}</span></div>
-        <div><span class="text-gray-500">Account:</span> <span class="text-white mono">${w.account_no}</span></div>
-        <div class="col-span-2"><span class="text-gray-500">Account Name:</span> <span class="text-white font-bold">${w.account_name}</span></div>
-        <div class="col-span-2"><span class="text-gray-500">Reference:</span> <span class="text-gray-400 mono">${w.reference}</span></div>
-      </div>
-      <div class="text-[10px] text-gray-600">Requested: ${fmtDate(w.created_at)}</div>
-      ${w.admin_note ? `<div class="text-[10px] text-red-400 italic">Note: ${w.admin_note}</div>` : ''}
-      ${w.status === 'pending' ? `
-        <div class="flex gap-2">
-          <button onclick="rejectWithdrawal(${w.id})" class="flex-1 bg-gray-800 hover:bg-red-950 border border-gray-700 hover:border-red-800 text-red-400 font-black text-xs py-2.5 rounded-xl transition">❌ Reject & Refund</button>
-        </div>` : ''}
-    </div>
-  `).join('');
-}
+// ---- disputes --------------------------------------------------------------------------------
+VIEWS.disputes = async function () {
+  var r = await api('GET', '/admin/disputes');
+  if (!r._ok) return view('<p class="bad">' + esc(r._err) + '</p>');
+  var list = r.disputes || [];
+  view('<h3>Open disputes (' + list.length + ')</h3>' + (list.length ? '' : '<p class="mute">No open disputes.</p>') +
+    list.map(function (d) {
+      var o = d.orders || {}, snap = o.item_snapshot || {};
+      return '<div class="card"><div class="row"><b class="grow">' + esc(snap.title || 'Order') + ' · ' + naira(o.amount_kobo) + '</b><span class="mute">' + esc(when(d.created_at)) + '</span></div>' +
+        '<p>' + esc(d.reason) + '</p>' +
+        '<div class="mute">Evidence: ' + ((d.dispute_evidence || []).map(function (e) { return safeUrl(e.url) ? '<a target="_blank" rel="noopener" href="' + esc(e.url) + '">file</a>' : ''; }).join(' ') || 'none') + '</div>' +
+        '<div class="row" style="margin-top:10px"><button class="btn ok" data-w="buyer" data-id="' + esc(d.id) + '">Refund buyer</button>' +
+        '<button class="btn" data-w="seller" data-id="' + esc(d.id) + '">Pay seller</button></div></div>';
+    }).join(''));
+  $('view').onclick = async function (e) {
+    var b = e.target.closest('button[data-w]'); if (!b) return;
+    var note = ask('Note explaining the decision (both sides will see it):'); if (!note) return;
+    var x = await api('POST', '/admin/disputes/' + b.dataset.id + '/resolve', { outcome: b.dataset.w, note: note });
+    if (!x._ok) return say(x._err); VIEWS.disputes();
+  };
+};
 
-async function approveWithdrawal(id) {
-  if (!confirm('Approve this withdrawal? You will still need to send the actual bank transfer yourself.')) return;
-  const res = await adminApi('approve_withdrawal', { withdrawal_id: id });
-  alert(res.message);
-  if (res.success) loadWithdrawalsList();
-}
-
-async function markWithdrawalPaid(id) {
-  if (!confirm('Confirm that you have ALREADY sent this bank transfer?')) return;
-  const res = await adminApi('mark_withdrawal_paid', { withdrawal_id: id });
-  alert(res.message);
-  if (res.success) loadWithdrawalsList();
-}
-
-async function rejectWithdrawal(id) {
-  const reason = prompt('Reason for rejection (shown to the user, funds will be refunded):', 'Could not verify account details.');
-  if (reason === null) return;
-  const res = await adminApi('reject_withdrawal', { withdrawal_id: id, reason });
-  alert(res.message);
-  if (res.success) loadWithdrawalsList();
-}
-
-// ============================================================
-// STAFF & ROLES PAGE (Super Admin only)
-// ============================================================
-async function renderStaffPage() {
-  el('page-content').innerHTML = pageHeader('Staff & Roles', 'Assign admin access to team members.') +
-    `<div class="bg-gray-900 glow-border rounded-2xl p-5 mb-5">
-      <div class="text-xs font-black text-white mb-3">Assign a role</div>
-      <div class="flex flex-col sm:flex-row gap-2">
-        <input id="assign-email" type="email" placeholder="staff@email.com (must already have an account)" class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
-        <select id="assign-role" class="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-600">
-          <option value="">Loading roles...</option>
-        </select>
-        <button onclick="assignStaffRole()" class="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs px-5 py-2.5 rounded-xl transition whitespace-nowrap">Assign</button>
-      </div>
-    </div>
-    <div id="staff-list" class="bg-gray-900 glow-border rounded-2xl overflow-hidden">
-      <div class="skel h-40"></div>
-    </div>`;
-
-  const [rolesRes, staffRes] = await Promise.all([
-    adminApi('list_roles'),
-    adminApi('list_staff')
-  ]);
-
-  if (rolesRes.success) {
-    el('assign-role').innerHTML = rolesRes.roles.map(r => `<option value="${r.id}">${r.label}</option>`).join('');
+// ---- users -----------------------------------------------------------------------------------
+VIEWS.users = function () {
+  view('<div class="row"><input id="uq" class="grow" placeholder="Search name, phone or email"><button class="btn ok" id="ugo">Search</button></div><div id="ul"></div>');
+  async function go() {
+    var r = await api('GET', '/admin/users?q=' + encodeURIComponent($('uq').value));
+    if (!r._ok) return $('ul').innerHTML = '<p class="bad">' + esc(r._err) + '</p>';
+    $('ul').innerHTML = '<table><tr><th>Name</th><th>Contact</th><th>Role</th><th>Status</th><th></th></tr>' + (r.users || []).map(function (u) {
+      return '<tr><td>' + esc(u.full_name) + (u.verified ? ' <span class="ok">✔ verified</span>' : '') + '</td><td class="mute">' + esc(u.email) + '<br>' + esc(u.phone) + '</td><td>' + esc(u.role) + '<br><span class="mute">' + esc(u.tier) + '</span></td>' +
+        '<td class="' + (u.status === 'active' ? 'ok' : 'bad') + '">' + esc(u.status) + '</td><td><div class="row">' +
+        (u.status === 'active' ? '<button class="btn bad" data-s="suspended" data-id="' + esc(u.id) + '">Suspend</button>' : '<button class="btn ok" data-s="active" data-id="' + esc(u.id) + '">Restore</button>') +
+        (u.verified ? '<button class="btn" data-rv="1" data-id="' + esc(u.id) + '">Remove tick</button>' : '') + '</div></td></tr>';
+    }).join('') + '</table>';
   }
+  $('ugo').onclick = go; $('uq').onkeydown = function (e) { if (e.key === 'Enter') go(); };
+  $('view').onclick = async function (e) {
+    var b = e.target.closest('button[data-id]'); if (!b) return;
+    if (b.dataset.rv) {
+      var why = ask('Reason for removing the blue tick:'); if (!why) return;
+      var y = await api('POST', '/admin/users/' + b.dataset.id + '/revoke-verification', { reason: why });
+      if (!y._ok) return say(y._err); return go();
+    }
+    var reason = b.dataset.s === 'suspended' ? ask('Reason for suspending (the user will see this):') : '';
+    if (b.dataset.s === 'suspended' && !reason) return;
+    var x = await api('POST', '/admin/users/' + b.dataset.id + '/status', { status: b.dataset.s, reason: reason || undefined });
+    if (!x._ok) return say(x._err); go();
+  };
+  go();
+};
 
-  const listEl = el('staff-list');
-  if (!staffRes.success) {
-    listEl.innerHTML = `<div class="p-6 text-center text-sm text-red-400">${staffRes.message}</div>`;
-    return;
-  }
+// ---- finance ---------------------------------------------------------------------------------
+VIEWS.finance = async function () {
+  var a = await api('GET', '/admin/finance/summary'), w = await api('GET', '/admin/finance/withdrawals');
+  if (!a._ok) return view('<p class="bad">' + esc(a._err) + '</p>');
+  view('<div class="grid">' +
+    '<div class="card"><div class="mute">User wallets</div><div class="big">' + naira(a.user_balances_kobo) + '</div></div>' +
+    '<div class="card"><div class="mute">Held in escrow</div><div class="big">' + naira(a.escrow_held_kobo) + '</div></div>' +
+    '<div class="card"><div class="mute">Platform fees earned</div><div class="big">' + naira(a.platform_fees_kobo) + '</div></div>' +
+    '<div class="card"><div class="mute">Pending withdrawals</div><div class="big">' + esc(a.pending_withdrawals) + '</div></div>' +
+    '<div class="card"><div class="mute">Open disputes</div><div class="big">' + esc(a.open_disputes) + '</div></div></div>' +
+    '<h3>Recent withdrawals</h3><div class="card"><table><tr><th>When</th><th>Amount</th><th>Account</th><th>Status</th></tr>' +
+    ((w.withdrawals || []).map(function (x) {
+      return '<tr><td>' + esc(when(x.created_at)) + '</td><td>' + naira(x.amount_kobo) + '</td><td>' + esc(x.account_name) + '<br><span class="mute">' + esc(x.bank_code) + ' ' + esc(x.account_number) + '</span></td><td class="' + (x.status === 'success' ? 'ok' : x.status === 'failed' ? 'bad' : 'warn') + '">' + esc(x.status) + '</td></tr>';
+    }).join('') || '<tr><td colspan="4" class="mute">None yet.</td></tr>') + '</table></div>');
+};
 
-  const staff = staffRes.staff || [];
-  if (!staff.length) {
-    listEl.innerHTML = `<div class="p-10 text-center text-sm text-gray-500">No staff assigned yet.</div>`;
-    return;
-  }
+// ---- admin team ------------------------------------------------------------------------------
+VIEWS.team = function () {
+  view('<div class="card"><h3 style="margin-top:0">Give or remove an admin role</h3>' +
+    '<p class="mute">Type the email of someone who already has an Ememart account.</p>' +
+    '<div class="row"><input id="te" class="grow" placeholder="Their email (they must already have an Ememart account)">' +
+    '<select id="tr" style="width:auto"><option value="verification_reviewer">Verification Reviewer</option><option value="support">Support / Disputes</option><option value="finance">Finance</option><option value="super_admin">Super Admin</option><option value="">Remove admin access</option></select>' +
+    '<button class="btn ok" id="tgo">Save</button></div></div>');
+  $('tgo').onclick = async function () {
+    var email = $('te').value.trim(); if (!email) return;
+    var f = await api('GET', '/admin/users?q=' + encodeURIComponent(email));
+    var u = (f.users || []).filter(function (x) { return (x.email || '').toLowerCase() === email.toLowerCase(); })[0];
+    if (!u) return say('No user with that email.');
+    var role = $('tr').value || null;
+    if (!confirm((role ? 'Make ' + email + ' ' + role.replace('_', ' ') : 'Remove admin access for ' + email) + '?')) return;
+    var x = await api('POST', '/admin/team', { user_id: u.id, role: role });
+    say(x._ok ? 'Saved.' : x._err);
+  };
+};
 
-  listEl.innerHTML = `
-    <table class="w-full text-left">
-      <thead><tr class="border-b border-gray-800 text-[9px] text-gray-500 uppercase font-black">
-        <th class="px-4 py-3">Name</th><th class="px-4 py-3">Email</th><th class="px-4 py-3">Role</th><th class="px-4 py-3">Status</th><th class="px-4 py-3"></th>
-      </tr></thead>
-      <tbody>
-        ${staff.map(s => `
-          <tr class="border-b border-gray-900 text-xs">
-            <td class="px-4 py-3 font-bold text-white">${s.full_name}</td>
-            <td class="px-4 py-3 text-gray-400">${s.email}</td>
-            <td class="px-4 py-3"><span class="badge-perm border-emerald-800 text-emerald-400 bg-emerald-950/30">${s.role_label}</span></td>
-            <td class="px-4 py-3">${s.is_active ? '<span class="text-emerald-400 font-bold">Active</span>' : '<span class="text-gray-600 font-bold">Revoked</span>'}</td>
-            <td class="px-4 py-3 text-right">${s.is_active ? `<button onclick="revokeStaffAccess(${s.id})" class="text-[10px] font-black text-red-400 hover:text-red-300">Revoke</button>` : ''}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>`;
-}
+// ---- activity log ----------------------------------------------------------------------------
+VIEWS.audit = async function () {
+  var r = await api('GET', '/admin/audit');
+  if (!r._ok) return view('<p class="bad">' + esc(r._err) + '</p>');
+  view('<div class="card"><table><tr><th>When</th><th>Action</th><th>Target</th><th>Details</th></tr>' + (r.entries || []).map(function (e) {
+    return '<tr><td>' + esc(when(e.created_at)) + '</td><td>' + esc(e.action) + '</td><td class="mute">' + esc(String(e.target || '').slice(0, 8)) + '</td><td class="mute">' + esc(JSON.stringify(e.detail || {})) + '</td></tr>';
+  }).join('') + '</table></div>');
+};
 
-async function assignStaffRole() {
-  const email = el('assign-email').value.trim();
-  const role_id = el('assign-role').value;
-  if (!email || !role_id) { alert('Enter an email and select a role.'); return; }
-  const res = await adminApi('assign_role', { email, role_id });
-  alert(res.message);
-  if (res.success) { el('assign-email').value = ''; renderStaffPage(); }
-}
-
-async function revokeStaffAccess(staffId) {
-  if (!confirm('Revoke this staff member\'s admin access?')) return;
-  const res = await adminApi('revoke_access', { staff_id: staffId });
-  alert(res.message);
-  if (res.success) renderStaffPage();
-}
-
-// ============================================================
-// ACTIVITY LOG PAGE (Super Admin only)
-// ============================================================
-async function renderActivityPage() {
-  el('page-content').innerHTML = pageHeader('Activity Log', 'Recent actions taken by admin staff.') +
-    `<div id="activity-list" class="bg-gray-900 glow-border rounded-2xl overflow-hidden"><div class="skel h-40"></div></div>`;
-
-  const res = await adminApi('activity_log');
-  const listEl = el('activity-list');
-
-  if (!res.success) {
-    listEl.innerHTML = `<div class="p-6 text-center text-sm text-red-400">${res.message}</div>`;
-    return;
-  }
-
-  const logs = res.logs || [];
-  if (!logs.length) {
-    listEl.innerHTML = `<div class="p-10 text-center text-sm text-gray-500">No activity recorded yet.</div>`;
-    return;
-  }
-
-  listEl.innerHTML = `
-    <table class="w-full text-left">
-      <thead><tr class="border-b border-gray-800 text-[9px] text-gray-500 uppercase font-black">
-        <th class="px-4 py-3">Admin</th><th class="px-4 py-3">Action</th><th class="px-4 py-3">Details</th><th class="px-4 py-3">When</th>
-      </tr></thead>
-      <tbody>
-        ${logs.map(l => `
-          <tr class="border-b border-gray-900 text-xs">
-            <td class="px-4 py-3 font-bold text-white">${l.admin_name}</td>
-            <td class="px-4 py-3 text-emerald-400 font-bold">${l.action}</td>
-            <td class="px-4 py-3 text-gray-400">${l.details || (l.target_type ? `${l.target_type} #${l.target_id}` : '—')}</td>
-            <td class="px-4 py-3 text-gray-500">${fmtDate(l.created_at)}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>`;
-}
-
-// ============================================================
-// INIT
-// ============================================================
-checkExistingSession();
-
-// ============================================================
-// USERS PAGE
-// ============================================================
-let _userSearch = '', _userRole = '', _userPage = 1;
-
-async function renderUsersPage() {
-  el('page-content').innerHTML = pageHeader('Users', 'Manage all registered users — view profiles, suspend or reinstate accounts.') +
-    `<div class="flex gap-2 mb-4 flex-wrap">
-      <input id="user-search" placeholder="Search name, email, phone..." value="${_userSearch}"
-        class="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
-      <select id="user-role-filter" class="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
-        <option value="">All roles</option>
-        <option value="user">User</option>
-        <option value="vendor">Vendor</option>
-        <option value="artisan">Artisan</option>
-        <option value="rider">Rider</option>
-      </select>
-      <button onclick="searchUsers()" class="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs px-4 py-2 rounded-xl">Search</button>
-    </div>
-    <div id="users-list" class="bg-gray-900 glow-border rounded-2xl overflow-hidden"><div class="skel h-40"></div></div>
-    <div id="users-pagination" class="flex justify-center gap-2 mt-4"></div>`;
-
-  el('user-search').value = _userSearch;
-  el('user-role-filter').value = _userRole;
-  loadUsersList();
-}
-
-function searchUsers() {
-  _userSearch = el('user-search').value.trim();
-  _userRole = el('user-role-filter').value;
-  _userPage = 1;
-  loadUsersList();
-}
-
-async function loadUsersList() {
-  const res = await adminApi('list_users', { search: _userSearch, role: _userRole, page: _userPage });
-  const listEl = el('users-list');
-  if (!res.success) { listEl.innerHTML = `<div class="p-6 text-center text-sm text-red-400">${res.message}</div>`; return; }
-
-  const users = res.users || [];
-  if (!users.length) { listEl.innerHTML = `<div class="p-10 text-center text-sm text-gray-500">No users found.</div>`; return; }
-
-  const kycColors = { verified: 'text-emerald-400', pending: 'text-amber-400', unverified: 'text-gray-500' };
-  listEl.innerHTML = `
-    <table class="w-full text-left">
-      <thead><tr class="border-b border-gray-800 text-[9px] text-gray-500 uppercase font-black">
-        <th class="px-4 py-3">User</th><th class="px-4 py-3">Role</th><th class="px-4 py-3">KYC</th>
-        <th class="px-4 py-3">Balance</th><th class="px-4 py-3">Joined</th><th class="px-4 py-3">Actions</th>
-      </tr></thead>
-      <tbody>
-        ${users.map(u => `
-          <tr class="border-b border-gray-900 text-xs ${u.is_suspended ? 'opacity-50' : ''}">
-            <td class="px-4 py-3">
-              <div class="font-bold text-white">${u.full_name}</div>
-              <div class="text-gray-500">${u.email}</div>
-              <div class="text-gray-600">${u.phone||'—'}</div>
-            </td>
-            <td class="px-4 py-3"><span class="badge-perm border-sky-800 text-sky-400 bg-sky-950/30">${u.role}</span></td>
-            <td class="px-4 py-3 font-bold ${kycColors[u.kyc_status]||'text-gray-500'}">${u.kyc_status}</td>
-            <td class="px-4 py-3 mono text-white font-bold">${fmtCurrency(u.wallet_balance)}</td>
-            <td class="px-4 py-3 text-gray-500">${fmtDate(u.created_at)}</td>
-            <td class="px-4 py-3">
-              ${u.is_suspended
-                ? `<button onclick="unsuspendUser(${u.id})" class="text-[10px] font-black text-emerald-400 hover:text-emerald-300">Reinstate</button>`
-                : `<button onclick="suspendUser(${u.id})" class="text-[10px] font-black text-red-400 hover:text-red-300">Suspend</button>`}
-            </td>
-          </tr>`).join('')}
-      </tbody>
-    </table>`;
-
-  // Pagination
-  const pages = res.pages || 1;
-  const paginEl = el('users-pagination');
-  if (pages > 1) {
-    paginEl.innerHTML = Array.from({length: pages}, (_, i) => i+1).map(p =>
-      `<button onclick="goUserPage(${p})" class="px-3 py-1.5 rounded-full text-[10px] font-black ${p===_userPage ? 'bg-emerald-500 text-gray-950' : 'bg-gray-900 text-gray-500 hover:text-white'}">${p}</button>`
-    ).join('');
-  } else { paginEl.innerHTML = ''; }
-}
-
-function goUserPage(p) { _userPage = p; loadUsersList(); }
-
-async function suspendUser(id) {
-  const reason = prompt('Reason for suspension:', 'Violation of platform terms.');
-  if (!reason) return;
-  const res = await adminApi('suspend_user', { user_id: id, reason });
-  alert(res.message);
-  if (res.success) loadUsersList();
-}
-
-async function unsuspendUser(id) {
-  if (!confirm('Reinstate this user?')) return;
-  const res = await adminApi('unsuspend_user', { user_id: id });
-  alert(res.message);
-  if (res.success) loadUsersList();
-}
-
-// ============================================================
-// POSTS PAGE
-// ============================================================
-let _postSearch = '', _postPage = 1;
-
-async function renderPostsPage() {
-  el('page-content').innerHTML = pageHeader('Posts', 'Review and moderate platform listings. Deleting a post hides it from all feeds.') +
-    `<div class="flex gap-2 mb-4">
-      <input id="post-search" placeholder="Search by caption or author name..." value="${_postSearch}"
-        class="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-600">
-      <button onclick="searchPosts()" class="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black text-xs px-4 py-2 rounded-xl">Search</button>
-    </div>
-    <div id="posts-list" class="bg-gray-900 glow-border rounded-2xl overflow-hidden"><div class="skel h-40"></div></div>
-    <div id="posts-pagination" class="flex justify-center gap-2 mt-4"></div>`;
-
-  el('post-search').value = _postSearch;
-  loadPostsList();
-}
-
-function searchPosts() { _postSearch = el('post-search').value.trim(); _postPage = 1; loadPostsList(); }
-
-async function loadPostsList() {
-  const res = await adminApi('list_posts', { search: _postSearch, page: _postPage });
-  const listEl = el('posts-list');
-  if (!res.success) { listEl.innerHTML = `<div class="p-6 text-center text-sm text-red-400">${res.message}</div>`; return; }
-
-  const posts = res.posts || [];
-  if (!posts.length) { listEl.innerHTML = `<div class="p-10 text-center text-sm text-gray-500">No posts found.</div>`; return; }
-
-  listEl.innerHTML = `
-    <table class="w-full text-left">
-      <thead><tr class="border-b border-gray-800 text-[9px] text-gray-500 uppercase font-black">
-        <th class="px-4 py-3">Caption</th><th class="px-4 py-3">Author</th>
-        <th class="px-4 py-3">Type</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Posted</th><th class="px-4 py-3"></th>
-      </tr></thead>
-      <tbody>
-        ${posts.map(p => `
-          <tr class="border-b border-gray-900 text-xs">
-            <td class="px-4 py-3 text-white max-w-xs truncate">${p.caption||'(no caption)'}</td>
-            <td class="px-4 py-3">
-              <div class="font-bold text-white">${p.author_name}</div>
-              <div class="text-gray-500">${p.author_role}</div>
-            </td>
-            <td class="px-4 py-3 text-gray-400">${p.is_food ? '🍲 Food' : '📦 Product'}</td>
-            <td class="px-4 py-3"><span class="font-bold ${p.status==='active'?'text-emerald-400':'text-red-400'}">${p.status}</span></td>
-            <td class="px-4 py-3 text-gray-500">${fmtDate(p.created_at)}</td>
-            <td class="px-4 py-3">
-              ${p.status !== 'deleted' ? `<button onclick="deletePost('${p.id}')" class="text-[10px] font-black text-red-400 hover:text-red-300">Delete</button>` : '<span class="text-gray-600 text-[10px]">Deleted</span>'}
-            </td>
-          </tr>`).join('')}
-      </tbody>
-    </table>`;
-
-  const pages = res.pages || 1;
-  const paginEl = el('posts-pagination');
-  if (pages > 1) {
-    paginEl.innerHTML = Array.from({length: pages}, (_, i) => i+1).map(p =>
-      `<button onclick="goPostPage(${p})" class="px-3 py-1.5 rounded-full text-[10px] font-black ${p===_postPage ? 'bg-emerald-500 text-gray-950' : 'bg-gray-900 text-gray-500 hover:text-white'}">${p}</button>`
-    ).join('');
-  } else { paginEl.innerHTML = ''; }
-}
-
-function goPostPage(p) { _postPage = p; loadPostsList(); }
-
-async function deletePost(id) {
-  if (!confirm('Delete this post? It will be hidden from all feeds.')) return;
-  const res = await adminApi('delete_post', { post_id: id });
-  alert(res.message);
-  if (res.success) loadPostsList();
-}
-
-// ============================================================
-// DISPUTES PAGE
-// ============================================================
-let _disputeFilter = 'open';
-
-async function renderDisputesPage() {
-  el('page-content').innerHTML = pageHeader('Disputes', 'Resolve buyer and seller conflicts. Your decision is final and will be communicated to both parties.') +
-    `<div class="flex gap-2 mb-4">
-      ${['open','reviewing','resolved','all'].map(s =>
-        `<button onclick="filterDisputes('${s}')" id="df-${s}" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition ${s===_disputeFilter?'bg-emerald-500 text-gray-950':'bg-gray-900 text-gray-500 hover:text-white'}">${s}</button>`
-      ).join('')}
-    </div>
-    <div id="disputes-list" class="flex flex-col gap-3"><div class="skel h-32 rounded-2xl"></div></div>`;
-
-  loadDisputesList();
-}
-
-function filterDisputes(s) {
-  _disputeFilter = s;
-  ['open','reviewing','resolved','all'].forEach(x => {
-    el('df-'+x)?.classList.toggle('bg-emerald-500', x===s);
-    el('df-'+x)?.classList.toggle('text-gray-950', x===s);
-    el('df-'+x)?.classList.toggle('bg-gray-900', x!==s);
-    el('df-'+x)?.classList.toggle('text-gray-500', x!==s);
-  });
-  loadDisputesList();
-}
-
-async function loadDisputesList() {
-  const res = await adminApi('list_disputes', { status: _disputeFilter });
-  const listEl = el('disputes-list');
-  if (!res.success) { listEl.innerHTML = `<div class="bg-red-950/30 border border-red-900/40 rounded-2xl p-6 text-center text-sm text-red-400">${res.message}</div>`; return; }
-
-  const disputes = res.disputes || [];
-  if (!disputes.length) { listEl.innerHTML = `<div class="bg-gray-900 glow-border rounded-2xl p-12 text-center"><div class="text-3xl mb-2">✅</div><div class="text-sm text-gray-500">No ${_disputeFilter !== 'all' ? _disputeFilter : ''} disputes.</div></div>`; return; }
-
-  listEl.innerHTML = disputes.map(d => `
-    <div class="bg-gray-900 glow-border rounded-2xl p-4 flex flex-col gap-2">
-      <div class="flex items-center justify-between">
-        <div class="text-xs font-black text-white">Order #${d.order_id}</div>
-        <span class="badge-perm ${d.status==='open'?'border-red-800 text-red-400 bg-red-950/30':d.status==='resolved'?'border-emerald-800 text-emerald-400 bg-emerald-950/30':'border-amber-800 text-amber-400 bg-amber-950/30'}">${d.status}</span>
-      </div>
-      <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 text-xs">
-        <div class="text-gray-400">Raised by: <span class="text-white font-bold">${d.raised_by_name}</span> vs <span class="text-white font-bold">${d.against_name}</span></div>
-        <div class="text-gray-400 mt-1">Reason: <span class="text-amber-400">${d.reason}</span></div>
-        ${d.description ? `<div class="text-gray-500 mt-1 italic">"${d.description}"</div>` : ''}
-        <div class="text-gray-600 mt-1">${fmtDate(d.created_at)}</div>
-      </div>
-      ${d.resolution ? `<div class="text-xs text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 rounded-xl p-2">Resolution: ${d.resolution}</div>` : ''}
-      ${d.status !== 'resolved' ? `
-        <div class="flex gap-2">
-          <button onclick="resolveDispute(${d.id},'buyer')" class="flex-1 bg-sky-500 hover:bg-sky-400 text-gray-950 font-black text-xs py-2 rounded-xl">👤 Rule for Buyer</button>
-          <button onclick="resolveDispute(${d.id},'seller')" class="flex-1 bg-purple-500 hover:bg-purple-400 text-gray-950 font-black text-xs py-2 rounded-xl">🏪 Rule for Seller</button>
-        </div>` : ''}
-    </div>
-  `).join('');
-}
-
-async function resolveDispute(id, winner) {
-  const resolution = prompt(`Rule in favour of the ${winner}. Enter your resolution note (shown to both parties):`,
-    winner === 'buyer' ? 'Refund approved. Seller failed to deliver as described.' : 'Payment released to seller. Buyer claim was not substantiated.');
-  if (!resolution) return;
-  const res = await adminApi('resolve_dispute', { dispute_id: id, resolution, winner });
-  alert(res.message);
-  if (res.success) loadDisputesList();
-}
-
-// ============================================================
-// ORDERS PAGE
-// ============================================================
-let _orderFilter = 'all', _orderPage = 1;
-
-async function renderOrdersPage() {
-  el('page-content').innerHTML = pageHeader('Orders', 'Monitor all platform orders and escrow transactions.') +
-    `<div class="flex gap-2 mb-4 flex-wrap">
-      ${['all','pending','accepted','delivered','completed','cancelled','disputed'].map(s =>
-        `<button onclick="filterOrders('${s}')" id="of-${s}" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase transition ${s===_orderFilter?'bg-emerald-500 text-gray-950':'bg-gray-900 text-gray-500 hover:text-white'}">${s}</button>`
-      ).join('')}
-    </div>
-    <div id="orders-list" class="bg-gray-900 glow-border rounded-2xl overflow-hidden"><div class="skel h-40"></div></div>
-    <div id="orders-pagination" class="flex justify-center gap-2 mt-4"></div>`;
-
-  loadOrdersList();
-}
-
-function filterOrders(s) {
-  _orderFilter = s; _orderPage = 1;
-  ['all','pending','accepted','delivered','completed','cancelled','disputed'].forEach(x => {
-    el('of-'+x)?.classList.toggle('bg-emerald-500', x===s);
-    el('of-'+x)?.classList.toggle('text-gray-950', x===s);
-    el('of-'+x)?.classList.toggle('bg-gray-900', x!==s);
-    el('of-'+x)?.classList.toggle('text-gray-500', x!==s);
-  });
-  loadOrdersList();
-}
-
-async function loadOrdersList() {
-  const res = await adminApi('list_orders', { status: _orderFilter, page: _orderPage });
-  const listEl = el('orders-list');
-  if (!res.success) { listEl.innerHTML = `<div class="p-6 text-center text-sm text-red-400">${res.message}</div>`; return; }
-
-  const orders = res.orders || [];
-  if (!orders.length) { listEl.innerHTML = `<div class="p-10 text-center text-sm text-gray-500">No ${_orderFilter !== 'all' ? _orderFilter : ''} orders.</div>`; return; }
-
-  const statusColors = { pending:'text-amber-400', accepted:'text-sky-400', delivered:'text-blue-400', completed:'text-emerald-400', cancelled:'text-gray-500', disputed:'text-red-400' };
-
-  listEl.innerHTML = `
-    <table class="w-full text-left">
-      <thead><tr class="border-b border-gray-800 text-[9px] text-gray-500 uppercase font-black">
-        <th class="px-4 py-3">Order ID</th><th class="px-4 py-3">Buyer</th><th class="px-4 py-3">Seller</th>
-        <th class="px-4 py-3">Amount</th><th class="px-4 py-3">Escrow</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Date</th>
-      </tr></thead>
-      <tbody>
-        ${orders.map(o => `
-          <tr class="border-b border-gray-900 text-xs">
-            <td class="px-4 py-3 mono text-gray-400 text-[10px]">${o.id.slice(0,12)}...</td>
-            <td class="px-4 py-3">
-              <div class="font-bold text-white">${o.buyer_name}</div>
-              <div class="text-gray-500 text-[10px]">${o.buyer_email}</div>
-            </td>
-            <td class="px-4 py-3">
-              <div class="font-bold text-white">${o.seller_name}</div>
-              <div class="text-gray-500 text-[10px]">${o.seller_email}</div>
-            </td>
-            <td class="px-4 py-3 mono font-black text-white">${fmtCurrency(o.amount)}</td>
-            <td class="px-4 py-3 text-[10px] font-bold ${o.escrow_status==='held'?'text-amber-400':o.escrow_status==='released'?'text-emerald-400':'text-gray-500'}">${o.escrow_status||'—'}</td>
-            <td class="px-4 py-3 font-bold ${statusColors[o.status]||'text-gray-400'}">${o.status}</td>
-            <td class="px-4 py-3 text-gray-500 text-[10px]">${fmtDate(o.created_at)}</td>
-          </tr>`).join('')}
-      </tbody>
-    </table>`;
-
-  const pages = res.pages || 1;
-  const paginEl = el('orders-pagination');
-  if (pages > 1) {
-    paginEl.innerHTML = Array.from({length: pages}, (_, i) => i+1).map(p =>
-      `<button onclick="goOrderPage(${p})" class="px-3 py-1.5 rounded-full text-[10px] font-black ${p===_orderPage?'bg-emerald-500 text-gray-950':'bg-gray-900 text-gray-500 hover:text-white'}">${p}</button>`
-    ).join('');
-  } else { paginEl.innerHTML = ''; }
-}
-
-function goOrderPage(p) { _orderPage = p; loadOrdersList(); }
+boot();
 </script>
 </body>
 </html>
