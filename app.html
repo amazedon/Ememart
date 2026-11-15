@@ -273,6 +273,69 @@
   .onboard-icon-wrap{width:110px;height:110px;border-radius:32px;display:flex;align-items:center;justify-content:center;font-size:52px;margin-bottom:8px;flex-shrink:0;}
   .ob-role-card{display:flex;align-items:center;gap:12px;background:#111827;border:2px solid #1f2937;border-radius:16px;padding:14px 12px;cursor:pointer;transition:all .2s;width:100%;max-width:320px;text-align:left;}
   .ob-role-card:hover{border-color:#10b981;background:rgba(16,185,129,.06);}
+
+  /* ===== LIGHT MODE — extra fixes ===== */
+  body.light .cat-card,
+  body.light .vp-stat,
+  body.light .vp-listing-card,
+  body.light .boost-option,
+  body.light .ob-role-card,
+  body.light .trending-keyword,
+  body.light .pin-pad-btn,
+  body.light .qty-btn,
+  body.light .search-bar input,
+  body.light .notif-popup               { background:#ffffff !important; border-color:#e2e8f0 !important; color:#0f172a !important; }
+  body.light .notif-popup               { border-color:#10b981 !important; box-shadow:0 8px 24px rgba(15,23,42,.18) !important; }
+  body.light .cat-card:hover, body.light .cat-card.active { background:#ecfdf5 !important; border-color:#10b981 !important; }
+  body.light .cat-card span.label       { color:#475569 !important; }
+  body.light .cat-card.active span.label{ color:#047857 !important; }
+  body.light .timer-bar, body.light .progress-bar, body.light .rating-bar-track, body.light .onboard-dot { background:#e2e8f0 !important; }
+  body.light .inbox-item:hover, body.light .report-reason:hover { background:#f1f5f9 !important; }
+  body.light .chat-bubble-them          { background:#e2e8f0 !important; color:#0f172a !important; }
+  body.light .chat-bubble-me            { background:#d1fae5 !important; color:#064e3b !important; }
+  body.light .support-bubble.agent      { background:#dbeafe !important; border-color:#93c5fd !important; color:#1e3a8a !important; }
+  body.light .support-bubble.user       { background:#d1fae5 !important; border-color:#6ee7b7 !important; color:#064e3b !important; }
+  body.light .inp.error                 { background:#fef2f2 !important; }
+  body.light .label-sm                  { color:#475569 !important; }
+  body.light .finance-tab               { color:#64748b !important; }
+  body.light .finance-tab.active        { color:#047857 !important; border-bottom-color:#10b981 !important; }
+  body.light .btn-sm-outline            { color:#047857 !important; border-color:#6ee7b7 !important; }
+  body.light .btn-sm-outline:hover      { background:#ecfdf5 !important; border-color:#10b981 !important; }
+  body.light .acc-head                  { color:#0f172a !important; }
+  body.light .acc-head .acc-chev        { color:#64748b !important; }
+  body.light #trending-section          { background:#ffffff !important; border-color:#e2e8f0 !important; }
+  body.light .trending-card .text-emerald-400 { color:#047857 !important; }
+
+  /* tinted dark badges / boxes (emerald, red, amber, blue, purple...) */
+  body.light [class*="bg-emerald-950"], body.light [class*="bg-emerald-900"] { background-color:#d1fae5 !important; }
+  body.light [class*="bg-red-950"],     body.light [class*="bg-red-900"]     { background-color:#fee2e2 !important; }
+  body.light [class*="bg-amber-950"],   body.light [class*="bg-amber-900"]   { background-color:#fef3c7 !important; }
+  body.light [class*="bg-blue-950"],    body.light [class*="bg-blue-900"],
+  body.light [class*="bg-sky-950"],     body.light [class*="bg-sky-900"],
+  body.light [class*="bg-indigo-950"],  body.light [class*="bg-indigo-900"]  { background-color:#dbeafe !important; }
+  body.light [class*="bg-purple-950"],  body.light [class*="bg-purple-900"],
+  body.light [class*="bg-violet-950"]                                         { background-color:#f3e8ff !important; }
+  body.light [class*="bg-rose-950"],    body.light [class*="bg-rose-900"]    { background-color:#ffe4e6 !important; }
+  body.light [class*="text-emerald-300"], body.light [class*="text-emerald-400"] { color:#047857 !important; }
+  body.light [class*="text-amber-300"],   body.light [class*="text-amber-400"]   { color:#b45309 !important; }
+  body.light [class*="text-red-300"],     body.light [class*="text-red-400"]     { color:#b91c1c !important; }
+  body.light [class*="text-sky-300"],     body.light [class*="text-sky-400"],
+  body.light [class*="text-blue-300"],    body.light [class*="text-blue-400"]    { color:#1d4ed8 !important; }
+  body.light [class*="text-indigo-300"],  body.light [class*="text-indigo-400"]  { color:#4338ca !important; }
+  body.light [class*="text-purple-300"],  body.light [class*="text-purple-400"]  { color:#7e22ce !important; }
+  body.light [class*="text-rose-300"],    body.light [class*="text-rose-400"]    { color:#be123c !important; }
+
+  body.light [class*="text-emerald-500"] { color:#047857 !important; }
+  body.light [class*="text-gray-600"]    { color:#64748b !important; }
+  body.light .rider-tab.active           { color:#0369a1 !important; }
+  /* white text must stay white on solid colour fills and photo overlays */
+  body.light [class*="bg-red-5"][class*="text-white"],  body.light [class*="bg-red-6"][class*="text-white"],  body.light [class*="bg-red-7"][class*="text-white"],
+  body.light [class*="bg-emerald-5"][class*="text-white"], body.light [class*="bg-emerald-6"][class*="text-white"], body.light [class*="bg-emerald-7"][class*="text-white"],
+  body.light [class*="bg-purple-"][class*="text-white"], body.light [class*="bg-rose-"][class*="text-white"], body.light [class*="bg-amber-6"][class*="text-white"], body.light [class*="bg-amber-7"][class*="text-white"],
+  body.light [class*="bg-blue-5"][class*="text-white"], body.light [class*="bg-blue-6"][class*="text-white"], body.light [class*="bg-indigo-"][class*="text-white"],
+  body.light [class*="from-black"] [class*="text-white"], body.light [class*="from-black"][class*="text-white"],
+  body.light [class*="bg-black"] [class*="text-white"], body.light [class*="bg-black"][class*="text-white"] { color:#ffffff !important; }
+  body.light [class*="from-black"] [class*="text-gray-300"], body.light [class*="from-black"] [class*="text-gray-400"] { color:#e5e7eb !important; }
 </style>
 <script>
 // ============================================================
@@ -339,6 +402,13 @@ document.addEventListener('click', function askOnce(){
 </script>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col pb-20">
+<script>
+(function(){try{var t=localStorage.getItem('ememart_theme');
+if(!t)t=(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';
+if(t==='light')document.body.classList.add('light');
+var m=document.querySelector('meta[name=theme-color]');if(m)m.content=t==='light'?'#f8fafc':'#030712';
+document.documentElement.style.colorScheme=t;}catch(e){}})();
+</script>
 
 <!-- ===== ONBOARDING OVERLAY ===== -->
 <div id="onboarding-overlay" class="ob-hidden fixed inset-0 z-[500] bg-gray-950 flex-col max-w-md mx-auto">
@@ -1794,7 +1864,7 @@ document.addEventListener('click', function askOnce(){
       <div class="grid grid-cols-2 gap-2">
         <button onclick="openEditLocationModal()" class="bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition"><span class="text-lg"><svg width="20" height="24" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg></span>Location</button>
         <button onclick="openSpendingLimitsModal()" class="bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition"><span class="text-lg">💸</span>Spend Limits</button>
-        <button onclick="toggleDarkSchedule()" class="bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition"><span class="text-lg">🌙</span>Auto Dark</button>
+        <button onclick="toggleDarkSchedule()" class="bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition"><span class="text-lg">🌙</span><span id="auto-dark-label">Auto Dark</span></button>
       </div>
     </div>
 
@@ -2487,8 +2557,10 @@ const ONBOARD_KEY = 'ememart_onboarded_v1';
 // ===== SINGLE DOMContentLoaded — all init here =====
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Apply saved theme immediately to avoid any flash
-  const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
-  applyTheme(savedTheme);
+  const savedTheme = localStorage.getItem(THEME_KEY);
+  if(savedTheme) applyTheme(savedTheme);
+  else applyTheme(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark', false);
+  updateAutoDarkLabel();
 
   // 2. Wire up field error clearing on input
   ['fn','ln','biz-name','inp-town','inp-lga','inp-state','inp-phone','inp-email','inp-pw'].forEach(id => {
@@ -2730,21 +2802,34 @@ function finishOnboarding(){
 }
 
 // ===== THEME =====
-function applyTheme(theme){
+function applyTheme(theme, persist){
+  if(theme !== 'light') theme = 'dark';
   const btn = el('theme-btn');
-  if(theme === 'light'){
-    document.body.classList.add('light');
-    if(btn){ btn.textContent = '🌙 Dark'; }
-  } else {
-    document.body.classList.remove('light');
-    if(btn){ btn.textContent = '☀️ Light'; }
-  }
+  document.body.classList.toggle('light', theme === 'light');
+  if(btn){ btn.textContent = theme === 'light' ? '🌙 Dark' : '☀️ Light'; btn.setAttribute('aria-label', theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'); }
+  const meta = document.querySelector('meta[name=theme-color]');
+  if(meta) meta.content = theme === 'light' ? '#f8fafc' : '#030712';
+  document.documentElement.style.colorScheme = theme;
   state.currentTheme = theme;
-  localStorage.setItem(THEME_KEY, theme);
+  if(persist !== false) localStorage.setItem(THEME_KEY, theme);
 }
 
 function toggleTheme(){
+  // a manual choice always wins over the automatic night schedule
+  if(localStorage.getItem('ememart_dark_schedule') === '1'){
+    localStorage.setItem('ememart_dark_schedule','0');
+    clearInterval(_darkScheduleInterval); _darkScheduleInterval = null;
+    updateAutoDarkLabel();
+    showPopupNotif('☀️','Auto Dark turned off','You picked a mode yourself, so the automatic schedule is off.');
+  }
   applyTheme(state.currentTheme === 'dark' ? 'light' : 'dark');
+}
+
+// follow the phone's own light/dark setting until the user picks one
+if(window.matchMedia){
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    if(!localStorage.getItem(THEME_KEY) && localStorage.getItem('ememart_dark_schedule') !== '1') applyTheme(e.matches ? 'dark' : 'light', false);
+  });
 }
 
 let authMode='signin';
@@ -6387,32 +6472,37 @@ async function saveLocationUpdate(){
 // AUTO DARK SCHEDULE
 // ============================================================
 let _darkScheduleInterval = null;
+function updateAutoDarkLabel(){
+  const on = localStorage.getItem('ememart_dark_schedule') === '1';
+  const b = document.getElementById('auto-dark-label');
+  if(b) b.textContent = on ? 'Auto Dark: On' : 'Auto Dark: Off';
+}
+function startDarkSchedule(){
+  clearInterval(_darkScheduleInterval);
+  checkDarkSchedule();
+  _darkScheduleInterval = setInterval(checkDarkSchedule, 60000);
+}
 function toggleDarkSchedule(){
-  const current = localStorage.getItem('ememart_dark_schedule') === '1';
-  const next = !current;
+  const next = localStorage.getItem('ememart_dark_schedule') !== '1';
   localStorage.setItem('ememart_dark_schedule', next ? '1' : '0');
   if(next){
-    checkDarkSchedule();
-    _darkScheduleInterval = setInterval(checkDarkSchedule, 60000);
-    showPopupNotif('🌙','Auto Dark Enabled','Dark mode will auto-activate between 6PM and 6AM.');
+    startDarkSchedule();
+    showPopupNotif('🌙','Auto Dark On','Dark mode switches on from 6 PM to 6 AM. Light mode the rest of the day.');
   } else {
-    clearInterval(_darkScheduleInterval);
-    showPopupNotif('☀️','Auto Dark Disabled','Automatic dark mode schedule turned off.');
+    clearInterval(_darkScheduleInterval); _darkScheduleInterval = null;
+    showPopupNotif('☀️','Auto Dark Off','The automatic schedule is off. Use the Light / Dark button at the top.');
   }
+  updateAutoDarkLabel();
 }
 
 function checkDarkSchedule(){
   if(localStorage.getItem('ememart_dark_schedule') !== '1') return;
   const hr = new Date().getHours();
-  const shouldBeDark = hr >= 18 || hr < 6;
-  applyTheme(shouldBeDark ? 'dark' : 'light');
+  applyTheme((hr >= 18 || hr < 6) ? 'dark' : 'light', false);
 }
 
 // Check on load
-if(localStorage.getItem('ememart_dark_schedule') === '1'){
-  checkDarkSchedule();
-  _darkScheduleInterval = setInterval(checkDarkSchedule, 60000);
-}
+if(localStorage.getItem('ememart_dark_schedule') === '1') startDarkSchedule();
 
 // ============================================================
 // SOS ENHANCEMENTS
@@ -14008,7 +14098,7 @@ function verifyPinPress(digit){
 
 
 <style>
-.acc-head{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:#fff;font-weight:900;font-size:13px;cursor:pointer;padding:2px 0}
+.acc-head{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:#f9fafb;font-weight:900;font-size:13px;cursor:pointer;padding:2px 0}
 .acc-head .acc-chev{margin-left:auto;color:#9ca3af;transition:transform .2s}
 .acc-open>.acc-head .acc-chev{transform:rotate(180deg)}
 [data-acc]:not(.acc-open)>.acc-body{display:none}
