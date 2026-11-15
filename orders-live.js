@@ -121,7 +121,6 @@
   };
 
   // ---- 5. escrow: no demo timers; the server holds, releases and auto-releases --------------
-  window.markOrderDeliveredDemo = function () {};
   window.autoReleaseEscrow = function () {};
   window.startEscrowCountdown = function () { var c = E('escrow-countdown'); if (c) c.textContent = 'auto-release 48h after delivery'; };
   window.registerEscrow = function () {};
@@ -169,20 +168,13 @@
   };
 
   // ---- 7. wallet screens: banks, withdrawal, balance -----------------------------------------
-  var BANKS = [
-    ['044', 'Access Bank'], ['023', 'Citibank Nigeria'], ['063', 'Access Bank (Diamond)'], ['050', 'Ecobank Nigeria'],
-    ['070', 'Fidelity Bank'], ['011', 'First Bank of Nigeria'], ['214', 'First City Monument Bank'], ['058', 'Guaranty Trust Bank'],
-    ['030', 'Heritage Bank'], ['082', 'Keystone Bank'], ['50211', 'Kuda Bank'], ['999992', 'OPay'], ['999991', 'PalmPay'],
-    ['076', 'Polaris Bank'], ['101', 'Providus Bank'], ['221', 'Stanbic IBTC Bank'], ['068', 'Standard Chartered'],
-    ['232', 'Sterling Bank'], ['100', 'Suntrust Bank'], ['032', 'Union Bank'], ['033', 'United Bank for Africa'],
-    ['215', 'Unity Bank'], ['035', 'Wema Bank'], ['057', 'Zenith Bank'],
-  ];
   var _oldPost = window.apiPost;
   window.apiPost = async function (file, action, data) {
     data = data || {};
     if (file === 'wallet.php') {
       if (action === 'get_banks') {
-        return { success: true, banks: BANKS.map(function (b) { return { code: b[0], name: b[1] }; }) };
+        var rb = await api('GET', '/wallet/banks');
+        return rb.success ? { success: true, banks: rb.banks || [] } : { success: false, message: rb.message || 'Could not load banks' };
       }
       if (action === 'withdraw') {
         var r = await api('POST', '/wallet/withdraw', {
@@ -229,4 +221,41 @@
   var _reload = B.reloadPosts;
   if (_reload) B.reloadPosts = async function () { await _reload(); attachOrders(); };
   document.addEventListener('visibilitychange', function () { if (!document.hidden && me()) { loadOrders(); loadWallet(); } });
+
+  // ---- 9. boosts and vendor plans: paid from the real wallet ---------------------------------
+  function askPin(title) {
+    var v = window.prompt(title + '\nEnter your 4-digit transaction PIN');
+    if (v == null) return null;
+    if (!/^\d{4}$/.test(v)) { toast('⚠️', 'PIN Required', 'Enter exactly 4 digits.'); return null; }
+    return v;
+  }
+  async function refreshMe() {
+    try { var s = await window.buildSession(); if (s) { state.session = Object.assign(state.session || {}, s); try { saveState(); } catch (e) {} syncAccountDisplay(); } } catch (e) {}
+  }
+  window.confirmBoost = async function () {
+    if (!_boostPostId || !_boostHours) { toast('⚠️', 'Select Plan', 'Please select a boost duration first.'); return; }
+    var pin = askPin('Boost for ' + _boostHours + ' hours'); if (!pin) return;
+    var r = await api('POST', '/boosts', { post_id: _boostPostId, hours: _boostHours, pin: pin });
+    if (!r || r.success === false || r.error) { toast('❌', 'Boost failed', (r && (r.message || r.error)) || 'Try again.'); return; }
+    E('boost-modal').classList.add('hidden');
+    _boostPostId = null; _boostHours = 0; _boostFee = 0;
+    toast('⭐', 'Post Boosted!', 'Your post now appears at the top of the feed.');
+    if (B.reloadPosts) B.reloadPosts(); loadWallet(); refreshMe();
+  };
+  window.confirmVendorTierUpgrade = async function (tierKey) {
+    var pin = tierKey === 'free' ? '' : askPin('Switch to the ' + tierKey + ' plan'); if (tierKey !== 'free' && !pin) return;
+    var r = await api('POST', '/tier', { tier: tierKey, pin: pin || '0000' });
+    if (!r || r.success === false || r.error) { toast('❌', 'Plan not changed', (r && (r.message || r.error)) || 'Try again.'); return; }
+    E('vendor-tier-modal').classList.add('hidden');
+    toast('✅', 'Plan updated', 'You are now on the ' + tierKey + ' plan.');
+    await refreshMe(); loadWallet();
+    try { renderVendorTierInfo(); renderFeed(); } catch (e) {}
+  };
+  window.confirmVendorTierDowngrade = function (k) { return window.confirmVendorTierUpgrade(k); };
+
+  // ---- 10. features that are not on the server yet: stop them from changing money locally ---
+  function notYet(name) { toast('ℹ️', name, 'This feature is not available yet.'); }
+  window.initializeSplitPayment = function () { notYet('Group split'); };
+  window.cancelOrder = function () { toast('ℹ️', 'Cancel order', 'Ask the seller to cancel. You will be refunded to your wallet automatically.'); };
+  window.updateDeliveryStatus = function () { notYet('Rider deliveries'); };
 })();
