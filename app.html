@@ -157,8 +157,10 @@
   .map-vendor-pin{position:absolute;transform:translate(-50%,-100%);cursor:pointer;filter:drop-shadow(0 2px 4px rgba(0,0,0,.8));}
   .map-pin-bubble{background:#10b981;color:#022c22;font-size:9px;font-weight:900;padding:4px 8px;border-radius:10px;white-space:nowrap;border:2px solid #022c22;}
   .map-pin-bubble::after{content:'';position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:#10b981;}
-  .trending-card{background:linear-gradient(135deg,#0a1628,#111827);border:1px solid #1f2937;border-radius:16px;overflow:hidden;min-width:140px;max-width:140px;cursor:pointer;transition:all .2s;flex-shrink:0;}
-  .trending-card:hover{border-color:#10b981;transform:translateY(-2px);}
+  .trending-card{background:linear-gradient(135deg,#0a1628,#111827);border:1px solid #1f2937;border-radius:14px;overflow:hidden;min-width:200px;max-width:200px;display:flex;align-items:center;gap:10px;padding:8px;cursor:pointer;transition:all .2s;flex-shrink:0;}
+  #trending-section{background:rgba(148,163,184,.08);border:1px solid rgba(148,163,184,.2);border-radius:14px;padding:8px 12px;}
+  #trending-section.trend-closed > :not(:first-child){display:none !important;}
+  .trending-card:hover{border-color:#10b981;}
   .trending-card.rank-1{border-color:#f59e0b;box-shadow:0 0 12px rgba(245,158,11,.2);}
   .trending-card.rank-2{border-color:#94a3b8;}
   .trending-card.rank-3{border-color:#cd7f32;}
@@ -860,9 +862,9 @@ document.addEventListener('click', function askOnce(){
   </div>
 
   <!-- TRENDING SECTION -->
-  <div id="trending-section" class="flex flex-col gap-2">
+  <div id="trending-section" class="flex flex-col gap-2 trend-closed">
     <!-- Header -->
-    <div class="flex justify-between items-center">
+    <div class="flex justify-between items-center cursor-pointer" onclick="toggleTrendingSection()">
       <div class="flex items-center gap-2">
         <span class="text-base">🔥</span>
         <div>
@@ -871,8 +873,8 @@ document.addEventListener('click', function askOnce(){
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <button onclick="cycleTrendingScope()" id="trending-scope-btn" class="text-[9px] font-black text-emerald-400 border border-emerald-900/50 px-2 py-0.5 rounded-lg hover:bg-emerald-950 transition"><svg width="14" height="16" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;flex-shrink:0"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg> Town</button>
-        <button onclick="toggleTrendingSection()" id="trending-toggle-btn" class="text-[9px] text-gray-500 hover:text-white font-black transition">Hide ▲</button>
+        <button onclick="event.stopPropagation();cycleTrendingScope()" id="trending-scope-btn" class="text-[9px] font-black text-emerald-400 border border-emerald-900/50 px-2 py-0.5 rounded-lg hover:bg-emerald-950 transition"><svg width="14" height="16" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;flex-shrink:0"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg> Town</button>
+        <span id="trending-toggle-btn" class="text-[10px] text-gray-500 font-black">▼</span>
       </div>
     </div>
 
@@ -1307,19 +1309,6 @@ document.addEventListener('click', function askOnce(){
         <button onclick="openTransferModal()" class="bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[8px] font-black text-gray-300 uppercase hover:bg-gray-700 transition"><span class="text-base">↗️</span>Transfer</button>
       </div>
     </div>
-    <!-- Savings -->
-    <div class="bg-amber-950/30 border border-amber-900/40 rounded-2xl p-3 flex flex-col gap-2">
-      <div class="flex items-center justify-between">
-        <div>
-          <div class="text-xs font-black text-amber-400">🏦 Savings Vault</div>
-          <div class="text-[10px] text-gray-400 mt-0.5">Lock money to earn interest (7/14/30 days)</div>
-        </div>
-        <button onclick="openSavingsModal()" class="btn-sm-outline border-amber-900/50 text-amber-400 text-[9px]">Save Now</button>
-      </div>
-      <div id="savings-active-list" class="flex flex-col gap-1.5">
-        <div class="text-center text-[10px] text-gray-600 italic py-2">No active savings. Start saving today!</div>
-      </div>
-    </div>
     <!-- Low balance alert setting -->
     <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex items-center justify-between">
       <div>
@@ -1419,7 +1408,7 @@ document.addEventListener('click', function askOnce(){
   </div>
 
   <div id="account-signed-in-view" class="hidden flex-col gap-3 fade-up">
-    <div class="bg-gradient-to-br from-gray-900 to-slate-950 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+    <div style="order:1" class="bg-gradient-to-br from-gray-900 to-slate-950 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
       <div class="flex items-center gap-3">
         <div class="relative flex-shrink-0" onclick="triggerAvatarUpload()" title="Tap to change profile picture">
           <div id="acc-avatar" class="w-12 h-12 rounded-2xl bg-emerald-500 text-gray-950 text-xl font-black flex items-center justify-center shadow-md overflow-hidden cursor-pointer">U</div>
@@ -1456,7 +1445,7 @@ document.addEventListener('click', function askOnce(){
       </div>
     </div>
 
-    <div id="acc-vendor-portal" class="hidden bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2 fade-up">
+    <div data-acc="🍳|Kitchen Portal" style="order:3" id="acc-vendor-portal" class="hidden bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2 fade-up">
       <div class="border-b border-gray-800 pb-1.5 mb-1">
         <h2 class="text-sm font-black text-amber-400">Kitchen Portal</h2>
         <p class="text-xs text-gray-400">Manage your active listings and incoming orders</p>
@@ -1467,7 +1456,7 @@ document.addEventListener('click', function askOnce(){
     </div>
 
     <!-- My Orders (Buyer) -->
-    <div id="acc-buyer-orders" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2">
+    <div data-acc="🛒|My Orders" style="order:2" id="acc-buyer-orders" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2">
       <div class="flex items-center justify-between border-b border-gray-800 pb-1.5 mb-1">
         <div>
           <h2 class="text-sm font-black text-white">🛒 My Orders</h2>
@@ -1481,7 +1470,7 @@ document.addEventListener('click', function askOnce(){
     </div>
 
     <!-- Security / Transaction PIN -->
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+    <div data-acc="🔒|Security" style="order:9" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2 mb-1">
         <span class="text-lg">🔒</span>
         <div class="text-sm font-black text-white">Security</div>
@@ -1503,7 +1492,7 @@ document.addEventListener('click', function askOnce(){
     </div>
 
     <!-- Change Role Application -->
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+    <div data-acc="🎭|Account Role" style="order:10" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2 mb-1">
         <span class="text-lg">🎭</span>
         <div class="text-sm font-black text-white">Account Role</div>
@@ -1519,7 +1508,7 @@ document.addEventListener('click', function askOnce(){
     </div>
 
     <!-- Notification Preferences -->
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+    <div data-acc="🔔|Notification Preferences" style="order:11" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
       <div class="text-sm font-black text-white mb-1">🔔 Notification Preferences</div>
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between">
@@ -1544,7 +1533,7 @@ document.addEventListener('click', function askOnce(){
         </div>
       </div>
     </div>
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+    <div data-acc="🎁|Bookings, Rewards & Referrals" style="order:7" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
       <div class="flex items-center justify-between mb-1">
         <div class="flex items-center gap-2">
           <span class="text-lg">💰</span>
@@ -1556,7 +1545,6 @@ document.addEventListener('click', function askOnce(){
         <button onclick="doDeposit()" class="bg-emerald-950/50 border border-emerald-900/60 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-emerald-400 uppercase tracking-wider hover:bg-emerald-950 transition"><span class="text-lg">💳</span>Fund</button>
         <button onclick="openWithdrawModal()" class="bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition"><span class="text-lg">🏦</span>Withdraw</button>
         <button onclick="openTransferModal()" class="bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition"><span class="text-lg">↗️</span>Transfer</button>
-        <button onclick="openSavingsModal()" class="bg-amber-950/50 border border-amber-900/60 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-amber-400 uppercase tracking-wider hover:bg-amber-950 transition"><span class="text-lg">🏦</span>Save</button>
       </div>
       <!-- My bookings -->
       <div class="bg-sky-950/30 border border-sky-900/40 rounded-xl p-3 flex items-center justify-between">
@@ -1596,7 +1584,7 @@ document.addEventListener('click', function askOnce(){
 
     <!-- Rider Portal (shown only for riders) -->
     <!-- RIDER PORTAL — Full Management Dashboard -->
-    <div id="acc-rider-portal" class="hidden bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden fade-up">
+    <div data-acc="🏍️|Rider Portal" style="order:5" id="acc-rider-portal" class="hidden bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden fade-up">
       <!-- Header + Online Toggle -->
       <div class="px-4 pt-4 pb-3 border-b border-gray-800 flex items-center justify-between">
         <div>
@@ -1668,7 +1656,7 @@ document.addEventListener('click', function askOnce(){
     </div><!-- end rider portal -->
 
     <!-- Artisan Portal (shown only for artisans) -->
-    <div id="acc-artisan-portal" class="hidden bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2 fade-up">
+    <div data-acc="🔧|Artisan Dashboard" style="order:6" id="acc-artisan-portal" class="hidden bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2 fade-up">
       <div class="border-b border-gray-800 pb-1.5 mb-1">
         <h2 class="text-sm font-black text-purple-400">🔧 Artisan Dashboard</h2>
         <p class="text-xs text-gray-400">Manage your service listings & bookings</p>
@@ -1690,7 +1678,7 @@ document.addEventListener('click', function askOnce(){
     </div>
 
     <!-- Vendor Analytics (shown only for vendors) -->
-    <div id="acc-vendor-analytics" class="hidden bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden fade-up">
+    <div data-acc="📊|Vendor Plan & Analytics" style="order:4" id="acc-vendor-analytics" class="hidden bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden fade-up">
 
       <!-- Current tier header -->
       <div id="vendor-tier-header" class="px-4 pt-4 pb-3 border-b border-gray-800 flex items-center justify-between">
@@ -1787,7 +1775,7 @@ document.addEventListener('click', function askOnce(){
     </div>
 
     <!-- KYC Verification -->
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+    <div data-acc="🪪|Identity Verification (KYC)" style="order:8" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <span class="text-lg">🪪</span>
@@ -1801,7 +1789,7 @@ document.addEventListener('click', function askOnce(){
     </div>
 
     <!-- Profile Settings -->
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2">
+    <div data-acc="⚙️|Settings" style="order:12" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2">
       <div class="text-sm font-black text-white mb-1">⚙️ Settings</div>
       <div class="grid grid-cols-2 gap-2">
         <button onclick="openEditLocationModal()" class="bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition"><span class="text-lg"><svg width="20" height="24" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg></span>Location</button>
@@ -1811,7 +1799,7 @@ document.addEventListener('click', function askOnce(){
     </div>
 
     <!-- Safety & Support shortcut -->
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+    <div data-acc="🛡️|Safety & Support" style="order:13" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-red-950 border border-red-900 flex items-center justify-center text-xl flex-shrink-0">🛡️</div>
@@ -2384,11 +2372,7 @@ const state = {
       ingredients: ['Rice', 'Chicken', 'Vegetable Oil', 'Pepper', 'Onions', 'Tomato Paste'],
       ts: now - 3600000, expiresAt: now + 7200000,
       flashSale: true, flashPrice: 1800, orders: [], nearExpiry: false, expired: false,
-      reviews: [
-        {id:'rv1', buyerId:'u1', buyerName:'Chidi Okafor', orderId:'EM-demo1', stars:5, tags:['Delicious','Generous portions','Fast delivery'], text:'Best Jollof in Onitsha! Came hot and perfectly seasoned.', ts: Date.now()-86400000},
-        {id:'rv2', buyerId:'u2', buyerName:'Ngozi Eze', orderId:'EM-demo2', stars:4, tags:['Great value','Well packaged'], text:'Really enjoyed it. Will order again!', ts: Date.now()-43200000},
-        {id:'rv3', buyerId:'u3', buyerName:'Emeka Dike', orderId:'EM-demo3', stars:5, tags:['Delicious','Would order again'], text:'', ts: Date.now()-7200000}
-      ],
+      reviews: [],
       likes: ['user1'], comments: [{author: 'Chidi O.', text: 'Best jollof in Anambra state period! 🔥', ts: now - 1800000}],
       mapX: 45, mapY: 38
     },
@@ -4358,8 +4342,6 @@ function showOrderConfirmation(order, post){
     el('escrow-released-section')?.classList.add('hidden');
     resetEscrowSteps();
 
-    // Simulate order going to "delivered" after 8 seconds (demo)
-    setTimeout(() => markOrderDeliveredDemo(order.id, post.id), 8000);
 
   } else {
     panel.classList.add('hidden');
@@ -4855,21 +4837,6 @@ function sendChatMessage(){
   inp.value = '';
   renderChatMessages();
 
-  // Simulate a reply and push-notify when the app may be in background
-  const partner = state.users.find(u => state.activeChatPartnerId.includes(u.id) && u.id !== myId);
-  if(partner){
-    const replyDelay = 4000 + Math.random() * 6000;
-    const replies = ['On it! 👍','Noted, will get back to you shortly.','Thanks for the message!','Okay, give me a few minutes.'];
-    setTimeout(() => {
-      state.chats[state.activeChatPartnerId].push({
-        sender: partner.id,
-        text: replies[Math.floor(Math.random() * replies.length)],
-        ts: Date.now()
-      });
-      renderChatMessages();
-      pushNotify('💬', `New message from ${partner.full_name || partner.name || 'Neighbor'}`, 'Tap to open your conversation.', 'chat-msg-' + partner.id);
-    }, replyDelay);
-  }
 }
 
 function msgVendor(vendorId, vendorName){
@@ -5503,23 +5470,6 @@ function addDisputeUserMessage(ticketId){
   t.updatedAt = Date.now();
   saveDisputes(disputes);
   inp.value = '';
-  // Simulate agent reply
-  setTimeout(() => {
-    const d = getDisputes();
-    const ticket = d.find(x=>x.id===ticketId);
-    if(!ticket) return;
-    const replies = [
-      'Thank you for the additional information. We are reviewing this with the vendor and will update you shortly.',
-      'We have received your message and escalated this to our disputes team for a faster resolution.',
-      'Noted. We are reaching out to the vendor. Please give us 24 hours to get back to you.',
-    ];
-    ticket.messages.push({ from:'agent', text: replies[Math.floor(Math.random()*replies.length)], ts: Date.now() });
-    ticket.updatedAt = Date.now();
-    saveDisputes(d);
-    renderDisputeDetailModal(ticket);
-    renderDisputeTickets();
-    showPopupNotif('💬','Agent Replied','Ememart support has responded to your message.');
-  }, 2000);
   renderDisputeDetailModal(t);
   saveDisputes(disputes);
 }
@@ -5539,33 +5489,6 @@ function escalateDispute(ticketId){
 }
 
 // --- Simulate resolution (demo: agent resolves after 6s) ---
-function simulateDisputeResolution(ticketId){
-  setTimeout(() => {
-    const disputes = getDisputes();
-    const t = disputes.find(d=>d.id===ticketId);
-    if(!t||t.status==='resolved'||t.status==='closed') return;
-    t.status = 'resolved';
-    t.updatedAt = Date.now();
-    const resMsg = {
-      full_refund   : `✅ RESOLVED: After reviewing your dispute, we have approved a full refund of ₦${fmt(t.amount)}. The amount will be credited to your Ememart wallet within 2 hours. The vendor has been notified.`,
-      partial_refund: `✅ RESOLVED: We have approved a partial refund of ₦${fmt(Math.floor(t.amount*0.5))} (50%). This will be credited to your wallet shortly.`,
-      redelivery    : '✅ RESOLVED: We have asked the vendor to arrange a fresh re-delivery within 2 hours. Please stay available.',
-      vendor_warning: '✅ RESOLVED: We have issued a formal warning to the vendor. A note has been added to their account.',
-    };
-    t.messages.push({ from:'agent', text: resMsg[t.resolution] || '✅ RESOLVED: Your dispute has been reviewed and resolved by our team.', ts: Date.now() });
-    // If refund — credit wallet
-    if((t.resolution==='full_refund'||t.resolution==='partial_refund') && state.session && state.session.id === t.userId){
-      const refundAmt = t.resolution==='full_refund' ? t.amount : Math.floor(t.amount*0.5);
-      state.session.balance += refundAmt;
-      addTransaction({ type:'credit', category:'refund', userId:state.session.id, amount:refundAmt, desc:`Dispute refund — ${t.id}` });
-      syncAccountDisplay();
-    }
-    saveDisputes(disputes);
-    if(_openDisputeId === ticketId) renderDisputeDetailModal(t);
-    renderDisputeTickets();
-    showPopupNotif('✅','Dispute Resolved!',`Ticket ${ticketId} has been resolved. ${t.resolution==='full_refund'?`₦${fmt(t.amount)} refunded to your wallet.`:''}`);
-  }, 6000);
-}
 
 // --- Accept resolution and close ---
 function acceptDisputeResolution(ticketId){
@@ -5700,7 +5623,7 @@ function renderTrending(){
   // Hero (top trending)
   const hero = allTrending[0];
   const heroSection = el('trending-hero');
-  if(hero && heroSection && hero.image){
+  if(false && hero && heroSection && hero.image){
     heroSection.classList.remove('hidden');
     _trendingHeroId = hero.id;
     const heroImg    = el('trending-hero-img');    if(heroImg)    heroImg.src         = hero.image;
@@ -5717,7 +5640,7 @@ function renderTrending(){
 
   // Cards strip (2nd to 7th)
   strip.innerHTML = '';
-  const stripItems = allTrending.slice(hero?.image ? 1 : 0, 7);
+  const stripItems = allTrending.slice(0, 7);
 
   if(!stripItems.length && !hero){
     strip.innerHTML = `<div class="text-[10px] text-gray-500 italic py-2 px-1">No food listings in your area yet. Be the first to post!</div>`;
@@ -5726,7 +5649,7 @@ function renderTrending(){
   }
 
   stripItems.forEach((item, i) => {
-    const rank       = (hero?.image ? i+2 : i+1);
+    const rank       = i+1;
     const rankClass  = rank===1?'rank-1':rank===2?'rank-2':rank===3?'rank-3':'';
     const rankLabel  = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':`#${rank}`;
     const orderCount = (item.orders||[]).length;
@@ -5735,23 +5658,20 @@ function renderTrending(){
     const card = document.createElement('div');
     card.className = `trending-card ${rankClass}`;
     card.innerHTML = `
-      <div class="relative">
+      <div class="relative flex-shrink-0" style="width:52px;height:52px;">
         ${item.image
-          ? `<img src="${item.image}" class="w-full h-20 object-cover">`
-          : `<div class="w-full h-20 bg-gradient-to-br from-emerald-950 to-gray-900 flex items-center justify-center text-3xl">🍲</div>`
+          ? `<img src="${item.image}" style="width:52px;height:52px;object-fit:cover;border-radius:12px;">`
+          : `<div style="width:52px;height:52px;border-radius:12px;" class="bg-gradient-to-br from-emerald-950 to-gray-900 flex items-center justify-center text-xl">🍲</div>`
         }
-        <span class="absolute top-1.5 left-1.5 text-[9px] font-black bg-black/70 text-white px-1.5 py-0.5 rounded-lg">${rankLabel}</span>
-        ${item.flashSale ? '<span class="absolute top-1.5 right-1.5 text-[8px] font-black bg-red-600 text-white px-1.5 py-0.5 rounded-lg">⚡</span>' : ''}
-        ${item.promoted && item.promotedUntil > Date.now() ? '<span class="absolute bottom-1.5 right-1.5 text-[7px] font-black bg-purple-600 text-white px-1 py-0.5 rounded">⭐</span>' : ''}
+        <span class="absolute -top-1 -left-1 text-[10px] leading-none">${rankLabel}</span>
       </div>
-      <div class="p-2 flex flex-col gap-0.5">
-        <div class="text-[10px] font-black text-white truncate leading-tight">${item.foodName}</div>
-        <div class="text-[8px] text-gray-500 truncate">${item.authorName}</div>
-        <div class="flex items-center justify-between mt-1">
+      <div class="flex flex-col min-w-0 flex-1">
+        <div class="text-[11px] font-black text-white truncate leading-tight">${item.foodName}</div>
+        <div class="text-[9px] text-gray-500 truncate">${item.authorName}</div>
+        <div class="flex items-center justify-between mt-0.5">
           <span class="text-[10px] font-black mono ${item.flashSale?'text-red-400':'text-emerald-400'}">₦${fmt(price)}</span>
-          <span class="text-[8px] text-gray-500">${orderCount>0?orderCount+' orders':((item.likes||[]).length)+' ❤️'}</span>
+          <span class="text-[9px] text-gray-500">${orderCount>0?orderCount+' orders':((item.likes||[]).length)+' ❤️'}</span>
         </div>
-        ${item.flashSale && item.originalPrice ? `<div class="text-[8px] text-gray-600 line-through mono">₦${fmt(item.originalPrice)}</div>` : ''}
       </div>`;
     card.onclick = () => expandPost(item.id);
     strip.appendChild(card);
@@ -5810,13 +5730,8 @@ function toggleTrendingSection(){
   const section = el('trending-section');
   const btn     = el('trending-toggle-btn');
   if(!section) return;
-  _trendingVisible = !_trendingVisible;
-  // Hide everything except the header row (first child)
-  const children = section.children;
-  for(let i=1; i<children.length; i++){
-    children[i].classList.toggle('hidden', !_trendingVisible);
-  }
-  if(btn) btn.textContent = _trendingVisible ? 'Hide ▲' : 'Show ▼';
+  const closed = section.classList.toggle('trend-closed');
+  if(btn) btn.textContent = closed ? '▼' : '▲';
 }
 
 function renderMapView(){
@@ -6149,13 +6064,6 @@ function renderVendorReviews(userId){
   });
 }
 
-function seedDemoTransactions(userId){
-  if(state.transactions.some(t => t.userId === userId)) return;
-  const demos = [
-    { type: 'credit', category: 'deposit', userId, amount: 10000, desc: 'Wallet top-up via Bank Transfer verified' }
-  ];
-  demos.forEach(addTransaction);
-}
 
 // ============================================================
 // FOLLOWING & NEARBY FEED TABS
@@ -6193,7 +6101,6 @@ function switchFinanceTab(tab){
   if(tab === 'wallet'){
     const bal = el('wallet-hub-balance');
     if(bal) bal.textContent = fmtCurrency(state.session?.balance || 0);
-    renderSavingsActive();
   }
 }
 
@@ -6324,92 +6231,13 @@ async function processTransfer(){
 // ============================================================
 // SAVINGS
 // ============================================================
-let _savingsDuration = 30;
-const SAVINGS_KEY = 'ememart_savings_v1';
 
-function getSavings(){ try { return JSON.parse(localStorage.getItem(SAVINGS_KEY)||'[]'); } catch(e){ return []; } }
-function saveSavings(arr){ localStorage.setItem(SAVINGS_KEY, JSON.stringify(arr)); }
 
-function selectSavingsDuration(days, btn){
-  _savingsDuration = days;
-  document.querySelectorAll('.savings-dur-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  updateSavingsPreview();
-}
 
-function updateSavingsPreview(){
-  const amt = parseFloat(el('savings-amount')?.value || 0);
-  const rates = {7:0.02, 14:0.03, 30:0.05};
-  const rate = rates[_savingsDuration] || 0.05;
-  const interest = amt * rate;
-  const unlockDate = new Date(Date.now() + _savingsDuration * 86400000).toLocaleDateString('en-NG');
-  const preview = el('savings-interest-preview');
-  const unlock = el('savings-unlock-date');
-  if(preview) preview.textContent = fmtCurrency(interest);
-  if(unlock) unlock.textContent = unlockDate;
-}
 
-function openSavingsModal(){
-  if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in first.'); return; }
-  const sBal = el('savings-balance-display');
-  if(sBal) sBal.textContent = fmtCurrency(state.session.balance);
-  updateSavingsPreview();
-  el('savings-modal').classList.remove('hidden');
-}
 
-function lockSavings(){
-  if(!state.session) return;
-  const amt = parseFloat(el('savings-amount').value);
-  if(!amt || amt < 500){ showPopupNotif('⚠️','Amount','Minimum saving is ₦500.'); return; }
-  if(amt > state.session.balance){ showPopupNotif('❌','Insufficient Funds','Saving amount exceeds wallet balance.'); return; }
-  const rates = {7:0.02, 14:0.03, 30:0.05};
-  const rate = rates[_savingsDuration] || 0.05;
-  const interest = amt * rate;
-  const unlockTs = Date.now() + _savingsDuration * 86400000;
-  const savings = getSavings();
-  savings.push({ id:'sav-'+Date.now(), amount:amt, interest, duration:_savingsDuration, lockedAt:Date.now(), unlockTs, userId: state.session.id });
-  saveSavings(savings);
-  state.session.balance -= amt;
-  addTransaction({ type:'debit', category:'savings', userId:state.session.id, amount:amt, desc:`Locked in savings for ${_savingsDuration} days` });
-  syncAccountDisplay();
-  el('savings-modal').classList.add('hidden');
-  el('savings-amount').value = '';
-  showPopupNotif('🔒','Savings Locked!',`₦${fmt(amt)} locked for ${_savingsDuration} days. You'll earn +₦${fmt(interest)} interest.`);
-  renderSavingsActive();
-}
 
-function renderSavingsActive(){
-  const w = el('savings-active-list');
-  if(!w) return;
-  const savings = getSavings().filter(s => s.userId === state.session?.id);
-  if(!savings.length){
-    w.innerHTML = '<div class="text-center text-[10px] text-gray-600 italic py-2">No active savings. Start saving today!</div>';
-    return;
-  }
-  w.innerHTML = '';
-  savings.forEach(s => {
-    const isUnlocked = Date.now() >= s.unlockTs;
-    const div = document.createElement('div');
-    div.className = 'bg-gray-950 border border-gray-800 rounded-xl p-2.5 flex justify-between items-center';
-    div.innerHTML = `<div><div class="text-xs font-black text-white mono">${fmtCurrency(s.amount)}</div><div class="text-[9px] text-gray-400">${s.duration} days · +${fmtCurrency(s.interest)} interest</div></div><div class="flex flex-col items-end gap-1"><div class="text-[9px] font-black ${isUnlocked?'text-emerald-400':'text-amber-400'}">${isUnlocked?'✅ Unlocked':'🔒 Locked'}</div>${isUnlocked?`<button onclick="withdrawSavings('${s.id}')" class="btn-sm-primary text-[8px] px-2 py-0.5">Collect</button>`:''}</div>`;
-    w.appendChild(div);
-  });
-}
 
-function withdrawSavings(savId){
-  const savings = getSavings();
-  const idx = savings.findIndex(s => s.id === savId);
-  if(idx === -1) return;
-  const s = savings[idx];
-  const total = s.amount + s.interest;
-  state.session.balance += total;
-  addTransaction({ type:'credit', category:'savings', userId:state.session.id, amount:total, desc:`Savings matured — ${s.duration}-day vault + interest` });
-  savings.splice(idx, 1);
-  saveSavings(savings);
-  syncAccountDisplay();
-  renderSavingsActive();
-  showPopupNotif('💰','Savings Collected!',`₦${fmt(total)} (including interest) added to your wallet!`);
-}
 
 // ============================================================
 // KYC
@@ -7338,60 +7166,7 @@ async function updateRoleChangeStatusBadge(){
 // ============================================================
 // ADMIN: ROLE CHANGE APPROVAL PANEL (injected into in-app admin tab)
 // ============================================================
-async function renderAdminRoleApplications(){
-  const container = el('admin-role-apps-list');
-  if(!container) return;
-  container.innerHTML = '<div class="text-center py-4 text-xs text-gray-500 italic">Loading...</div>';
 
-  try {
-    const res = await apiPost('admin.php', 'list_role_applications', { status: 'pending' });
-    if(!res.success){
-      container.innerHTML = `<div class="text-center py-4 text-xs text-red-400 italic">${res.message}</div>`;
-      return;
-    }
-    const apps = res.data?.applications || [];
-    if(!apps.length){
-      container.innerHTML = '<div class="text-center py-4 text-xs text-gray-500 italic">No pending role applications.</div>';
-      return;
-    }
-    container.innerHTML = '';
-    apps.forEach(a => {
-      const div = document.createElement('div');
-      div.className = 'bg-gray-950 border border-gray-800 rounded-xl p-3 flex flex-col gap-2';
-      div.innerHTML = `
-        <div class="flex items-start justify-between gap-2">
-          <div>
-            <div class="text-xs font-black text-white">${a.full_name}</div>
-            <div class="text-[9px] text-gray-400 mt-0.5">${getRoleLabel(a.current_role)} → <span class="text-emerald-400 font-black">${getRoleLabel(a.new_role)}</span></div>
-            ${a.business_name ? `<div class="text-[9px] text-gray-500">Business: ${a.business_name}</div>` : ''}
-            <div class="text-[9px] text-gray-500 mt-1 italic">"${a.reason}"</div>
-            <div class="text-[8px] text-gray-600 mono mt-0.5">${new Date(a.created_at).toLocaleString()}</div>
-          </div>
-        </div>
-        <div class="flex gap-2">
-          <button onclick="approveRoleApplication(${a.id})" class="btn-sm-primary flex-1 text-[10px] py-1.5">✅ Approve</button>
-          <button onclick="rejectRoleApplication(${a.id})" class="flex-1 text-[10px] py-1.5 font-black text-red-400 border border-red-900 rounded-xl hover:bg-red-950 transition">❌ Reject</button>
-        </div>`;
-      container.appendChild(div);
-    });
-  } catch(e){
-    container.innerHTML = '<div class="text-center py-4 text-xs text-red-400 italic">Connection failed. Please try again.</div>';
-  }
-}
-
-async function approveRoleApplication(appId){
-  try {
-    const res = await apiPost('admin.php', 'approve_role_application', { app_id: appId });
-    if(res.success){
-      showPopupNotif('✅','Approved', res.message);
-      renderAdminRoleApplications();
-    } else {
-      showPopupNotif('❌','Failed', res.message);
-    }
-  } catch(e){
-    showPopupNotif('❌','Error','Connection failed. Please try again.');
-  }
-}
 
 // (Removed: rejectRoleApplication — was part of the insecure in-app admin panel)
 
@@ -7630,10 +7405,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if(lbToggle) lbToggle.checked = localStorage.getItem('ememart_low_balance_alert') !== '0';
 });
 
-// Savings preview on input
-document.addEventListener('input', e => {
-  if(e.target && e.target.id === 'savings-amount') updateSavingsPreview();
-});
 
 
 
@@ -8056,15 +7827,6 @@ function renderAvailableOrders(){
   const assignments = getRiderAssignments();
   let pendingOrders = assignments.filter(a => a.status === 'available');
 
-  // Add demo orders if none exist (so riders see something)
-  if(!pendingOrders.length){
-    const demoOrders = [
-      { orderId:'demo-1', postId:'', foodName:'Jollof Rice + Chicken', vendorName:'Mama Nkechi Kitchen', vendorAddr:'Yaba, Lagos', buyerAddr:'Surulere, Lagos', amount:3500, deliveryFee:calcDeliveryFee(3), distance:'2.4', ts:Date.now()-5*60000, hasEscrow:true },
-      { orderId:'demo-2', postId:'', foodName:'Pounded Yam + Egusi Soup', vendorName:'Iya Bisi Foods', vendorAddr:'Ikeja, Lagos', buyerAddr:'Agege, Lagos', amount:4200, deliveryFee:calcDeliveryFee(4), distance:'3.8', ts:Date.now()-12*60000, hasEscrow:true },
-      { orderId:'demo-3', postId:'', foodName:'Fried Rice + Turkey', vendorName:'Chef Emeka', vendorAddr:'Lekki Phase 1', buyerAddr:'Ajah, Lagos', amount:5000, deliveryFee:calcDeliveryFee(5), distance:'5.1', ts:Date.now()-2*60000, hasEscrow:false },
-    ];
-    demoOrders.forEach(o => pendingOrders.push(o));
-  }
 
   if(!pendingOrders.length){
     w.innerHTML = '<div class="text-center py-8 flex flex-col items-center gap-2"><span class="text-3xl">📭</span><p class="text-xs font-black text-gray-400">No orders available right now</p><p class="text-[10px] text-gray-500">Go online and check back in a few minutes.</p></div>';
@@ -8266,8 +8028,6 @@ function patchShowOrderConfirmation(){
     el('escrow-released-section')?.classList.add('hidden');
     resetEscrowSteps();
 
-    // Simulate order going to "delivered" after 8 seconds (demo)
-    setTimeout(() => markOrderDeliveredDemo(order.id, post.id), 8000);
 
   } else {
     panel.classList.add('hidden');
@@ -8328,22 +8088,6 @@ function resetEscrowSteps(){
 }
 
 // --- Demo: simulate rider delivering after 8s ---
-function markOrderDeliveredDemo(orderId, postId){
-  const post = state.posts.find(p=>p.id===postId);
-  const order = post?.orders?.find(o=>o.id===orderId);
-  if(!order) return;
-  const dLabel = el('escrow-step-b-label');
-  if(dLabel) dLabel.className = 'text-gray-200';
-
-  setTimeout(() => {
-    order.status = 'delivered';
-    renderBuyerOrders && renderBuyerOrders();
-    showPopupNotif('🏍️','Food Delivered!','Your order has been delivered. Please confirm receipt to release payment to the vendor.');
-    // Pulse the confirm button
-    const btn = el('escrow-confirm-btn');
-    if(btn){ btn.classList.add('animate-pulse'); }
-  }, 3000);
-}
 
 // --- BUYER confirms delivery ---
 function confirmEscrowDelivery(){
@@ -8828,15 +8572,7 @@ function createTrackingRecord(order, post){
 }
 
 // --- Simulate order progressing through steps (demo) ---
-const DEMO_DELAYS = { accepted:4000, preparing:8000, ready:14000, picked_up:20000, on_the_way:26000, delivered:36000 };
 
-function simulateDemoTracking(orderId, postId){
-  const steps = ['accepted','preparing','ready','picked_up','on_the_way','delivered'];
-  steps.forEach(step => {
-    const delay = DEMO_DELAYS[step] || 5000;
-    setTimeout(() => advanceTrackingStep(orderId, postId, step), delay);
-  });
-}
 
 function advanceTrackingStep(orderId, postId, step){
   const records = getTrackingRecords();
@@ -9652,16 +9388,6 @@ function getLastSeen(userId){
 }
 
 // --- Seed demo presence for existing post authors ---
-function seedDemoPresence(){
-  const records = getPresenceRecords();
-  (state.posts||[]).forEach(p=>{
-    if(!records[p.authorId]){
-      const rndMs = Math.random()*600000; // 0-10 min ago
-      records[p.authorId] = { userId:p.authorId, lastSeen:Date.now()-rndMs, isOnline:rndMs<300000, status:rndMs<300000?'online':'away' };
-    }
-  });
-  savePresenceRecords(records);
-}
 
 // --- Start presence heartbeat ---
 let _presenceInterval = null;
@@ -9943,26 +9669,6 @@ const ADMIN_FEE_LOG     = 'ememart_admin_fee_log';
 // [removed duplicate function block lines 10787-10803]
 
 // --- Demo users (from posts + session) ---
-function getDemoUsers(){
-  const seen = new Set();
-  const users = [];
-  (state.posts||[]).forEach(p=>{
-    if(!seen.has(p.authorId)){
-      seen.add(p.authorId);
-      users.push({ id:p.authorId, name:p.authorName, role:p.authorRole||'vendor',
-        suspended: getSuspendedVendors().includes(p.authorId),
-        kycStatus : localStorage.getItem(`kyc_${p.authorId}`) || (Math.random()>0.7?'pending':'none'),
-        spoilCount: getSpoilCount(p.authorId),
-        joinDate  : new Date(p.ts - Math.random()*30*86400000).toLocaleDateString('en-NG',{month:'short',year:'numeric'}),
-        notes     : localStorage.getItem(`admin_note_${p.authorId}`) || ''
-      });
-    }
-  });
-  if(state.session && !seen.has(state.session.id)){
-    users.unshift({ id:state.session.id, name:state.session.name, role:state.session.role, suspended:false, kycStatus:'none', spoilCount:0, joinDate:'Now', notes:'' });
-  }
-  return users;
-}
 
 // --- USERS TAB ---
 // [removed duplicate function block lines 10828-10855]
@@ -10245,19 +9951,6 @@ function applyBalanceVisibility(){
   });
 }
 
-function completeGoogleSignInDemo(payload){
-  const demoUser = {
-    id: 'google_'+Date.now(), full_name: payload?.name||'Google User',
-    email: payload?.email||'', role:'user', balance:0,
-    town: state.session?.town||'', lga: state.session?.lga||'',
-    state: state.session?.state||'', avatar: payload?.picture||null,
-    google_id: payload?.sub||'demo', verified: true, isNew: true
-  };
-  state.session = demoUser;
-  saveState();
-  finishSignIn();
-  setTimeout(() => showGoogleNewUserSetup(payload), 1000);
-}
 
 </script>
 <!-- Order Checkout Modal -->
@@ -10760,32 +10453,7 @@ function completeGoogleSignInDemo(payload){
 </div>
 
 <!-- SAVINGS MODAL -->
-<div id="savings-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
-  <div class="modal-sheet flex flex-col gap-4">
-    <div class="flex justify-between items-center">
-      <div><h3 class="text-base font-black text-white">🏦 Lock Savings</h3><p class="text-[10px] text-gray-400">Earn interest on locked funds</p></div>
-      <button onclick="document.getElementById('savings-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black">✕</button>
-    </div>
-    <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex justify-between"><span class="text-xs text-gray-400">Available</span><span id="savings-balance-display" class="text-sm font-black text-emerald-400 mono">₦0.00</span></div>
-    <div class="flex flex-col gap-1">
-      <label class="label-sm">Amount to Lock (₦)</label>
-      <input type="number" id="savings-amount" placeholder="Enter amount" class="inp" min="500">
-    </div>
-    <div class="flex flex-col gap-1">
-      <label class="label-sm">Lock Duration</label>
-      <div class="grid grid-cols-3 gap-2">
-        <button onclick="selectSavingsDuration(7, this)" class="savings-dur-btn tab-pill">7 Days<br><span class="text-emerald-400 text-[9px]">+2%</span></button>
-        <button onclick="selectSavingsDuration(14, this)" class="savings-dur-btn tab-pill">14 Days<br><span class="text-emerald-400 text-[9px]">+3%</span></button>
-        <button onclick="selectSavingsDuration(30, this)" class="savings-dur-btn tab-pill active">30 Days<br><span class="text-emerald-400 text-[9px]">+5%</span></button>
-      </div>
-    </div>
-    <div id="savings-preview" class="bg-emerald-950/30 border border-emerald-900/50 rounded-xl p-3 text-xs">
-      <div class="flex justify-between"><span class="text-gray-400">Interest earned</span><span id="savings-interest-preview" class="text-emerald-400 font-black">₦0.00</span></div>
-      <div class="flex justify-between mt-1"><span class="text-gray-400">Unlocks on</span><span id="savings-unlock-date" class="text-white font-bold">—</span></div>
-    </div>
-    <button onclick="lockSavings()" class="btn-primary py-3">🔒 Lock Funds</button>
-  </div>
-</div>
+
 
 <!-- VERIFICATION MODAL (manual review: NIN for individuals, CAC for businesses) -->
 <div id="kyc-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
@@ -11076,9 +10744,6 @@ function completeGoogleSignInDemo(payload){
           <div id="ref-history-list" class="flex flex-col gap-1.5"></div>
           <div id="ref-history-empty" class="text-center py-6 text-[10px] text-gray-500 italic">No referrals yet. Share your link to start earning!</div>
         </div>
-
-        <!-- Simulate a referral (demo) -->
-        <button onclick="simulateReferral()" class="btn-sm-outline text-[9px] text-indigo-400 border-indigo-900/50 hover:bg-indigo-950">🧪 Demo: Simulate a Referral</button>
       </div>
     </div>
   </div>
@@ -11776,20 +11441,6 @@ function renderReferralTab(){
   }
 }
 
-function simulateReferral(){
-  const names = ['Adaobi Okafor','Emeka Nwosu','Fatima Bello','Chisom Eze','Tunde Adeyemi','Ngozi Obi'];
-  const name  = names[Math.floor(Math.random()*names.length)];
-  recordReferral(name, 500);
-  // Credit wallet
-  if(state.session){
-    state.session.balance += 500;
-    addTransaction({ type:'credit', category:'referral', userId:state.session.id, amount:500, desc:`Referral bonus — ${name} joined and deposited` });
-    syncAccountDisplay();
-  }
-  renderReferralTab();
-  updateReferralSummary();
-  showPopupNotif('🎉','Referral Bonus!',`${name} joined Ememart using your link and deposited ₦1,000+. ₦500 credited to your wallet!`);
-}
 
 function recordCashback(amount, service){
   const records = getCashbackRecords();
@@ -11806,7 +11457,6 @@ function recordReferral(friendName, earned){
 }
 
 function initPresenceSystem(){
-  seedDemoPresence();
   if(state.session){
     updateMyPresence();
     startPresenceHeartbeat();
@@ -12123,57 +11773,6 @@ function unsuspendVendor(vendorId){
 // (Removed: renderAdminPosts — was part of the insecure in-app admin panel)
 
 
-async function renderAdminKYC(){
-  const w = el('admin-kyc-list');
-  if(!w) return;
-  w.innerHTML = '<div class="text-center py-8 text-xs text-gray-500 italic">Loading submissions...</div>';
-
-  try {
-    const res = await apiPost('admin_kyc.php', 'list', { status: 'pending' });
-    if(!res.success){
-      w.innerHTML = `<div class="text-center py-8 text-xs text-red-400 italic">${res.message}</div>`;
-      return;
-    }
-    const pending = res.submissions || [];
-    if(!pending.length){
-      w.innerHTML = '<div class="text-center py-8 text-xs text-gray-500 italic">No KYC submissions pending review.</div>';
-      return;
-    }
-
-    w.innerHTML = '';
-    pending.forEach(k => {
-      const div = document.createElement('div');
-      div.className = 'bg-gray-900 border border-amber-900/40 rounded-xl p-3 flex flex-col gap-2';
-      div.innerHTML = `
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2.5">
-            <div class="w-8 h-8 rounded-xl bg-amber-950 border border-amber-800 flex items-center justify-center font-black text-sm text-amber-300 flex-shrink-0">${k.full_name[0]}</div>
-            <div><div class="text-xs font-black text-white">${k.full_name}</div><div class="text-[9px] text-gray-400">${k.role} · ${k.email}</div></div>
-          </div>
-          <span class="text-[8px] font-black text-amber-400 border border-amber-900/50 px-2 py-0.5 rounded-full">⏳ Pending</span>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div class="flex flex-col gap-1">
-            <span class="text-[8px] text-gray-500 uppercase font-black">Selfie with ID</span>
-            <img src="${k.selfie}" class="w-full h-28 object-cover rounded-lg border border-gray-800 cursor-pointer" onclick="window.open('${k.selfie}','_blank')">
-          </div>
-          
-        </div>
-        <div class="bg-gray-950 border border-gray-800 rounded-lg p-2 text-[9px] text-gray-400 flex flex-col gap-0.5">
-          <span>🆔 BVN: <span class="text-gray-300 mono">${k.bvn}</span></span>
-          <span>🪪 NIN: <span class="text-gray-300 mono">${k.nin}</span></span>
-          <span>📅 Submitted: ${new Date(k.created_at).toLocaleString()}</span>
-        </div>
-        <div class="flex gap-2">
-          <button onclick="adminApproveKYC(${k.id})" class="btn-primary flex-1 py-2 text-xs">✅ Approve</button>
-          <button onclick="adminRejectKYC(${k.id})" class="btn-sm-outline flex-1 py-2 text-xs text-red-400 border-red-900">❌ Reject</button>
-        </div>`;
-      w.appendChild(div);
-    });
-  } catch(e){
-    w.innerHTML = '<div class="text-center py-8 text-xs text-red-400 italic">Connection failed. Please try again.</div>';
-  }
-}
 
 // (Removed: renderAdminDisputes — was part of the insecure in-app admin panel)
 
@@ -12725,15 +12324,6 @@ function refreshAvailableOrders(){
     });
   });
 
-  // Add demo orders if none exist (so riders see something)
-  if(!pendingOrders.length){
-    const demoOrders = [
-      { orderId:'demo-1', postId:'', foodName:'Jollof Rice + Chicken', vendorName:'Mama Nkechi Kitchen', vendorAddr:'Yaba, Lagos', buyerAddr:'Surulere, Lagos', amount:3500, deliveryFee:calcDeliveryFee(3), distance:'2.4', ts:Date.now()-5*60000, hasEscrow:true },
-      { orderId:'demo-2', postId:'', foodName:'Pounded Yam + Egusi Soup', vendorName:'Iya Bisi Foods', vendorAddr:'Ikeja, Lagos', buyerAddr:'Agege, Lagos', amount:4200, deliveryFee:calcDeliveryFee(4), distance:'3.8', ts:Date.now()-12*60000, hasEscrow:true },
-      { orderId:'demo-3', postId:'', foodName:'Fried Rice + Turkey', vendorName:'Chef Emeka', vendorAddr:'Lekki Phase 1', buyerAddr:'Ajah, Lagos', amount:5000, deliveryFee:calcDeliveryFee(5), distance:'5.1', ts:Date.now()-2*60000, hasEscrow:false },
-    ];
-    demoOrders.forEach(o => pendingOrders.push(o));
-  }
 
   if(!pendingOrders.length){
     w.innerHTML = '<div class="text-center py-8 flex flex-col items-center gap-2"><span class="text-3xl">📭</span><p class="text-xs font-black text-gray-400">No orders available right now</p><p class="text-[10px] text-gray-500">Go online and check back in a few minutes.</p></div>';
@@ -14416,6 +14006,33 @@ function verifyPinPress(digit){
 <!-- ── Pin setup banner (injected dynamically by JS, placeholder anchor) ── -->
 <div id="pin-setup-banner-anchor" class="hidden"></div>
 
+
+<style>
+.acc-head{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:#fff;font-weight:900;font-size:13px;cursor:pointer;padding:2px 0}
+.acc-head .acc-chev{margin-left:auto;color:#9ca3af;transition:transform .2s}
+.acc-open>.acc-head .acc-chev{transform:rotate(180deg)}
+[data-acc]:not(.acc-open)>.acc-body{display:none}
+</style>
+<script>
+(function(){
+  function build(){
+    document.querySelectorAll('#account-signed-in-view [data-acc]').forEach(function(card){
+      if(card.dataset.accReady) return; card.dataset.accReady='1';
+      var p=card.dataset.acc.split('|');
+      var body=document.createElement('div'); body.className='acc-body flex flex-col gap-2';
+      while(card.firstChild) body.appendChild(card.firstChild);
+      var head=document.createElement('button'); head.type='button'; head.className='acc-head';
+      head.innerHTML='<span class="text-lg">'+p[0]+'</span><span>'+p[1]+'</span><span class="acc-chev">▼</span>';
+      head.onclick=function(){ card.classList.toggle('acc-open'); };
+      card.appendChild(head); card.appendChild(body);
+      card.classList.remove('overflow-hidden'); card.style.padding='14px 16px';
+    });
+    var l=document.getElementById('buyer-orders-list'); if(l) l.classList.remove('hidden');
+    var t=document.getElementById('buyer-orders-toggle'); if(t) t.style.display='none';
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',build); else build();
+})();
+</script>
 </body>
 </html>
 
@@ -14532,15 +14149,7 @@ function verifyPinPress(digit){
 
 
 <!-- ADMIN USER MODAL -->
-<div id="admin-user-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
-  <div class="modal-sheet flex flex-col gap-0 p-0 overflow-hidden" style="max-height:88vh;">
-    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-800 flex-shrink-0">
-      <h3 class="text-sm font-black text-white">👤 Manage User</h3>
-      <button onclick="document.getElementById('admin-user-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black">✕</button>
-    </div>
-    <div id="admin-user-modal-content" class="flex-1 overflow-y-auto p-4"></div>
-  </div>
-</div>
+
 <script>
 
 // (Legacy savePin removed — completeSetPin via pinPadPress is the single source of truth)
