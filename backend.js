@@ -85,7 +85,7 @@
       role: role, balance: Number(me.balance_kobo || 0) / 100, wallet_balance: Number(me.balance_kobo || 0) / 100,
       town: meta.town || '', lga: meta.lga || '', state: meta.state || '',
       accountNum: 'EM-' + authUser.id.slice(0, 8).toUpperCase(),
-      verified: !!p.verified, has_pin: !!me.has_pin, admin_role: me.admin_role || null,
+      verified: !!p.verified, vendorTier: p.tier || 'free', has_pin: !!me.has_pin, admin_role: me.admin_role || null,
       avatar: meta.avatar_url || meta.picture || null,
     };
   }
