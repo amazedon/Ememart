@@ -82,8 +82,6 @@
   input,select,textarea{font-family:'Space Grotesk',sans-serif}
   .feed-tab-btn{flex:1;padding:10px 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;transition:all .15s;border-bottom:2px solid transparent;color:#6b7280;cursor:pointer;background:none;border-top:none;border-left:none;border-right:none}
   .feed-tab-btn.active{color:#10b981;border-bottom-color:#10b981}
-  .vtu-card{background:#111827;border:1px solid #1f2937;border-radius:14px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:all .2s;text-align:center}
-  .vtu-card:hover{border-color:#10b981;background:#022c22}
   .chat-bubble-me{background:#022c22;border:1px solid #065f46;padding:10px 12px;border-radius:16px 16px 4px 16px;max-width:80%;align-self:flex-end;margin-left:auto}
   .chat-bubble-them{background:#1f2937;border:1px solid #374151;padding:10px 12px;border-radius:16px 16px 16px 4px;max-width:80%;align-self:flex-start}
   .inbox-item{display:flex;gap:10px;padding:12px;border-bottom:1px solid #1f2937;cursor:pointer;transition:background .15s}
@@ -374,7 +372,7 @@ document.addEventListener('click', function askOnce(){
         </div>
         <div class="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-2xl p-3 text-left">
           <span class="text-2xl flex-shrink-0">💰</span>
-          <div><div class="text-xs font-black text-white">Wallet, VTU & bills</div><div class="text-[10px] text-gray-400 mt-0.5">Fund airtime, data, NEPA, DStv all in one app</div></div>
+          <div><div class="text-xs font-black text-white">Wallet & escrow</div><div class="text-[10px] text-gray-400 mt-0.5">Fund your wallet, pay safely, withdraw to your bank</div></div>
         </div>
       </div>
     </div>
@@ -389,7 +387,7 @@ document.addEventListener('click', function askOnce(){
           <span class="text-2xl">🛍️</span>
           <div class="flex-1">
             <div class="text-xs font-black text-white">Regular Buyer</div>
-            <div class="text-[10px] text-gray-400 mt-0.5">I want to order food, hire artisans & use VTU</div>
+            <div class="text-[10px] text-gray-400 mt-0.5">I want to order food and hire artisans</div>
           </div>
           <span class="ob-role-check hidden text-emerald-400 font-black">✓</span>
         </div>
@@ -455,29 +453,20 @@ document.addEventListener('click', function askOnce(){
       </div>
     </div>
 
-    <!-- SLIDE 4: Wallet & VTU -->
+    <!-- SLIDE 4: Wallet -->
     <div class="onboard-slide" id="ob-slide-4">
       <div class="onboard-icon-wrap bg-gradient-to-br from-amber-900 to-gray-900 border border-amber-800">💰</div>
-      <h2 class="text-2xl font-black text-white mt-3 leading-tight">Your Wallet<br><span class="text-amber-400">& Bills Hub</span></h2>
-      <p class="text-sm text-gray-400 mt-2 leading-relaxed max-w-xs">Fund your wallet once. Pay for food, airtime, data, electricity, DStv and more — all without leaving the app.</p>
+      <h2 class="text-2xl font-black text-white mt-3 leading-tight">Your Wallet<br><span class="text-amber-400">& Escrow</span></h2>
+      <p class="text-sm text-gray-400 mt-2 leading-relaxed max-w-xs">Fund your wallet once. Pay vendors and artisans safely through escrow, and withdraw to your bank any time.</p>
       <div class="mt-5 grid grid-cols-3 gap-2 w-full max-w-xs">
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 flex flex-col items-center gap-1.5">
-          <span class="text-xl">📱</span><span class="text-[9px] font-black text-gray-400 uppercase text-center">Airtime</span>
+          <span class="text-xl">💳</span><span class="text-[9px] font-black text-gray-400 uppercase text-center">Fund</span>
         </div>
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 flex flex-col items-center gap-1.5">
-          <span class="text-xl">📶</span><span class="text-[9px] font-black text-gray-400 uppercase text-center">Data</span>
+          <span class="text-xl">🔐</span><span class="text-[9px] font-black text-gray-400 uppercase text-center">Escrow</span>
         </div>
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 flex flex-col items-center gap-1.5">
-          <span class="text-xl">💡</span><span class="text-[9px] font-black text-gray-400 uppercase text-center">NEPA</span>
-        </div>
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 flex flex-col items-center gap-1.5">
-          <span class="text-xl">📺</span><span class="text-[9px] font-black text-gray-400 uppercase text-center">DStv</span>
-        </div>
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 flex flex-col items-center gap-1.5">
-          <span class="text-xl">⚽</span><span class="text-[9px] font-black text-gray-400 uppercase text-center">Betting</span>
-        </div>
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-2.5 flex flex-col items-center gap-1.5">
-          <span class="text-xl">🏦</span><span class="text-[9px] font-black text-gray-400 uppercase text-center">Savings</span>
+          <span class="text-xl">🏦</span><span class="text-[9px] font-black text-gray-400 uppercase text-center">Withdraw</span>
         </div>
       </div>
       <div class="mt-4 flex flex-col gap-2 w-full max-w-xs">
@@ -583,7 +572,7 @@ document.addEventListener('click', function askOnce(){
         </div>
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex items-center gap-3">
           <span class="text-xl flex-shrink-0">🔐</span>
-          <div class="text-[10px] text-gray-300">Complete <strong class="text-white">KYC verification</strong> in Account to unlock wallet, escrow & VTU features</div>
+          <div class="text-[10px] text-gray-300">Complete <strong class="text-white">KYC verification</strong> in Account to unlock wallet and escrow features</div>
         </div>
         <div class="bg-sky-950/30 border border-sky-900/40 rounded-xl p-3 flex items-center gap-3">
           <span class="text-xl flex-shrink-0"><svg width="20" height="24" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg></span>
@@ -771,7 +760,8 @@ document.addEventListener('click', function askOnce(){
 </div>
 
 <div id="home-panel" class="panel active gap-3">
-  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex justify-between items-center">
+  <!-- Sign in and wallet balance now live in the Account tab. Kept hidden so older scripts still find their elements. -->
+  <div style="display:none !important" aria-hidden="true" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex justify-between items-center">
     <div>
       <div id="balance-logged-in" class="hidden">
         <div class="text-xs font-bold text-gray-400 mono">Available Balance</div>
@@ -1284,39 +1274,21 @@ document.addEventListener('click', function askOnce(){
   <div class="border-b border-gray-800 pb-2 flex items-center justify-between">
     <div>
       <h2 class="text-lg font-black text-white">💰 Wire Finance</h2>
-      <p class="text-xs text-gray-400 mt-0.5">Manage bills, airtime VTU, deposits & peer group bills.</p>
+      <p class="text-xs text-gray-400 mt-0.5">Manage your wallet, deposits & split group bills.</p>
     </div>
     <button onclick="navTo('home')" class="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white text-[10px] font-black uppercase tracking-wider px-3 py-2 rounded-xl transition">← Back</button>
   </div>
 
   <div class="flex bg-gray-900 rounded-xl border border-gray-800 p-0.5 overflow-x-auto" style="scrollbar-width:none;">
-    <button class="finance-tab active" id="ftab-vtu"       onclick="switchFinanceTab('vtu')">⚡ VTU</button>
-    <button class="finance-tab"        id="ftab-wallet"    onclick="switchFinanceTab('wallet')">💳 Wallet</button>
-    <button class="finance-tab"        id="ftab-reminders" onclick="switchFinanceTab('reminders')">🔔 Reminders</button>
+    <button class="finance-tab active" id="ftab-wallet"    onclick="switchFinanceTab('wallet')">💳 Wallet</button>
     <button class="finance-tab"        id="ftab-split"     onclick="switchFinanceTab('split')">👥 Splitter</button>
     <button class="finance-tab"        id="ftab-txns"      onclick="switchFinanceTab('txns')">🧾 History</button>
   </div>
 
-  <div id="fsub-vtu" class="flex flex-col gap-3 fade-up">
-    <!-- Quick Buy -->
-    <div id="vtu-quick-buy" class="hidden bg-emerald-950/30 border border-emerald-900/50 rounded-xl p-3 flex items-center justify-between">
-      <div>
-        <div class="text-[10px] text-gray-400 font-bold">⚡ Quick Buy (Last Transaction)</div>
-        <div id="quick-buy-desc" class="text-xs font-black text-white mt-0.5">—</div>
-      </div>
-      <button onclick="triggerQuickBuy()" class="btn-sm-primary text-[9px]">Repeat</button>
-    </div>
-    <div class="grid grid-cols-3 gap-2">
-      <div class="vtu-card" onclick="vtuAction('airtime')"><span class="text-xl">📱</span><span class="text-[9px] font-black text-gray-400 uppercase">Airtime</span></div>
-      <div class="vtu-card" onclick="vtuAction('data')"><span class="text-xl">📶</span><span class="text-[9px] font-black text-gray-400 uppercase">Data Bundle</span></div>
-      <div class="vtu-card" onclick="vtuAction('electricity')"><span class="text-xl">💡</span><span class="text-[9px] font-black text-gray-400 uppercase">NEPA Light</span></div>
-      <div class="vtu-card" onclick="vtuAction('tv')"><span class="text-xl">📺</span><span class="text-[9px] font-black text-gray-400 uppercase">Cable TV</span></div>
-      <div class="vtu-card" onclick="vtuAction('betting')"><span class="text-xl">⚽</span><span class="text-[9px] font-black text-gray-400 uppercase">Bet Funding</span></div>
-    </div>
-  </div>
+
 
   <!-- WALLET SUB-PANEL -->
-  <div id="fsub-wallet" class="hidden flex-col gap-3 fade-up">
+  <div id="fsub-wallet" class="flex flex-col gap-3 fade-up">
     <!-- Balance card -->
     <div class="bg-gradient-to-br from-emerald-950 to-gray-950 border border-emerald-900/40 rounded-2xl p-4 flex flex-col gap-3">
       <div class="flex justify-between items-start">
@@ -1365,40 +1337,7 @@ document.addEventListener('click', function askOnce(){
     </div>
   </div>
 
-  <!-- BILL REMINDERS SUB-PANEL -->
-  <div id="fsub-reminders" class="hidden flex-col gap-3 fade-up">
 
-    <!-- Header + Add button -->
-    <div class="flex items-center justify-between">
-      <div>
-        <div class="text-xs font-black text-white">🔔 Bill Reminders</div>
-        <div class="text-[10px] text-gray-400 mt-0.5">Auto-remind you when bills are due</div>
-      </div>
-      <button onclick="openAddReminderModal()" class="btn-sm-primary text-[9px] px-3 py-1.5">+ Add</button>
-    </div>
-
-    <!-- How it works -->
-    <div class="bg-sky-950/30 border border-sky-900/40 rounded-xl p-3 text-[10px] text-sky-300 leading-relaxed">
-      💡 Set a monthly due date for any bill. Ememart will remind you on that day so you never miss a payment.
-    </div>
-
-    <!-- Active reminders list -->
-    <div id="reminders-list" class="flex flex-col gap-2"></div>
-
-    <!-- Empty state -->
-    <div id="reminders-empty" class="text-center py-8 flex flex-col items-center gap-2">
-      <span class="text-4xl">🔔</span>
-      <p class="text-xs font-black text-gray-400">No reminders set</p>
-      <p class="text-[10px] text-gray-500">Tap "+ Add" to set up your first bill reminder.</p>
-    </div>
-
-    <!-- Next due section -->
-    <div id="reminders-next-due" class="hidden bg-amber-950/30 border border-amber-900/50 rounded-xl p-3 flex flex-col gap-1.5">
-      <div class="text-[10px] font-black text-amber-300 uppercase tracking-wider">⏰ Due This Month</div>
-      <div id="reminders-next-due-list" class="flex flex-col gap-1"></div>
-    </div>
-
-  </div>
 
   <div id="fsub-split" class="hidden flex-col gap-3 fade-up">
     <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
@@ -1427,89 +1366,7 @@ document.addEventListener('click', function askOnce(){
   </div>
 </div>
 
-<!-- VTU MODAL -->
-<div id="vtu-modal" class="modal-overlay hidden" style="align-items:flex-start;padding-top:16px;padding-bottom:16px;" onclick="if(event.target===this)this.classList.add('hidden')">
-  <div class="modal-sheet flex flex-col gap-4" style="border-radius:20px;max-height:92vh;overflow-y:auto;">
-    <div class="flex justify-between items-center">
-      <h3 id="vtu-modal-title" class="text-base font-black text-white">⚡ VTU Service</h3>
-      <button onclick="document.getElementById('vtu-modal').classList.add('hidden')" class="text-gray-400 hover:text-white text-lg font-black">✕</button>
-    </div>
-    <div class="bg-gray-900 border border-gray-800 rounded-xl p-2 flex justify-between items-center">
-      <span class="text-[10px] text-gray-400 font-bold">Wallet Balance</span>
-      <span id="vtu-wallet-display" class="text-sm font-black text-emerald-400 mono">₦0.00</span>
-    </div>
-    <!-- STEP 1: Providers -->
-    <div id="vtu-step1" class="flex flex-col gap-3">
-      <div class="text-xs font-black text-gray-400 uppercase tracking-wider">Select Provider</div>
-      <div id="vtu-providers-grid" class="grid grid-cols-3 gap-2"></div>
-    </div>
-    <!-- STEP 2: Plans -->
-    <div id="vtu-step2" class="hidden flex flex-col gap-3">
-      <button onclick="vtuGoToStep(1)" class="text-xs text-emerald-400 font-bold self-start">← Back</button>
-      <div class="text-xs font-black text-gray-400 uppercase tracking-wider">Select Plan</div>
-      <div id="vtu-plans-list" class="flex flex-col max-h-64 overflow-y-auto gap-1"></div>
-    </div>
-    <!-- STEP 3: Details -->
-    <div id="vtu-step3" class="hidden flex flex-col gap-3">
-      <button id="vtu-step3-back" onclick="vtuGoToStep(1)" class="text-xs text-emerald-400 font-bold self-start">← Back</button>
-      <div id="vtu-selected-plan-display" class="hidden bg-emerald-950/40 border border-emerald-900/50 rounded-xl p-2 flex justify-between items-center">
-        <span class="text-[10px] text-gray-400">Selected Plan</span>
-        <span id="vtu-plan-name" class="text-xs font-black text-emerald-400"></span>
-      </div>
 
-      <!-- Network-aware phone/account input row (Opay-style) -->
-      <div id="vtu-network-input-row" class="hidden flex flex-col gap-1">
-        <label id="vtu-account-label" class="label-sm">Phone Number</label>
-        <div class="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-xl px-2">
-          <button id="vtu-network-pill" onclick="toggleNetworkDropdown()" class="flex items-center gap-1.5 py-2.5 pr-2 border-r border-gray-700 shrink-0">
-            <img id="vtu-network-pill-logo" src="" alt="" class="w-6 h-6 rounded-full object-cover bg-white hidden">
-            <span id="vtu-network-pill-icon" class="text-lg">📡</span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="text-gray-500"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <input type="tel" id="vtu-account" placeholder="080XXXXXXXX" maxlength="11" oninput="autoDetectNetwork()" class="flex-1 bg-transparent border-0 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none">
-          <button onclick="el('vtu-account').value='';el('vtu-account').focus()" class="text-gray-500 px-1">✕</button>
-        </div>
-        <!-- Network dropdown -->
-        <div id="vtu-network-dropdown" class="hidden bg-gray-900 border border-gray-700 rounded-xl mt-1 overflow-hidden divide-y divide-gray-800"></div>
-      </div>
-
-      <!-- Generic account input (electricity/betting/cable use this instead) -->
-      <div id="vtu-generic-input-row" class="flex flex-col gap-1">
-        <input type="text" id="vtu-account-generic" placeholder="Enter account number" class="inp">
-      </div>
-
-      <div id="vtu-amount-row" class="flex flex-col gap-2">
-        <label class="label-sm">Top up</label>
-        <div class="grid grid-cols-3 gap-2" id="vtu-quick-amounts"></div>
-        <input type="number" id="vtu-amount" placeholder="₦50 - ₦500,000" class="inp" min="50">
-      </div>
-      <div id="vtu-validate-row" class="hidden flex flex-col gap-2">
-        <button onclick="vtuValidateCustomer()" id="vtu-validate-btn" class="btn-sm-outline w-full py-2">🔍 Verify Account</button>
-        <div id="vtu-customer-verified" class="hidden bg-emerald-950/40 border border-emerald-900/50 rounded-xl p-2 flex justify-between">
-          <span class="text-[10px] text-gray-400">Account Name</span>
-          <span id="vtu-customer-name" class="text-xs font-black text-emerald-400"></span>
-        </div>
-      </div>
-      <button onclick="vtuProceedToConfirm()" class="btn-primary py-3 text-sm font-black">💳 Pay Now →</button>
-    </div>
-    <!-- STEP 4: PIN + Summary -->
-    <div id="vtu-step4" class="hidden flex flex-col gap-3">
-      <button onclick="vtuGoToStep(3)" class="text-xs text-emerald-400 font-bold self-start">← Back</button>
-      <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex flex-col gap-2">
-        <div class="flex justify-between text-xs"><span class="text-gray-400">Service</span><span id="vtu-sum-service" class="text-white font-black"></span></div>
-        <div class="flex justify-between text-xs"><span class="text-gray-400">Provider</span><span id="vtu-sum-provider" class="text-white font-bold"></span></div>
-        <div class="flex justify-between text-xs"><span class="text-gray-400">Account</span><span id="vtu-sum-account" class="text-white font-bold mono"></span></div>
-        <div class="flex justify-between text-xs"><span class="text-gray-400">Amount</span><span id="vtu-sum-amount" class="text-emerald-400 font-black mono"></span></div>
-        <div class="flex justify-between text-[10px]"><span class="text-gray-500">Balance after</span><span id="vtu-sum-balance-after" class="text-gray-400 mono"></span></div>
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="label-sm">🔐 Transaction PIN</label>
-        <input type="password" id="vtu-pin" placeholder="••••" maxlength="4" class="inp text-center text-2xl tracking-widest">
-      </div>
-      <button id="vtu-confirm-btn" onclick="processVTU()" class="btn-primary py-3">✅ Confirm Purchase</button>
-    </div>
-  </div>
-</div>
 
 <!-- DEPOSIT MODAL -->
 <div id="deposit-modal" class="modal-overlay hidden" style="align-items:flex-start;padding-top:16px;" onclick="if(event.target===this)this.classList.add('hidden')">
@@ -1592,6 +1449,11 @@ document.addEventListener('click', function askOnce(){
         <span class="text-xs text-gray-400">Escrow Wallet Balance</span>
         <span id="acc-balance" class="text-emerald-400 font-black mono text-sm">₦0.00</span>
       </div>
+      <div class="grid grid-cols-3 gap-2">
+        <button onclick="doDeposit()" class="btn-sm-primary">+ Fund</button>
+        <button onclick="openWithdrawModal()" class="btn-sm-outline">Withdraw</button>
+        <button onclick="showPanel('finance')" class="btn-sm-outline">💰 Finance</button>
+      </div>
     </div>
 
     <div id="acc-vendor-portal" class="hidden bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2 fade-up">
@@ -1627,7 +1489,7 @@ document.addEventListener('click', function askOnce(){
       <div class="flex items-center justify-between bg-gray-950 border border-gray-800 rounded-xl p-3">
         <div>
           <div class="text-xs font-bold text-white">Transaction PIN</div>
-          <div id="acc-pin-status" class="text-[9px] text-gray-500 mt-0.5">Protects withdrawals, transfers & VTU purchases</div>
+          <div id="acc-pin-status" class="text-[9px] text-gray-500 mt-0.5">Protects withdrawals, transfers & payments</div>
         </div>
         <button id="acc-pin-btn" onclick="openChangePinFlow()" class="btn-sm-outline text-[9px] whitespace-nowrap">Set PIN</button>
       </div>
@@ -2360,14 +2222,12 @@ document.addEventListener('click', function askOnce(){
     </div>
     <div id="terms-content" class="max-h-[55vh] overflow-y-auto flex flex-col gap-3 text-[11px] text-gray-300 leading-relaxed">
       <div class="text-xs font-black text-white">1. Acceptance of Terms</div>
-      <p>By using Ememart, you agree to these terms. You must be 18+ years old to use this platform, especially for financial features and betting services.</p>
+      <p>By using Ememart, you agree to these terms. You must be 18+ years old to use this platform, especially for financial features services.</p>
       <div class="text-xs font-black text-white">2. User Roles & Conduct</div>
       <p>Users must be honest in their listings. Vendors must deliver what they advertise. Fraudulent listings will result in permanent bans and penalties.</p>
       <div class="text-xs font-black text-white">3. Escrow & Payments</div>
       <p>Ememart holds escrow funds impartially. Fees are deducted at rates set by the admin. Disputes are resolved within 48 hours per our SLA.</p>
-      <div class="text-xs font-black text-white">4. VTU & Betting</div>
-      <p>VTU services are provided by third-party APIs. Betting fund top-ups carry a mandatory warning. Ememart is not liable for gambling losses. Set spending limits to protect yourself.</p>
-      <div class="text-xs font-black text-white">5. KYC Requirements</div>
+      <div class="text-xs font-black text-white">4. KYC Requirements</div>
       <p>Financial features require KYC verification. A ₦100 fee applies to cover API costs. Manual review takes 24-48 hours. False documents will result in permanent bans.</p>
       <div class="text-xs font-black text-white">6. Refunds & Disputes</div>
       <p>See our Buyer Protection Guarantee for full refund policies. Admin decisions on disputes are final.</p>
@@ -2493,14 +2353,13 @@ const state = {
   activeFilter: 'all',
   activeCategory: null,
   activeFeedTab: 'general',
-  activeFinanceTab: 'vtu',
+  activeFinanceTab: 'wallet',
   activeSafetyTab: 'sos',
   session: null,
   postType: 'normal',
   businessCategory: 'food',
   selectedIngredients: new Set(),
   postImageBase64: null,
-  activeVtuService: null,
   activeChatPartnerId: null,
   activeDisputeReason: '',
   splitFriends: [],
@@ -3000,8 +2859,6 @@ async function apiGet(file, params = {}) {
 
 function fmtCurrency(n) { return '₦' + parseFloat(n||0).toLocaleString('en-NG',{minimumFractionDigits:2}); }
 
-// VTU state
-let _vtu = { service:'', providerId:'', providerName:'', planId:'', planName:'', amount:0, accountNo:'', phone:'' };
 let _otpPurpose = 'register';
 
 // ============================================================
@@ -4582,25 +4439,6 @@ function buildReceiptHTML(){
 </div></body></html>`;
 }
 
-function buildVTUReceiptText(data){
-  return `╔══════════════════════════════╗
-     EMEMART VTU RECEIPT
-╚══════════════════════════════╝
-Reference  : EM-VTU-${Date.now()}
-─────────────────────────────
-Service    : ${data.service || '—'}
-Provider   : ${data.provider || '—'}
-Account    : ${data.account || '—'}
-Amount     : ₦${fmt(data.amount || 0)}
-Cashback   : ₦${fmt((data.amount||0)*0.01)} (1%)
-─────────────────────────────
-Status     : ✅ SUCCESSFUL
-Date/Time  : ${new Date().toLocaleString()}
-─────────────────────────────
-Thank you for using Ememart!
-Powered by ememart.ng`;
-}
-
 function shareReceiptVia(platform){
   const text = buildReceiptText();
   const encoded = encodeURIComponent(text);
@@ -5045,484 +4883,32 @@ function msgVendor(vendorId, vendorName){
   openChatWith(pid, vendorName, 'vendor');
 }
 
-const vtuNames = {airtime:'Airtime Top-up', data:'Data Bundle', electricity:'Electricity (NEPA)', tv:'TV Subscription', betting:'Bet Funding'};
 
-// ============================================================
-// VTU PROVIDER DATA (per service type)
-// ============================================================
 // SVG inline icons for providers that may not load from external URLs
-const _VTU_ICONS = {
-  mtn: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="20" fill="#FFCC00"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="11" font-weight="900" fill="#000" font-family="Arial">MTN</text></svg>`,
-  glo: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="20" fill="#008000"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="11" font-weight="900" fill="#fff" font-family="Arial">GLO</text></svg>`,
-  airtel: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="20" fill="#E40000"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">AIRTEL</text></svg>`,
-  '9mobile': `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="20" fill="#006600"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">9mobile</text></svg>`,
-  ikedc: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#0A3D7C"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">IKEDC</text></svg>`,
-  aedc:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#00539C"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">AEDC</text></svg>`,
-  ekedc: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#C0392B"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">EKEDC</text></svg>`,
-  eedc:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#27AE60"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">EEDC</text></svg>`,
-  kedco: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#8E44AD"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">KEDCO</text></svg>`,
-  bedc:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#1ABC9C"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">BEDC</text></svg>`,
-  phedc: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#2C3E50"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">PHED</text></svg>`,
-  kaedc: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#E67E22"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">KAEDC</text></svg>`,
-  ibedc: `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#3498DB"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">IBEDC</text></svg>`,
-  jed:   `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#F39C12"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">JED</text></svg>`,
-  yedc:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#16A085"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">YEDC</text></svg>`,
-  dstv:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#003580"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">DStv</text></svg>`,
-  gotv:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#EF7C00"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">GOtv</text></svg>`,
-  startimes:`<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#D12026"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="7" font-weight="900" fill="#fff" font-family="Arial">StarTimes</text></svg>`,
-  bet9ja:   `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#00873E"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="8" font-weight="900" fill="#fff" font-family="Arial">Bet9ja</text></svg>`,
-  sportybet:`<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#FF4B00"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="7" font-weight="900" fill="#fff" font-family="Arial">Sporty</text></svg>`,
-  '1xbet':  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#1C3C6E"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="9" font-weight="900" fill="#fff" font-family="Arial">1xBet</text></svg>`,
-  betking:  `<svg viewBox="0 0 40 40" class="w-9 h-9"><rect width="40" height="40" rx="8" fill="#7B2D8B"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" font-size="7" font-weight="900" fill="#fff" font-family="Arial">BetKing</text></svg>`,
-};
 
-const VTU_PROVIDERS = {
-  airtime: [
-    { id:'mtn',     name:'MTN',     svgIcon:_VTU_ICONS.mtn },
-    { id:'glo',     name:'Glo',     svgIcon:_VTU_ICONS.glo },
-    { id:'airtel',  name:'Airtel',  svgIcon:_VTU_ICONS.airtel },
-    { id:'9mobile', name:'9mobile', svgIcon:_VTU_ICONS['9mobile'] },
-  ],
-  data: [
-    { id:'mtn-data',     name:'MTN',     svgIcon:_VTU_ICONS.mtn },
-    { id:'glo-data',     name:'Glo',     svgIcon:_VTU_ICONS.glo },
-    { id:'airtel-data',  name:'Airtel',  svgIcon:_VTU_ICONS.airtel },
-    { id:'9mobile-data', name:'9mobile', svgIcon:_VTU_ICONS['9mobile'] },
-  ],
-  electricity: [
-    { id:'ikedc',  name:'Ikeja Electric',  svgIcon:_VTU_ICONS.ikedc },
-    { id:'aedc',   name:'Abuja Electric',  svgIcon:_VTU_ICONS.aedc },
-    { id:'ekedc',  name:'Eko Electric',    svgIcon:_VTU_ICONS.ekedc },
-    { id:'eedc',   name:'Enugu Electric',  svgIcon:_VTU_ICONS.eedc },
-    { id:'kedco',  name:'Kano Electric',   svgIcon:_VTU_ICONS.kedco },
-    { id:'bedc',   name:'Benin Electric',  svgIcon:_VTU_ICONS.bedc },
-    { id:'phedc',  name:'Port Harcourt',   svgIcon:_VTU_ICONS.phedc },
-    { id:'kaedc',  name:'Kaduna Electric', svgIcon:_VTU_ICONS.kaedc },
-    { id:'ibedc',  name:'Ibadan Electric', svgIcon:_VTU_ICONS.ibedc },
-    { id:'jed',    name:'Jos Electric',    svgIcon:_VTU_ICONS.jed },
-    { id:'yedc',   name:'Yola Electric',   svgIcon:_VTU_ICONS.yedc },
-  ],
-  tv: [
-    { id:'dstv',      name:'DStv',      svgIcon:_VTU_ICONS.dstv },
-    { id:'gotv',      name:'GOtv',      svgIcon:_VTU_ICONS.gotv },
-    { id:'startimes', name:'StarTimes', svgIcon:_VTU_ICONS.startimes },
-  ],
-  betting: [
-    { id:'bet9ja',    name:'Bet9ja',   svgIcon:_VTU_ICONS.bet9ja },
-    { id:'sportybet', name:'SportyBet',svgIcon:_VTU_ICONS.sportybet },
-    { id:'1xbet',     name:'1xBet',    svgIcon:_VTU_ICONS['1xbet'] },
-    { id:'betking',   name:'BetKing',  svgIcon:_VTU_ICONS.betking },
-  ],
-};
 
-const VTU_SERVICE_LABELS = {
-  airtime: 'Airtime Top-up', data: 'Data Bundle', electricity: 'NEPA Light',
-  tv: 'Cable TV', betting: 'Bet Funding'
-};
 
-async function vtuAction(service){
-  if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in to use VTU services.'); return; }
 
-  if(service==='betting'){
-    if(!localStorage.getItem('ememart_betting_ack')){
-      const ok=confirm('⚠️ BETTING WARNING\n\n"Gambling can be addictive. Please play responsibly."\n\n• You must be 18+ years old.\n• Set spending limits to protect yourself.\n• Ememart is not responsible for gambling losses.\n\nConfirm you are 18+ and wish to continue.');
-      if(!ok){ showPopupNotif('⚠️','Cancelled','Betting fund cancelled.'); return; }
-      localStorage.setItem('ememart_betting_ack','1');
-    }
-  }
 
-  // Reset VTU state for a fresh flow
-  _vtu.service = service;
-  _vtu.providerId = ''; _vtu.providerName = '';
-  _vtu.planId = ''; _vtu.planName = ''; _vtu.amount = 0;
-  _vtu.accountNo = ''; _vtu.phone = '';
 
-  // Set modal title
-  const titleEl = el('vtu-modal-title');
-  const icons = { airtime:'📱', data:'📶', electricity:'💡', tv:'📺', betting:'⚽', internet:'🌐' };
-  if(titleEl) titleEl.textContent = `${icons[service]||'⚡'} ${VTU_SERVICE_LABELS[service]||'VTU Service'}`;
 
-  // Update wallet balance display
-  const balEl = el('vtu-wallet-display');
-  if(balEl) balEl.textContent = fmtCurrency(state.session.balance||0);
 
-  // Airtime uses the unified network-selector screen (skip provider grid)
-  if(service === 'airtime'){
-    _vtu.providerId = VTU_PROVIDERS.airtime[0].id;
-    _vtu.providerName = VTU_PROVIDERS.airtime[0].name;
-    setupAirtimeScreen();
-    vtuGoToStep(3);
-    el('vtu-modal')?.classList.remove('hidden');
-    return;
-  }
 
-  // Populate provider grid
-  const grid = el('vtu-providers-grid');
-  if(grid){
-    if(service === 'electricity' || service === 'betting'){
-      grid.innerHTML = '<div class="col-span-3 text-center py-4 text-xs text-gray-500">Loading providers...</div>';
-      try {
-        const apiAction = service === 'electricity' ? 'get_electricity_providers' : 'get_betting_products';
-        const res = await apiGet('vtu.php', { action: apiAction });
-        const raw = res.providers || res.products || [];
-        // Normalize Bigisub's real field names into { id, name } — field
-        // names are unconfirmed until tested live, so check a few options.
-        const providers = raw.map(x => ({
-          id:   x.company || x.biller_code || x.code || x.slug || x.id,
-          name: x.name || x.display_name || x.company || x.biller_code || 'Unknown',
-        }));
-        _vtu.dynamicProviders = providers;
-        if(providers.length){
-          grid.innerHTML = providers.map(p => `
-            <button onclick='vtuSelectProvider(${JSON.stringify(p).replace(/'/g,"&#39;")})' class="bg-gray-800 border border-gray-700 rounded-xl py-3 flex flex-col items-center gap-1.5 text-[9px] font-black text-gray-300 hover:border-emerald-500 hover:bg-gray-700 transition">
-              <span class="text-xl">${service==='electricity'?'💡':'⚽'}</span>
-              ${p.name}
-            </button>
-          `).join('');
-        } else {
-          grid.innerHTML = '<div class="col-span-3 text-center text-xs text-red-400">Could not load providers. Try again.</div>';
-        }
-      } catch(e){
-        grid.innerHTML = '<div class="col-span-3 text-center text-xs text-red-400">Connection error loading providers.</div>';
-      }
-    } else {
-      const providers = VTU_PROVIDERS[service] || [];
-      grid.innerHTML = providers.map(p => `
-        <button onclick='vtuSelectProvider(${JSON.stringify(p).replace(/'/g,"&#39;")})' class="bg-gray-800 border border-gray-700 rounded-xl py-3 flex flex-col items-center gap-1.5 text-[9px] font-black text-gray-300 hover:border-emerald-500 hover:bg-gray-700 transition">
-          ${p.svgIcon
-            ? p.svgIcon
-            : p.logo
-              ? `<img src="${p.logo}" alt="${p.name}" class="w-9 h-9 rounded-full object-cover bg-white" onerror="this.outerHTML='<span class=text-xl>📡</span>'">`
-              : `<span class="text-xl">${p.icon||'📡'}</span>`
-          }
-          ${p.name}
-        </button>
-      `).join('');
-    }
-  }
 
-  vtuGoToStep(1);
-  el('vtu-modal')?.classList.remove('hidden');
-  setTimeout(()=>{ const s=el('vtu-modal')?.querySelector('.modal-sheet'); if(s) s.scrollTop=0; window.scrollTo(0,0); },50);
-}
 
-// ============================================================
-// AIRTIME — network-aware phone input (Opay-style)
-// ============================================================
-const NETWORK_PREFIXES = {
-  mtn:     ['0703','0706','0803','0806','0810','0813','0814','0816','0903','0906','0913','0916'],
-  glo:     ['0705','0805','0807','0811','0815','0905','0915'],
-  airtel:  ['0701','0708','0802','0808','0812','0901','0902','0904','0907','0912'],
-  '9mobile': ['0809','0817','0818','0908','0909'],
-};
 
-const QUICK_AMOUNTS = [
-  { amount:50,   cashback:0.5 },
-  { amount:100,  cashback:1 },
-  { amount:200,  cashback:2 },
-  { amount:500,  cashback:5 },
-  { amount:1000, cashback:10 },
-  { amount:2000, cashback:20 },
-];
-
-function setupAirtimeScreen(){
-  el('vtu-network-input-row')?.classList.remove('hidden');
-  el('vtu-generic-input-row')?.classList.add('hidden');
-  el('vtu-account-label').textContent = 'Phone Number';
-  el('vtu-account').value = '';
-  el('vtu-amount-row').classList.remove('hidden');
-  el('vtu-validate-row').classList.add('hidden');
-  el('vtu-selected-plan-display').classList.add('hidden');
-  el('vtu-step3-back').onclick = () => vtuGoToStep(1);
-  updateNetworkPill();
-  renderNetworkDropdown();
-  renderQuickAmounts();
-}
-
-function renderQuickAmounts(){
-  const grid = el('vtu-quick-amounts');
-  if(!grid) return;
-  grid.innerHTML = QUICK_AMOUNTS.map(q => `
-    <button onclick="selectQuickAmount(${q.amount})" class="bg-gray-900 border border-gray-800 rounded-xl py-2.5 flex flex-col items-center gap-0.5 hover:border-emerald-500 transition">
-      <span class="text-[8px] text-emerald-400 font-black line-through opacity-60">₦${q.cashback} Cashback</span>
-      <span class="text-sm font-black text-white mono">₦${q.amount.toLocaleString()}</span>
-    </button>
-  `).join('');
-}
-
-function selectQuickAmount(amount){
-  el('vtu-amount').value = amount;
-}
-
-function updateNetworkPill(){
-  const list = _vtu.service === 'data' ? VTU_PROVIDERS.data : VTU_PROVIDERS.airtime;
-  const p = list.find(x => x.id === _vtu.providerId) || list[0];
-  const logoEl = el('vtu-network-pill-logo');
-  const iconEl = el('vtu-network-pill-icon');
-  if(p.svgIcon){
-    logoEl.classList.add('hidden');
-    iconEl.innerHTML = p.svgIcon.replace('w-9 h-9','w-6 h-6');
-    iconEl.classList.remove('hidden');
-  } else if(p.logo){
-    logoEl.src = p.logo;
-    logoEl.classList.remove('hidden');
-    iconEl.classList.add('hidden');
-  } else {
-    logoEl.classList.add('hidden');
-    iconEl.textContent = p.icon || '📡';
-    iconEl.classList.remove('hidden');
-  }
-}
-
-function toggleNetworkDropdown(){
-  el('vtu-network-dropdown')?.classList.toggle('hidden');
-}
-
-function renderNetworkDropdown(){
-  const dd = el('vtu-network-dropdown');
-  if(!dd) return;
-  const list = _vtu.service === 'data' ? VTU_PROVIDERS.data : VTU_PROVIDERS.airtime;
-  dd.innerHTML = list.map(p => `
-    <button onclick='pickNetwork(${JSON.stringify(p).replace(/'/g,"&#39;")})' class="w-full flex items-center gap-2 px-3 py-2.5 text-xs font-bold text-gray-300 hover:bg-gray-800 transition">
-      ${p.svgIcon
-        ? `<span class="w-6 h-6 flex-shrink-0 overflow-hidden rounded-full">${p.svgIcon.replace('w-9 h-9','w-6 h-6')}</span>`
-        : p.logo
-          ? `<img src="${p.logo}" class="w-6 h-6 rounded-full object-cover bg-white" onerror="this.style.display='none'">`
-          : `<span class="text-base">${p.icon||'📡'}</span>`
-      }
-      ${p.name}
-    </button>
-  `).join('');
-}
-
-function pickNetwork(p){
-  _vtu.providerId = p.id;
-  _vtu.providerName = p.name;
-  updateNetworkPill();
-  toggleNetworkDropdown();
-}
 
 // Auto-detect network from phone number prefix as the user types
-function autoDetectNetwork(){
-  const num = el('vtu-account').value.replace(/\D/g,'');
-  if(num.length < 4) return;
-  const prefix = num.slice(0,4);
-  const list = _vtu.service === 'data' ? VTU_PROVIDERS.data : VTU_PROVIDERS.airtime;
-  for(const [net, prefixes] of Object.entries(NETWORK_PREFIXES)){
-    if(prefixes.includes(prefix)){
-      const match = list.find(p => p.id.startsWith(net) || p.name.toLowerCase() === net);
-      if(match && match.id !== _vtu.providerId){
-        _vtu.providerId = match.id;
-        _vtu.providerName = match.name;
-        updateNetworkPill();
-      }
-      break;
-    }
-  }
-}
 
-function vtuGoToStep(step){
-  [1,2,3,4].forEach(s => el('vtu-step'+s)?.classList.toggle('hidden', s!==step));
-  // Scroll the modal sheet to top so all content is visible
-  const sheet = el('vtu-modal')?.querySelector('.modal-sheet');
-  if(sheet) sheet.scrollTop = 0;
-  window.scrollTo(0,0);
-}
 
-async function vtuSelectProvider(p){
-  _vtu.providerId = p.id;
-  _vtu.providerName = p.name;
-
-  if(_vtu.service === 'betting'){
-    vtuGoToStep(3);
-    el('vtu-network-input-row')?.classList.add('hidden');
-    el('vtu-generic-input-row')?.classList.remove('hidden');
-    el('vtu-account-generic').placeholder = 'Enter your betting username';
-    el('vtu-amount-row').classList.remove('hidden');
-    el('vtu-validate-row').classList.remove('hidden');
-    el('vtu-selected-plan-display').classList.add('hidden');
-    el('vtu-step3-back').onclick = () => vtuGoToStep(1);
-  } else if(_vtu.service === 'electricity'){
-    vtuGoToStep(3);
-    el('vtu-network-input-row')?.classList.add('hidden');
-    el('vtu-generic-input-row')?.classList.remove('hidden');
-    el('vtu-account-generic').placeholder = 'Enter meter number';
-    el('vtu-amount-row').classList.remove('hidden');
-    el('vtu-validate-row').classList.remove('hidden');
-    el('vtu-selected-plan-display').classList.add('hidden');
-    el('vtu-step3-back').onclick = () => vtuGoToStep(1);
-  } else {
-    vtuGoToStep(2);
-    const list = el('vtu-plans-list');
-    list.innerHTML = '<div class="text-center py-4 text-xs text-gray-500">Loading plans...</div>';
-    try {
-      const res = await apiGet('vtu.php',{ action:'get_plans', service_id: p.id, category: _vtu.service });
-      const plansArr = res.plans || res.data?.plans || [];
-      if(res.success && plansArr.length){
-        list.innerHTML = '';
-        plansArr.forEach(plan => {
-          const btn = document.createElement('button');
-          btn.className = 'w-full flex justify-between items-center p-3 bg-gray-950 border border-gray-800 rounded-xl hover:border-emerald-500 transition text-left mb-1';
-          const displayName = vtuPlanDisplayName(plan);
-          btn.innerHTML = `<div><div class="text-xs font-black text-white">${displayName}</div><div class="text-[10px] text-gray-400">${plan.validity||''}</div></div><div class="text-sm font-black text-emerald-400 mono">₦${parseFloat(plan.amount||plan.variation_amount||plan.plan_amount||0).toLocaleString()}</div>`;
-          btn.onclick = () => vtuSelectPlan(plan);
-          list.appendChild(btn);
-        });
-      } else {
-        list.innerHTML = '<div class="text-center text-xs text-red-400">No plans found.</div>';
-      }
-    } catch(e){
-      list.innerHTML = '<div class="text-center text-xs text-red-400">Connection error.</div>';
-    }
-  }
-}
 
 // Bigisub's data/cable plan objects don't have a "name" field — build a
 // readable label from whatever fields they do have (plantype/size/plan_volume,
 // or fall back to variation_code/id).
-function vtuPlanDisplayName(plan){
-  if(plan.name) return plan.name;
-  if(plan.size && plan.plan_volume){
-    return `${plan.size}${plan.plan_volume} ${plan.plantype||''}`.trim();
-  }
-  if(plan.plan_name) return plan.plan_name;
-  if(plan.variation_name) return plan.variation_name;
-  return plan.plantype || plan.validity || `Plan ${plan.id||plan.variation_code||''}`;
-}
 
-function vtuSelectPlan(plan){
-  _vtu.planId = plan.id || plan.variation_code;
-  _vtu.planName = vtuPlanDisplayName(plan);
-  _vtu.amount = parseFloat(plan.amount || plan.variation_amount || plan.plan_amount || 0);
-  vtuGoToStep(3);
-  el('vtu-selected-plan-display').classList.remove('hidden');
-  el('vtu-plan-name').textContent = `${_vtu.planName} — ₦${_vtu.amount.toLocaleString()}`;
-  el('vtu-amount-row').classList.add('hidden');
-  el('vtu-step3-back').onclick = () => vtuGoToStep(2);
 
-  if(_vtu.service === 'data'){
-    el('vtu-network-input-row')?.classList.remove('hidden');
-    el('vtu-generic-input-row')?.classList.add('hidden');
-    el('vtu-account-label').textContent = 'Phone Number';
-    el('vtu-account').value = '';
-    el('vtu-validate-row').classList.add('hidden');
-    updateNetworkPill();
-    renderNetworkDropdown();
-  } else if(_vtu.service === 'tv'){
-    el('vtu-network-input-row')?.classList.add('hidden');
-    el('vtu-generic-input-row')?.classList.remove('hidden');
-    el('vtu-account-generic').placeholder = 'Enter smart card number';
-    el('vtu-validate-row').classList.remove('hidden');
-  }
-}
 
-async function vtuValidateCustomer(){
-  const isNetworkInput = !el('vtu-network-input-row')?.classList.contains('hidden');
-  const accountNo = (isNetworkInput ? el('vtu-account').value : el('vtu-account-generic').value).trim();
-  if(!accountNo){ showPopupNotif('⚠️','Required','Enter account/meter number first.'); return; }
-  const btn = el('vtu-validate-btn');
-  btn.textContent = 'Verifying...'; btn.disabled = true;
-  try {
-    const res = await apiPost('vtu.php','validate_customer',{ service_type: _vtu.service, service_id: _vtu.providerId, account_no: accountNo, meter_type: 'prepaid' });
-    if(res.success){
-      const customerName = res.customer_name || res.data?.customer_name;
-      _vtu.customerName = customerName;
-      _vtu.validationRef = res.validation_reference || null; // required for betting purchase
-      el('vtu-customer-name').textContent = customerName;
-      el('vtu-customer-verified').classList.remove('hidden');
-      showPopupNotif('✅','Verified!', customerName);
-    } else { showPopupNotif('❌','Not Found', res.message); }
-  } catch(e){ showPopupNotif('❌','Error','Connection failed.'); }
-  finally { btn.textContent = '🔍 Verify Account'; btn.disabled = false; }
-}
 
-async function vtuProceedToConfirm(){
-  const isNetworkInput = !el('vtu-network-input-row')?.classList.contains('hidden');
-  const accountNo = (isNetworkInput ? el('vtu-account').value : el('vtu-account-generic').value).trim();
-  if(!accountNo){ showPopupNotif('⚠️','Required','Enter the account/phone number.'); return; }
-  _vtu.accountNo = accountNo;
-  if(_vtu.service === 'airtime' || _vtu.service === 'data') _vtu.phone = accountNo;
-  if(!_vtu.amount){
-    _vtu.amount = parseFloat(el('vtu-amount')?.value) || 0;
-  }
-  if(!_vtu.amount || _vtu.amount <= 0){ showPopupNotif('⚠️','Required','Enter amount.'); return; }
-
-  // Ask the backend what the real charge will be (includes our markup/service fee)
-  const priceRes = await apiPost('vtu.php', 'preview_price', {
-    service_type: _vtu.service, service_id: _vtu.providerId,
-    plan_id: _vtu.planId, amount: _vtu.amount
-  });
-  const realCharge = priceRes.success ? priceRes.charge_amount : _vtu.amount;
-  _vtu.realCharge = realCharge;
-
-  el('vtu-sum-service').textContent = vtuNames[_vtu.service];
-  el('vtu-sum-provider').textContent = _vtu.providerName;
-  el('vtu-sum-account').textContent = _vtu.accountNo;
-  el('vtu-sum-amount').textContent = fmtCurrency(realCharge);
-  el('vtu-sum-balance-after').textContent = fmtCurrency(state.session.balance - realCharge);
-  el('vtu-pin').value = '';
-  vtuGoToStep(4);
-}
-
-async function processVTU(){
-  const pin = el('vtu-pin').value;
-  if(!/^\d{4}$/.test(pin)){ showPopupNotif('⚠️','PIN Required','Enter your 4-digit transaction PIN.'); return; }
-  if(state.session.balance < _vtu.amount){ showPopupNotif('❌','Low Balance','Fund your wallet first.'); return; }
-
-  const btn = el('vtu-confirm-btn');
-  btn.textContent = 'Processing...'; btn.disabled = true;
-
-  try {
-    const pinRes = await apiPost('wallet.php','verify_pin',{ pin });
-    if(!pinRes.success){ showPopupNotif('❌','Wrong PIN', pinRes.message); btn.textContent='✅ Confirm Purchase'; btn.disabled=false; return; }
-
-    const res = await apiPost('vtu.php','purchase',{
-      service_type: _vtu.service,
-      service_id: _vtu.providerId,
-      amount: _vtu.amount,
-      phone: _vtu.phone || state.session.phone,
-      account_no: _vtu.accountNo,
-      plan_id: _vtu.planId,
-      customer_name: _vtu.customerName || '',
-      validation_reference: _vtu.validationRef || '',
-    });
-
-    if(res.success){
-      // Trust the backend's authoritative numbers — it applied the real markup/fee
-      const realCharge = res.amount_charged ?? _vtu.realCharge ?? _vtu.amount;
-      const newBalance = res.new_balance ? parseFloat(String(res.new_balance).replace(/,/g,'')) : (state.session.balance - realCharge);
-      const cashback = res.cashback || 0;
-
-      state.session.balance = newBalance;
-      if(cashback > 0){
-        addTransaction({ type:'credit', category:'cashback', userId:state.session.id, amount:cashback, desc:`1% cashback on ${vtuNames[_vtu.service]} purchase` });
-        recordCashback(cashback, _vtu.service);
-      }
-      syncAccountDisplay();
-      addTransaction({ type:'debit', category:'vtu', userId: state.session.id, amount: realCharge, desc: `${vtuNames[_vtu.service]} — ${_vtu.accountNo||_vtu.phone}` });
-      setLastVTU({ service: vtuNames[_vtu.service], provider: _vtu.providerName||'', account: _vtu.accountNo||_vtu.phone, amount: _vtu.amount });
-      el('vtu-modal').classList.add('hidden');
-      showPopupNotif('✅', vtuNames[_vtu.service], `Purchase successful!${cashback>0?' +₦'+fmt(cashback)+' cashback credited!':''}`);
-    } else {
-      showPopupNotif('❌','Failed', res.message);
-    }
-  } catch(e){
-    // Demo mode — process locally
-    state.session.balance -= _vtu.amount;
-    const cashback = Math.floor(_vtu.amount * 0.01);
-    if(cashback > 0){
-      state.session.balance += cashback;
-      addTransaction({ type:'credit', category:'cashback', userId:state.session.id, amount:cashback, desc:`1% cashback on ${vtuNames[_vtu.service]||_vtu.service} purchase` });
-      recordCashback(cashback, _vtu.service);
-    }
-    syncAccountDisplay();
-    addTransaction({ type:'debit', category:'vtu', userId:state.session.id, amount:_vtu.amount, desc:`${vtuNames[_vtu.service]||_vtu.service} — ${_vtu.accountNo||_vtu.phone||''}` });
-    setLastVTU({ service:vtuNames[_vtu.service]||_vtu.service, provider:_vtu.providerName||'', account:_vtu.accountNo||_vtu.phone||'', amount:_vtu.amount });
-    el('vtu-modal').classList.add('hidden');
-    showPopupNotif('✅', vtuNames[_vtu.service]||_vtu.service, `Purchase complete!${cashback>0?' +₦'+fmt(cashback)+' cashback!':''}`);
-  }
-  finally { btn.textContent='✅ Confirm Purchase'; btn.disabled=false; }
-}
 
 function doDeposit(){
   if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in to fund your wallet.'); return; }
@@ -6766,8 +6152,7 @@ function renderVendorReviews(userId){
 function seedDemoTransactions(userId){
   if(state.transactions.some(t => t.userId === userId)) return;
   const demos = [
-    { type: 'credit', category: 'deposit', userId, amount: 10000, desc: 'Wallet top-up via Bank Transfer verified' },
-    { type: 'debit', category: 'vtu', userId, amount: 1500, desc: 'Instant utility transaction airtime loaded' }
+    { type: 'credit', category: 'deposit', userId, amount: 10000, desc: 'Wallet top-up via Bank Transfer verified' }
   ];
   demos.forEach(addTransaction);
 }
@@ -6800,11 +6185,8 @@ function switchFinanceTab(tab){
   document.querySelectorAll('.finance-tab').forEach(b => b.classList.remove('active'));
   const activeBtn = el('ftab-'+tab);
   if(activeBtn) activeBtn.classList.add('active');
-  el('fsub-vtu').classList.toggle('hidden', tab !== 'vtu');
   const walletPanel = el('fsub-wallet');
   if(walletPanel) walletPanel.classList.toggle('hidden', tab !== 'wallet');
-  const remPanel = el('fsub-reminders');
-  if(remPanel) remPanel.classList.toggle('hidden', tab !== 'reminders');
   el('fsub-split').classList.toggle('hidden', tab !== 'split');
   el('fsub-txns').classList.toggle('hidden', tab !== 'txns');
   if(tab === 'txns') renderTxnList();
@@ -6813,7 +6195,6 @@ function switchFinanceTab(tab){
     if(bal) bal.textContent = fmtCurrency(state.session?.balance || 0);
     renderSavingsActive();
   }
-  if(tab === 'reminders') renderRemindersList();
 }
 
 // ============================================================
@@ -7139,15 +6520,13 @@ function openSpendingLimitsModal(){
   const limits = JSON.parse(localStorage.getItem('ememart_spend_limits')||'{}');
   el('limit-daily').value = limits.daily || '';
   el('limit-weekly').value = limits.weekly || '';
-  el('limit-betting').value = limits.betting || '';
   el('spending-limits-modal').classList.remove('hidden');
 }
 
 function saveSpendingLimits(){
   const limits = {
     daily: parseFloat(el('limit-daily').value) || 0,
-    weekly: parseFloat(el('limit-weekly').value) || 0,
-    betting: parseFloat(el('limit-betting').value) || 0
+    weekly: parseFloat(el('limit-weekly').value) || 0
   };
   localStorage.setItem('ememart_spend_limits', JSON.stringify(limits));
   el('spending-limits-modal').classList.add('hidden');
@@ -7466,31 +6845,8 @@ function reorderLastPost(){
   showPopupNotif('🔄','Last Post Loaded!','Your previous listing has been loaded. Edit and re-broadcast.');
 }
 
-// ============================================================
-// QUICK BUY (VTU)
-// ============================================================
-const LAST_VTU_KEY = 'ememart_last_vtu';
 
-function setLastVTU(data){ localStorage.setItem(LAST_VTU_KEY, JSON.stringify(data)); showQuickBuy(); }
-function showQuickBuy(){
-  try {
-    const d = JSON.parse(localStorage.getItem(LAST_VTU_KEY));
-    if(!d) return;
-    const qb = el('vtu-quick-buy');
-    const qbd = el('quick-buy-desc');
-    if(qb) qb.classList.remove('hidden');
-    if(qbd) qbd.textContent = `${d.service} — ${d.providerName} — ₦${fmt(d.amount)} → ${d.accountNo}`;
-  } catch(e){}
-}
 
-function triggerQuickBuy(){
-  try {
-    const d = JSON.parse(localStorage.getItem(LAST_VTU_KEY));
-    if(!d){ showPopupNotif('⚠️','No Previous VTU','No last VTU transaction found.'); return; }
-    showPopupNotif('⚡','Quick Buy','Repeating your last VTU transaction...');
-    setTimeout(() => showPopupNotif('✅','Purchase Complete',`${d.service} for ₦${fmt(d.amount)} completed!`), 1500);
-  } catch(e){}
-}
 
 // ============================================================
 // GROUP ORDER
@@ -8152,10 +7508,10 @@ function syncAccountDisplay(){
     if(pinBtn && pinStatus){
       if(isPinSet()){
         pinBtn.textContent = 'Change PIN';
-        pinStatus.textContent = '✅ PIN is set — protects withdrawals, transfers & VTU purchases';
+        pinStatus.textContent = '✅ PIN is set — protects withdrawals, transfers & payments';
       } else {
         pinBtn.textContent = 'Set PIN';
-        pinStatus.textContent = 'Protects withdrawals, transfers & VTU purchases';
+        pinStatus.textContent = 'Protects withdrawals, transfers & payments';
       }
     }
   }
@@ -8266,11 +7622,8 @@ function switchFeedTab(tab){
 // ON PAGE LOAD — init new features
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-  const step3Btn = document.querySelector('#vtu-step3 .btn-primary');
-  if(step3Btn) step3Btn.onclick = vtuProceedToConfirm;
   checkBackendSession();
   renderCollectionsStrip();
-  showQuickBuy();
   renderCustomEmergencyContacts();
   // Low balance alert toggle restore
   const lbToggle = el('low-balance-alert-toggle');
@@ -8302,7 +7655,6 @@ async function setTransactionPin(){
   finally { btn.textContent='Set PIN'; btn.disabled=false; }
 }
 
-// Wire up VTU step 3 continue button — handled in new DOMContentLoaded above
 
 
 // === FROM BLOCK 2 ===
@@ -8478,10 +7830,6 @@ _sessionTimer=setInterval(()=>{
   }
 },60000);
 
-// ============================================================
-// BETTING 18+ WARNING
-// ============================================================
-// (Betting 18+ check is now handled directly inside vtuAction())
 
 // ============================================================
 // BUYER ORDERS
@@ -8612,30 +7960,6 @@ function sendSupportMessage(){
 
 
 
-// ============================================================
-// AUTO BILL PAYMENT REMINDERS
-// ============================================================
-const BILL_REM_KEY='ememart_bill_reminders';
-function getBillReminders(){try{return JSON.parse(localStorage.getItem(BILL_REM_KEY)||'[]');}catch(e){return[];}}
-function setBillReminder(service,amount,dayOfMonth){
-  const r=getBillReminders();
-  r.push({service,amount,dayOfMonth});
-  localStorage.setItem(BILL_REM_KEY,JSON.stringify(r));
-  showPopupNotif('🔔','Reminder Set!',`Auto-reminder set for ${service} on day ${dayOfMonth} monthly.`);
-}
-function checkBillReminders(){
-  const today=new Date().getDate();
-  getBillReminders().forEach(r=>{
-    if(r.dayOfMonth===today){
-      const key=`bill_reminded_${r.service}_${new Date().getMonth()}_${new Date().getFullYear()}`;
-      if(!localStorage.getItem(key)){
-        localStorage.setItem(key,'1');
-        showPopupNotif('🔔','Bill Reminder!',`Your ${r.service} bill (₦${fmt(r.amount)}) is due today. Go to Finance → VTU to pay.`);
-      }
-    }
-  });
-}
-try{ checkBillReminders(); }catch(e){}
 
 // ============================================================
 // ABANDONED CART REMINDER
@@ -9925,15 +9249,9 @@ window.syncAccountDisplay = function(){
 }
 
 // === FROM BLOCK 10 ===
-// ============================================================
-// BILL REMINDER MANAGER — Full Engine
-// ============================================================
 
-let _selectedReminderService = '';
-let _selectedReminderServiceIcon = '';
 
 // --- Open/close modal ---
-let _selectedReminderDay = null;
 // [removed duplicate function block lines 9422-9463]
 
 
@@ -9942,70 +9260,21 @@ let _selectedReminderDay = null;
 // [removed duplicate function block lines 9468-9479]
 
 // --- Build day grid (1–31) ---
-function buildReminderDayGrid(){
-  const grid = el('reminder-day-grid'); if(!grid) return;
-  grid.innerHTML = '';
-  for(let d=1; d<=31; d++){
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.id = `rday-${d}`;
-    btn.className = 'h-8 w-full rounded-lg text-[10px] font-black border border-gray-700 bg-gray-800 text-gray-400 hover:border-emerald-500 hover:text-emerald-400 transition';
-    btn.textContent = d;
-    btn.onclick = () => selectReminderDay(d);
-    grid.appendChild(btn);
-  }
-}
 
-function selectReminderDay(day){
-  _selectedReminderDay = day;
-  for(let d=1; d<=31; d++){
-    const btn = el(`rday-${d}`);
-    if(!btn) continue;
-    if(d === day){
-      btn.className = 'h-8 w-full rounded-lg text-[10px] font-black border border-emerald-500 bg-emerald-500 text-gray-900 transition';
-    } else {
-      btn.className = 'h-8 w-full rounded-lg text-[10px] font-black border border-gray-700 bg-gray-800 text-gray-400 hover:border-emerald-500 hover:text-emerald-400 transition';
-    }
-  }
-  const dispEl = el('reminder-day-display');
-  if(dispEl) dispEl.textContent = day;
-}
 
-// --- Save reminder ---
 // [removed duplicate function block lines 9512-9547]
 
-// --- Render reminders list ---
 // [removed duplicate function block lines 9550-9629]
 
-// --- Pay a reminder immediately via VTU ---
 // [removed duplicate function block lines 9632-9644]
 
 // --- Toggle active/paused ---
 // [removed duplicate function block lines 9647-9654]
 
-// --- Delete reminder ---
 // [removed duplicate function block lines 9657-9662]
 
 // --- Auto-pay on due date ---
-function processAutoPay(){
-  const today = new Date().getDate();
-  getBillReminders().filter(r=>r.active&&r.autoPay&&r.dayOfMonth===today).forEach(rem=>{
-    const key=`auto_paid_${rem.id}_${new Date().getMonth()}_${new Date().getFullYear()}`;
-    if(localStorage.getItem(key)) return;
-    if(!state.session || state.session.balance < rem.amount){
-      showPopupNotif('⚠️','Auto-Pay Failed',`Insufficient balance for ${rem.service} (₦${fmt(rem.amount)}). Please fund your wallet.`);
-      return;
-    }
-    state.session.balance -= rem.amount;
-    addTransaction({ type:'debit', category:'vtu', userId:state.session.id, amount:rem.amount, desc:`Auto-pay: ${rem.service} bill${rem.accountNo?' — '+rem.accountNo:''}` });
-    syncAccountDisplay();
-    localStorage.setItem(key, '1');
-    showPopupNotif('⚡','Auto-Paid!',`${rem.icon} ${rem.service} ₦${fmt(rem.amount)} paid automatically from your wallet.`);
-  });
-}
 // Run auto-pay check on load
-const runAutoPayReminders = processAutoPay;
-try{ runAutoPayReminders(); }catch(e){}
 
 
 // === FROM BLOCK 11 ===
@@ -11594,7 +10863,6 @@ function completeGoogleSignInDemo(payload){
     <div class="flex flex-col gap-3">
       <div class="flex flex-col gap-1"><label class="label-sm">Daily Spending Limit (₦)</label><input type="number" id="limit-daily" placeholder="e.g. 5000" class="inp"><div class="text-[10px] text-gray-500">0 = no limit</div></div>
       <div class="flex flex-col gap-1"><label class="label-sm">Weekly Limit (₦)</label><input type="number" id="limit-weekly" placeholder="e.g. 20000" class="inp"></div>
-      <div class="flex flex-col gap-1"><label class="label-sm">Betting Daily Cap (₦)</label><input type="number" id="limit-betting" placeholder="e.g. 1000" class="inp"></div>
     </div>
     <button onclick="saveSpendingLimits()" class="btn-primary py-3">💾 Save Limits</button>
   </div>
@@ -11730,10 +10998,6 @@ function completeGoogleSignInDemo(payload){
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-2">
           <div class="text-[10px] font-black text-white">How Cashback Works</div>
           <div class="flex items-center gap-2 text-[10px] text-gray-400">
-            <span class="text-emerald-400 font-black w-6 text-center flex-shrink-0">1%</span>
-            <span>back on every VTU purchase (airtime, data, electricity, TV)</span>
-          </div>
-          <div class="flex items-center gap-2 text-[10px] text-gray-400">
             <span class="text-emerald-400 font-black w-6 text-center flex-shrink-0">🎁</span>
             <span>₦100 bonus on first deposit of ₦1,000+</span>
           </div>
@@ -11747,7 +11011,7 @@ function completeGoogleSignInDemo(payload){
         <div class="flex flex-col gap-2">
           <div class="text-[10px] font-black text-gray-400 uppercase tracking-wider">Transaction History</div>
           <div id="cb-history-list" class="flex flex-col gap-1.5"></div>
-          <div id="cb-history-empty" class="text-center py-6 text-xs text-gray-500 italic">No cashback earned yet. Make a VTU purchase to start!</div>
+          <div id="cb-history-empty" class="text-center py-6 text-xs text-gray-500 italic">No cashback earned yet.</div>
         </div>
 
         <!-- Cashback by service breakdown -->
@@ -11820,84 +11084,7 @@ function completeGoogleSignInDemo(payload){
   </div>
 </div>
 
-<!-- ADD BILL REMINDER MODAL -->
-<div id="add-reminder-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
-  <div class="modal-sheet flex flex-col gap-4">
 
-    <div class="flex justify-between items-center">
-      <div>
-        <h3 id="reminder-modal-title" class="text-base font-black text-white">🔔 Add Bill Reminder</h3>
-        <p class="text-[10px] text-gray-400 mt-0.5">We'll remind you on your chosen day each month</p>
-      </div>
-      <button onclick="closeReminderModal()" class="text-gray-400 text-lg font-black">✕</button>
-    </div>
-
-    <!-- Service type -->
-    <div class="flex flex-col gap-1.5">
-      <label class="label-sm">Bill Type</label>
-      <div class="grid grid-cols-3 gap-2" id="reminder-service-grid">
-        <button onclick="selectReminderService('Airtime','📱',this)"   class="reminder-svc-btn bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[8px] font-black text-gray-300 hover:border-emerald-500 transition"><span class="text-lg">📱</span>Airtime</button>
-        <button onclick="selectReminderService('Data','📶',this)"      class="reminder-svc-btn bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[8px] font-black text-gray-300 hover:border-emerald-500 transition"><span class="text-lg">📶</span>Data</button>
-        <button onclick="selectReminderService('Electricity','💡',this)" class="reminder-svc-btn bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[8px] font-black text-gray-300 hover:border-emerald-500 transition"><span class="text-lg">💡</span>Electricity</button>
-        <button onclick="selectReminderService('Cable TV','📺',this)"  class="reminder-svc-btn bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[8px] font-black text-gray-300 hover:border-emerald-500 transition"><span class="text-lg">📺</span>Cable TV</button>
-        <button onclick="selectReminderService('Rent','🏠',this)"      class="reminder-svc-btn bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[8px] font-black text-gray-300 hover:border-emerald-500 transition"><span class="text-lg">🏠</span>Rent</button>
-        <button onclick="selectReminderService('Water','🚿',this)"     class="reminder-svc-btn bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[8px] font-black text-gray-300 hover:border-emerald-500 transition"><span class="text-lg">🚿</span>Water</button>
-        <button onclick="selectReminderService('Insurance','🛡️',this)" class="reminder-svc-btn bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[8px] font-black text-gray-300 hover:border-emerald-500 transition"><span class="text-lg">🛡️</span>Insurance</button>
-        <button onclick="selectReminderService('Other','📋',this)"     class="reminder-svc-btn bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[8px] font-black text-gray-300 hover:border-emerald-500 transition"><span class="text-lg">📋</span>Other</button>
-      </div>
-    </div>
-
-    <!-- Label (for Other) -->
-    <div id="reminder-custom-label-wrap" class="hidden flex flex-col gap-1">
-      <label class="label-sm">Custom Label</label>
-      <input type="text" id="reminder-custom-label" placeholder="e.g. Generator fuel" class="inp">
-    </div>
-
-    <!-- Account / meter number -->
-    <div class="flex flex-col gap-1">
-      <label class="label-sm">Account / Meter Number <span class="text-gray-600">(optional)</span></label>
-      <input type="text" id="reminder-account" placeholder="e.g. 0123456789" class="inp">
-    </div>
-
-    <!-- Amount -->
-    <div class="flex flex-col gap-1">
-      <label class="label-sm">Typical Amount (₦)</label>
-      <input type="number" id="reminder-amount" placeholder="e.g. 5000" class="inp">
-    </div>
-
-    <!-- Due day -->
-    <div class="flex flex-col gap-1">
-      <label class="label-sm">Due Day of Month</label>
-      <div class="grid grid-cols-7 gap-1" id="reminder-day-grid">
-        <!-- days 1–31 filled by JS -->
-      </div>
-      <div class="text-[10px] text-gray-500 mt-0.5">Day <span id="reminder-day-display" class="text-white font-black">—</span> of every month</div>
-    </div>
-
-    <!-- Reminder advance notice -->
-    <div class="flex flex-col gap-1">
-      <label class="label-sm">Remind Me</label>
-      <select id="reminder-advance" class="inp text-xs">
-        <option value="0">On the due day</option>
-        <option value="1">1 day before</option>
-        <option value="2" selected>2 days before</option>
-        <option value="3">3 days before</option>
-        <option value="7">1 week before</option>
-      </select>
-    </div>
-
-    <!-- Auto-pay toggle -->
-    <label class="flex items-center justify-between bg-gray-950 border border-gray-800 rounded-xl p-3 cursor-pointer">
-      <div>
-        <div class="text-xs font-black text-white">⚡ Auto-Pay When Due</div>
-        <div class="text-[9px] text-gray-500 mt-0.5">Automatically pay from wallet on due date</div>
-      </div>
-      <input type="checkbox" id="reminder-autopay" class="accent-emerald-500 w-4 h-4">
-    </label>
-
-    <button onclick="saveReminder()" class="btn-primary py-3">🔔 Save Reminder</button>
-  </div>
-</div>
 
 <!-- BOOST POST MODAL -->
 <div id="boost-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
@@ -12508,7 +11695,7 @@ function renderCashbackTab(){
         div.innerHTML = `
           <div class="w-8 h-8 rounded-xl bg-emerald-950/50 border border-emerald-900/40 flex items-center justify-center text-base flex-shrink-0">${icon}</div>
           <div class="flex-1 min-w-0">
-            <div class="text-[10px] font-black text-white">${r.service ? r.service.charAt(0).toUpperCase()+r.service.slice(1) : 'VTU'} Purchase</div>
+            <div class="text-[10px] font-black text-white">${r.service ? r.service.charAt(0).toUpperCase()+r.service.slice(1) : 'Wallet'} cashback</div>
             <div class="text-[9px] text-gray-500 mono">${new Date(r.ts).toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric'})}</div>
           </div>
           <span class="text-xs font-black text-emerald-400 mono">+${fmtCurrency(r.amount)}</span>`;
@@ -14092,180 +13279,8 @@ function confirmVendorTierDowngrade(tierKey){
   showPopupNotif(tier.icon,`Downgraded to ${tier.name}`,`Your plan has been changed. Some features may no longer be available.`);
 }
 
-function openAddReminderModal(editId){
-  _editingReminderId = editId || null;
-  _selectedReminderService = '';
-  _selectedReminderServiceIcon = '';
-  _selectedReminderDay = 0;
 
-  const titleEl = el('reminder-modal-title');
-  if(titleEl) titleEl.textContent = editId ? '✏️ Edit Reminder' : '🔔 Add Bill Reminder';
 
-  // Reset form
-  ['reminder-account','reminder-amount','reminder-custom-label'].forEach(id => { const e = el(id); if(e) e.value = ''; });
-  el('reminder-advance').value = '2';
-  if(el('reminder-autopay')) el('reminder-autopay').checked = false;
-  el('reminder-custom-label-wrap')?.classList.add('hidden');
-
-  // Reset service buttons
-  document.querySelectorAll('.reminder-svc-btn').forEach(b => {
-    b.classList.remove('border-emerald-500','bg-emerald-950/30','text-emerald-400');
-    b.classList.add('border-gray-700','bg-gray-800','text-gray-300');
-  });
-  el('reminder-day-display') && (el('reminder-day-display').textContent = '—');
-
-  // Build day grid
-  buildReminderDayGrid();
-
-  // Pre-fill if editing
-  if(editId){
-    const rem = getBillReminders().find(r => r.id === editId);
-    if(rem){
-      _selectedReminderService     = rem.service;
-      _selectedReminderServiceIcon = rem.icon || '📋';
-      _selectedReminderDay         = rem.dayOfMonth;
-      if(el('reminder-account'))  el('reminder-account').value  = rem.accountNo || '';
-      if(el('reminder-amount'))   el('reminder-amount').value   = rem.amount    || '';
-      if(el('reminder-advance'))  el('reminder-advance').value  = rem.advance   || 2;
-      if(el('reminder-autopay'))  el('reminder-autopay').checked = !!rem.autoPay;
-      // Highlight selected service
-      document.querySelectorAll('.reminder-svc-btn').forEach(b => {
-        if(b.textContent.trim().includes(rem.service)){ b.classList.add('border-emerald-500','bg-emerald-950/30','text-emerald-400'); b.classList.remove('border-gray-700','bg-gray-800','text-gray-300'); }
-      });
-      // Highlight selected day
-      selectReminderDay(rem.dayOfMonth);
-    }
-  }
-
-  el('add-reminder-modal').classList.remove('hidden');
-}
-
-function saveReminder(){
-  if(!_selectedReminderService){ showPopupNotif('⚠️','Select Bill Type','Please choose what bill this reminder is for.'); return; }
-  if(!_selectedReminderDay){ showPopupNotif('⚠️','Select Day','Please pick the day of the month this bill is due.'); return; }
-  const amount  = parseFloat(el('reminder-amount')?.value) || 0;
-  if(!amount){ showPopupNotif('⚠️','Enter Amount','Please enter the typical bill amount.'); return; }
-
-  const service  = _selectedReminderService === 'Other' ? (el('reminder-custom-label')?.value.trim() || 'Bill') : _selectedReminderService;
-  const icon     = _selectedReminderServiceIcon;
-  const accountNo= el('reminder-account')?.value.trim() || '';
-  const advance  = parseInt(el('reminder-advance')?.value) || 0;
-  const autoPay  = el('reminder-autopay')?.checked || false;
-  const reminders = getBillReminders();
-
-  if(_editingReminderId){
-    // Edit existing
-    const idx = reminders.findIndex(r => r.id === _editingReminderId);
-    if(idx > -1){
-      reminders[idx] = { ...reminders[idx], service, icon, accountNo, amount, dayOfMonth:_selectedReminderDay, advance, autoPay, active:true };
-    }
-  } else {
-    // New reminder
-    reminders.push({
-      id        : 'rem-' + Date.now(),
-      service, icon, accountNo, amount,
-      dayOfMonth: _selectedReminderDay,
-      advance, autoPay,
-      active    : true,
-      createdAt : Date.now()
-    });
-  }
-
-  localStorage.setItem(BILL_REM_KEY, JSON.stringify(reminders));
-  closeReminderModal();
-  renderRemindersList();
-  showPopupNotif('🔔','Reminder Saved!',`${icon} ${service} reminder set for day ${_selectedReminderDay} every month.${autoPay?' Auto-pay enabled.':''}`);
-}
-
-function renderRemindersList(){
-  const listEl  = el('reminders-list');
-  const emptyEl = el('reminders-empty');
-  const nextEl  = el('reminders-next-due');
-  if(!listEl) return;
-
-  const reminders = getBillReminders();
-  const today     = new Date().getDate();
-  const thisMonth = reminders.filter(r => r.active && r.dayOfMonth >= today - r.advance);
-
-  // Empty state
-  if(emptyEl) emptyEl.classList.toggle('hidden', reminders.length > 0);
-
-  // Next due this month
-  const dueSoon = reminders.filter(r => r.active && Math.abs(r.dayOfMonth - today) <= 7);
-  if(nextEl){
-    nextEl.classList.toggle('hidden', dueSoon.length === 0);
-    const nextListEl = el('reminders-next-due-list');
-    if(nextListEl){
-      nextListEl.innerHTML = '';
-      dueSoon.forEach(r => {
-        const daysLeft = r.dayOfMonth - today;
-        const div = document.createElement('div');
-        div.className = 'flex items-center justify-between text-[10px] py-1';
-        div.innerHTML = `
-          <div class="flex items-center gap-2">
-            <span>${r.icon||'📋'}</span>
-            <span class="font-black text-white">${r.service}</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="mono text-emerald-400 font-black">₦${fmt(r.amount)}</span>
-            <span class="${daysLeft <= 0 ? 'text-red-400' : daysLeft <= 2 ? 'text-amber-400' : 'text-gray-400'} font-black">
-              ${daysLeft < 0 ? 'Overdue' : daysLeft === 0 ? 'Due today!' : `${daysLeft}d left`}
-            </span>
-          </div>`;
-        nextListEl.appendChild(div);
-      });
-    }
-  }
-
-  // Main list
-  listEl.innerHTML = '';
-  if(!reminders.length) return;
-
-  reminders.forEach(rem => {
-    const today2   = new Date().getDate();
-    const daysLeft = rem.dayOfMonth - today2;
-    const isOverdue = daysLeft < 0;
-    const isDueSoon = daysLeft >= 0 && daysLeft <= 3;
-    const statusColor = isOverdue ? 'text-red-400' : isDueSoon ? 'text-amber-400' : 'text-gray-400';
-    const statusLabel = isOverdue ? 'Overdue' : daysLeft === 0 ? '🔴 Due today' : `Day ${rem.dayOfMonth}`;
-
-    const card = document.createElement('div');
-    card.className = `bg-gray-900 border ${isOverdue ? 'border-red-900/50' : isDueSoon ? 'border-amber-900/50' : 'border-gray-800'} rounded-2xl p-3 flex flex-col gap-2`;
-    card.innerHTML = `
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-xl ${rem.active ? 'bg-emerald-950 border border-emerald-900' : 'bg-gray-800 border border-gray-700'} flex items-center justify-center text-lg flex-shrink-0">
-            ${rem.icon||'📋'}
-          </div>
-          <div>
-            <div class="text-xs font-black text-white">${rem.service}</div>
-            <div class="text-[9px] text-gray-400 mt-0.5">${rem.accountNo ? `Acct: ${rem.accountNo}` : 'No account set'}</div>
-          </div>
-        </div>
-        <div class="flex flex-col items-end gap-1">
-          <span class="text-sm font-black text-emerald-400 mono">₦${fmt(rem.amount)}</span>
-          <span class="text-[9px] font-black ${statusColor}">${statusLabel}</span>
-        </div>
-      </div>
-
-      <div class="flex items-center justify-between text-[9px] text-gray-500 bg-gray-950 border border-gray-800 rounded-xl px-2.5 py-1.5">
-        <span>📅 Remind ${rem.advance > 0 ? rem.advance+'d before' : 'on due day'}</span>
-        ${rem.autoPay ? '<span class="text-emerald-400 font-black">⚡ Auto-pay ON</span>' : '<span>Manual pay</span>'}
-        <span class="text-gray-600">${rem.active ? '● Active' : '○ Paused'}</span>
-      </div>
-
-      <div class="flex gap-1.5">
-        ${rem.active && daysLeft <= 0
-          ? `<button onclick="payReminderNow('${rem.id}')" class="btn-sm-primary text-[9px] flex-1 py-1.5">💳 Pay Now</button>`
-          : `<button onclick="payReminderNow('${rem.id}')" class="btn-sm-outline text-[9px] flex-1 py-1.5 text-emerald-400 border-emerald-900">💳 Pay Early</button>`
-        }
-        <button onclick="openAddReminderModal('${rem.id}')" class="btn-sm-outline text-[9px] px-2.5 py-1.5">✏️</button>
-        <button onclick="toggleReminderActive('${rem.id}')" class="btn-sm-outline text-[9px] px-2.5 py-1.5 ${rem.active ? 'text-amber-400 border-amber-900' : 'text-emerald-400 border-emerald-900'}">${rem.active ? '⏸' : '▶'}</button>
-        <button onclick="deleteReminder('${rem.id}')" class="btn-sm-outline text-[9px] px-2.5 py-1.5 text-red-400 border-red-900 hover:bg-red-950">🗑</button>
-      </div>`;
-    listEl.appendChild(card);
-  });
-}
 
 function toggleSpoilLog(){
   const panel  = el('spoil-log-panel');
@@ -14354,10 +13369,6 @@ function closeOrderTracking(){
   _trackingPostId  = null;
 }
 
-function closeReminderModal(){
-  el('add-reminder-modal').classList.add('hidden');
-  _editingReminderId = null;
-}
 
 function completeGoogleSetup(){
   const town  = el('gsetup-town')?.value.trim();
@@ -14424,12 +13435,6 @@ function declineOrder(orderId){
   refreshAvailableOrders();
 }
 
-function deleteReminder(remId){
-  const reminders = getBillReminders().filter(r => r.id !== remId);
-  localStorage.setItem(BILL_REM_KEY, JSON.stringify(reminders));
-  renderRemindersList();
-  showPopupNotif('🗑','Deleted','Reminder removed.');
-}
 
 function dismissFirstOrderBanner(){
   localStorage.setItem('ememart_first_order_dismissed','1');
@@ -14514,21 +13519,6 @@ function openTermsModal(tab){
   switchTermsTab(tab||'terms');
 }
 
-function payReminderNow(remId){
-  const rem = getBillReminders().find(r => r.id === remId);
-  if(!rem) return;
-  // Map service to VTU action
-  const vtuMap = { 'Airtime':'airtime', 'Data':'data', 'Electricity':'electricity', 'Cable TV':'tv' };
-  const vtuService = vtuMap[rem.service];
-  if(vtuService){
-    showPanel('finance');
-    switchFinanceTab('vtu');
-    setTimeout(() => vtuAction(vtuService), 300);
-  } else {
-    showPopupNotif('💳','Pay Bill',`Opening payment for ${rem.service}. Use the VTU tab to complete this payment.`);
-    showPanel('finance'); switchFinanceTab('vtu');
-  }
-}
 
 function pinPadBackspace(){
   if(!_pinSetupEntry.length) return;
@@ -14737,18 +13727,6 @@ function selectBoostPlan(hours, baseFee, btn){
   }
 }
 
-function selectReminderService(service, icon, btn){
-  _selectedReminderService     = service;
-  _selectedReminderServiceIcon = icon;
-  document.querySelectorAll('.reminder-svc-btn').forEach(b => {
-    b.classList.remove('border-emerald-500','bg-emerald-950/30','text-emerald-400');
-    b.classList.add('border-gray-700','bg-gray-800','text-gray-300');
-  });
-  btn.classList.add('border-emerald-500','bg-emerald-950/30','text-emerald-400');
-  btn.classList.remove('border-gray-700','bg-gray-800','text-gray-300');
-  const customWrap = el('reminder-custom-label-wrap');
-  if(customWrap) customWrap.classList.toggle('hidden', service !== 'Other');
-}
 
 function sendFAQ(question){
   const box=el('support-messages-container');if(!box)return;
@@ -14872,15 +13850,6 @@ function toggleNotifSound(enabled){
   showPopupNotif('🔔',enabled?'Sound On':'Sound Off',enabled?'Notification sounds enabled.':'Disabled.');
 }
 
-function toggleReminderActive(remId){
-  const reminders = getBillReminders();
-  const rem = reminders.find(r => r.id === remId);
-  if(!rem) return;
-  rem.active = !rem.active;
-  localStorage.setItem(BILL_REM_KEY, JSON.stringify(reminders));
-  renderRemindersList();
-  showPopupNotif(rem.active ? '🔔' : '⏸', rem.active ? 'Reminder Activated' : 'Reminder Paused', `${rem.service} reminder ${rem.active ? 'is now active' : 'has been paused'}.`);
-}
 
 function toggleRiderOnline(isOnline){
   const label = el('rider-online-label');
@@ -15427,9 +14396,6 @@ function verifyPinPress(digit){
 <div id="referral-info-block"    class="hidden flex-col gap-1"></div>
 <div id="referral-total-display" class="hidden text-xs font-black mono text-emerald-400">₦0.00</div>
 
-<!-- ── Reminders elements ── -->
-<input type="hidden" id="reminder-edit-id" value="" />
-<div id="upcoming-reminders-list" class="hidden flex-col gap-2"></div>
 
 <!-- ── Terms/Privacy tab buttons (if not in DOM) ── -->
 <button id="terms-tab-btn"   class="hidden" onclick="switchTermsTab('terms')">Terms</button>
