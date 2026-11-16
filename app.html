@@ -12,7 +12,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="/icons/icon-192.png">
-<script src="https://cdn.tailwindcss.com"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
@@ -301,6 +300,9 @@
   body.light .finance-tab.active        { color:#047857 !important; border-bottom-color:#10b981 !important; }
   body.light .btn-sm-outline            { color:#047857 !important; border-color:#6ee7b7 !important; }
   body.light .btn-sm-outline:hover      { background:#ecfdf5 !important; border-color:#10b981 !important; }
+  body.light [class*="bg-gradient-to-"][class*="from-gray-9"],
+  body.light [class*="bg-gradient-to-"][class*="from-slate-9"],
+  body.light [class*="bg-gradient-to-"][class*="from-emerald-95"] { background-image:none !important; background-color:#ffffff !important; }
   body.light .menu-sec-head              { border-color:#e2e8f0 !important; }
   body.light .acc-head                  { color:#0f172a !important; }
   body.light .acc-head .acc-chev        { color:#64748b !important; }
@@ -411,6 +413,7 @@ document.addEventListener('click', function askOnce(){
   document.removeEventListener('click', askOnce);
 }, { once: true });
 </script>
+<link rel="stylesheet" href="tailwind.css">
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col pb-20">
 <script>
