@@ -349,6 +349,15 @@
   #menu-drawer section.sec-open > .menu-sec-head .chev{transform:rotate(180deg)}
   #menu-drawer section:not(.sec-open) > .menu-sec-body{display:none}
   @media (prefers-reduced-motion:reduce){#menu-drawer{transition:none}}
+  #broadcast-bar{display:none;position:relative;overflow:hidden;margin:10px -16px -12px;background:#2a2008;border-top:1px solid #4a3a10;color:#fcd34d;font-size:12px;font-weight:700;letter-spacing:.02em;cursor:pointer}
+  #broadcast-bar.show{display:block}
+  .bc-track{display:inline-block;white-space:nowrap;padding:9px 0 9px 100%;animation:bc-move var(--bc-dur,20s) linear infinite;will-change:transform}
+  #broadcast-bar.paused .bc-track{animation-play-state:paused}
+  @keyframes bc-move{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+  .bc-close{position:absolute;right:0;top:0;bottom:0;width:34px;border:0;color:inherit;font-size:18px;font-weight:900;cursor:pointer;background:linear-gradient(90deg,transparent,#2a2008 45%)}
+  body.light #broadcast-bar{background:#fef9e7 !important;border-color:#f6e8b4 !important;color:#92400e !important}
+  body.light .bc-close{background:linear-gradient(90deg,transparent,#fef9e7 45%) !important;color:#92400e !important}
+  @media (prefers-reduced-motion:reduce){.bc-track{animation:none;white-space:normal;padding:9px 40px 9px 16px;display:block}}
 </style>
 <script>
 // ============================================================
@@ -714,6 +723,10 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
       <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" class="text-gray-200"><path d="M1 1.5h18M1 7h18M1 12.5h18"/></svg>
       <span class="notif-badge absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 rounded-full flex items-center justify-center hidden">0</span>
     </button>
+  </div>
+  <div id="broadcast-bar" role="status" aria-live="polite" onclick="this.classList.toggle('paused')">
+    <div class="bc-track"><span id="broadcast-text"></span></div>
+    <button type="button" class="bc-close" aria-label="Hide this notice" onclick="event.stopPropagation();dismissBroadcast()">×</button>
   </div>
 </header>
 <!-- ===== MENU DRAWER (top-right hamburger) ===== -->
@@ -1912,6 +1925,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
         <button onclick="openSpendingLimitsModal()" class="bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition"><span class="text-lg">💸</span>Spend Limits</button>
         <button onclick="toggleDarkSchedule()" class="bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition"><span class="text-lg">🌙</span><span id="auto-dark-label">Auto Dark</span></button>
       </div>
+      <button onclick="openDeleteAccountModal()" class="mt-1 w-full border border-red-900/60 rounded-xl py-2.5 text-[10px] font-black uppercase tracking-wider text-red-400">Delete account</button>
     </div>
 
     <!-- Safety & Support shortcut -->
@@ -3543,6 +3557,55 @@ function setupMenuAccordion(){
   });
 }
 document.addEventListener('DOMContentLoaded', setupMenuAccordion);
+// ===== BROADCAST TICKER =====
+let _bcList = [];
+function setBroadcasts(list){
+  _bcList = Array.isArray(list) ? list : [];
+  renderBroadcast();
+}
+function renderBroadcast(){
+  const bar = el('broadcast-bar'); if(!bar) return;
+  const role = state.session ? (state.session.role === 'user' ? 'buyer' : state.session.role) : 'buyer';
+  const mine = _bcList.filter(b => !b.audience || b.audience === 'all' || b.audience === role);
+  let hidden = '';
+  try { hidden = sessionStorage.getItem('ememart_bc_hidden') || ''; } catch(e){}
+  const key = mine.map(b => b.id).join(',');
+  if(!mine.length || key === hidden){ bar.classList.remove('show'); return; }
+  const text = mine.map(b => b.message).join('     •     ');
+  el('broadcast-text').textContent = text;                       // textContent: broadcasts can never inject HTML
+  bar.style.setProperty('--bc-dur', Math.max(14, Math.round(text.length * 0.22)) + 's');   // longer message, slower lap
+  bar.classList.add('show');
+}
+function dismissBroadcast(){
+  const key = _bcList.map(b => b.id).join(',');
+  try { sessionStorage.setItem('ememart_bc_hidden', key); } catch(e){}
+  el('broadcast-bar').classList.remove('show');
+}
+
+// ===== DELETE ACCOUNT =====
+function openDeleteAccountModal(){
+  if(!state.session){ showPopupNotif('🔐','Sign In','Sign in first.'); return; }
+  el('delete-confirm').value = ''; el('delete-pin').value = ''; el('delete-error').textContent = '';
+  const live = window.EMEMART_BACKEND && window.EMEMART_BACKEND.mode === 'live';
+  el('delete-pin-wrap').classList.toggle('hidden', !(live && state.session.has_pin));
+  el('delete-account-modal').classList.remove('hidden');
+}
+async function confirmDeleteAccount(){
+  const err = el('delete-error'); err.textContent = '';
+  if(el('delete-confirm').value.trim() !== 'DELETE'){ err.textContent = 'Type DELETE in capital letters to continue.'; return; }
+  const btn = el('delete-go'); btn.disabled = true;
+  const live = window.EMEMART_BACKEND && window.EMEMART_BACKEND.mode === 'live';
+  if(live){
+    const pin = el('delete-pin').value.trim();
+    const r = await window.callApi('POST', '/me/delete', { confirm: 'DELETE', pin: pin || undefined });
+    if(!r.success){ err.textContent = r.message || 'Could not delete the account.'; btn.disabled = false; return; }
+    try { await window.sb.auth.signOut(); } catch(e){}
+  }
+  Object.keys(localStorage).filter(k => k.indexOf('ememart_') === 0).forEach(k => localStorage.removeItem(k));
+  try { sessionStorage.clear(); } catch(e){}
+  location.href = location.pathname;
+}
+
 function openMenu(){
   el('menu-overlay').classList.remove('hidden');
   const d = el('menu-drawer'); d.classList.add('open'); d.setAttribute('aria-hidden','false');
@@ -10588,6 +10651,26 @@ function applyBalanceVisibility(){
       <div class="flex flex-col gap-1"><label class="label-sm">State</label><input type="text" id="edit-state" placeholder="e.g. Anambra" class="inp"></div>
     </div>
     <button onclick="saveLocationUpdate()" class="btn-primary py-3"><svg width="14" height="16" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;flex-shrink:0"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg> Update Location</button>
+  </div>
+</div>
+
+
+<!-- DELETE ACCOUNT MODAL -->
+<div id="delete-account-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal-sheet flex flex-col gap-4">
+    <div class="flex justify-between items-center">
+      <h3 class="text-base font-black text-red-400">Delete your account</h3>
+      <button onclick="document.getElementById('delete-account-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black" aria-label="Close">✕</button>
+    </div>
+    <div class="text-[11px] text-gray-400 leading-relaxed flex flex-col gap-1.5">
+      <p>This cannot be undone. We will remove your profile, posts, photos, messages and ID documents, and close your login.</p>
+      <p>Your wallet must be empty and you must have no orders, bookings or withdrawals in progress. Past payment records are kept without your name, as the law requires.</p>
+    </div>
+    <div class="flex flex-col gap-1"><label class="label-sm">Type DELETE to confirm</label><input type="text" id="delete-confirm" autocomplete="off" autocapitalize="characters" class="inp"></div>
+    <div id="delete-pin-wrap" class="flex flex-col gap-1 hidden"><label class="label-sm">Transaction PIN</label><input type="password" id="delete-pin" inputmode="numeric" maxlength="6" autocomplete="off" class="inp"></div>
+    <div id="delete-error" class="text-[11px] font-bold text-red-400 min-h-[14px]" role="alert"></div>
+    <button id="delete-go" onclick="confirmDeleteAccount()" class="py-3 rounded-2xl bg-red-600 text-white text-xs font-black uppercase tracking-wider">Delete my account</button>
+    <button onclick="document.getElementById('delete-account-modal').classList.add('hidden')" class="btn-sm-outline py-2.5">Keep my account</button>
   </div>
 </div>
 
