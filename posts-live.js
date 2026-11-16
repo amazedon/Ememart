@@ -93,12 +93,14 @@
   var _submit = window.submitPost;
   window.submitPost = function () {
     var before = state.posts.length;
-    _submit.apply(this, arguments);                       // validation + form reset (the old local publish)
-    if (state.posts.length <= before) return;             // validation failed
-    var local = state.posts[0];
-    state.posts.shift();                                  // remove the local-only copy
-    try { localStorage.removeItem('ememart_posts'); } catch (e) {}
-    publish(local);
+    var self = this, args = arguments;
+    Promise.resolve(_submit.apply(self, args)).then(function () {   // validation + form reset (the old local publish)
+      if (state.posts.length <= before) return;           // validation failed
+      var local = state.posts[0];
+      state.posts.shift();                                // remove the local-only copy
+      try { localStorage.removeItem('ememart_posts'); } catch (e) {}
+      publish(local);
+    });
   };
 
   async function publish(p) {
