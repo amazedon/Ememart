@@ -82,7 +82,7 @@
     return {
       id: authUser.id, name: name, full_name: name,
       email: authUser.email || p.email || '', phone: p.phone || meta.phone || '',
-      role: role, balance: Number(me.balance_kobo || 0) / 100, wallet_balance: Number(me.balance_kobo || 0) / 100,
+      role: role, username: p.username || '', role_changes: p.role_changes || 0, balance: Number(me.balance_kobo || 0) / 100, wallet_balance: Number(me.balance_kobo || 0) / 100,
       town: meta.town || '', lga: meta.lga || '', state: meta.state || '',
       accountNum: 'EM-' + authUser.id.slice(0, 8).toUpperCase(),
       verified: !!p.verified, vendorTier: p.tier || 'free', has_pin: !!me.has_pin, admin_role: me.admin_role || null,
@@ -118,12 +118,17 @@
     switch (key) {
       case 'auth.php:login': {
         const id = String(data.identifier || '').trim();
-        if (!id.includes('@')) return { success: false, message: 'Please sign in with your email address.' };
-        const r = await sb.auth.signInWithPassword({ email: id, password: data.password });
+        let loginEmail = id;
+        if (!id.includes('@')) {
+          const lk = await sb.rpc('login_email', { p_identifier: id.replace(/^@/, '') });
+          if (lk.error || !lk.data) return { success: false, message: 'No account found with that username or phone number.' };
+          loginEmail = lk.data;
+        }
+        const r = await sb.auth.signInWithPassword({ email: loginEmail, password: data.password });
         if (r.error) {
           if (/not confirmed/i.test(r.error.message || '')) {
             // account exists but the email was never confirmed: send a fresh code and ask for it
-            const rs = await sb.auth.resend({ type: 'signup', email: id });
+            const rs = await sb.auth.resend({ type: 'signup', email: loginEmail });
             window._pendingReg = { email: id, password: data.password, full_name: '', role: 'buyer' };
             _otpPurpose = 'register';
             if (!rs.error) {
@@ -137,6 +142,19 @@
         }
         const sess = await buildSession();
         return { success: true, data: { user: sess }, user: sess };
+      }
+      case 'role.php:switch': {
+        const r = await callApi('POST', '/me/role', { role: data.role === 'user' ? 'buyer' : data.role });
+        if (r.success && r.approved) {
+          const sess = await buildSession(); if (sess) setSession(sess);
+        }
+        return r;
+      }
+      case 'role.php:status': {
+        const r = await callApi('GET', '/me');
+        if (!r.success) return r;
+        const p = r.profile || {};
+        return { success: true, role: p.role === 'buyer' || !p.role ? 'user' : p.role, pending_role: r.pending_role ? (r.pending_role === 'buyer' ? 'user' : r.pending_role) : null };
       }
       case 'auth.php:logout':
         await sb.auth.signOut();
@@ -161,9 +179,7 @@
   // ---- 3. sign-up with email code ------------------------------------------------------------
   async function finishRegistration(d) {
     const sess = await buildSession();
-    if (d && (d.role === 'rider' || d.role === 'artisan')) {
-      await callApi('POST', '/me/role-application', { role: d.role, details: { business_name: d.biz || '' } });
-    }
+    if (d && d.remember) { try { localStorage.setItem('ememart_saved_email', d.email); } catch (e) {} }
     el('otp-verify-modal') && el('otp-verify-modal').classList.add('hidden');
     el('otp-channel-modal') && el('otp-channel-modal').classList.add('hidden');
     setSession(sess);
@@ -180,10 +196,12 @@
     try {
       const d = window._pendingReg;
       if (!d || !d.email) { showPopupNotif('❌', 'Error', 'Please fill in your details first.'); return; }
+      const av = await sb.rpc('signup_available', { p_username: d.username, p_phone: d.phone });
+      if (av.data && av.data.username_taken) { showPopupNotif('⚠️', 'Username taken', 'Pick a different username.'); return; }
+      if (av.data && av.data.phone_taken) { showPopupNotif('⚠️', 'Phone already used', 'That phone number belongs to another account. Sign in instead.'); return; }
       const r = await sb.auth.signUp({
         email: d.email, password: d.password,
-        options: { data: { full_name: d.full_name, phone: d.phone, role: d.role === 'vendor' ? 'vendor' : 'buyer',
-                           applied_role: d.role, town: d.town, lga: d.lga, state: d.state } },
+        options: { data: { full_name: d.full_name, username: d.username, phone: d.phone } },
       });
       if (r.error) { showPopupNotif('❌', 'Sign-up failed', niceError(r.error)); return; }
       // Supabase returns a user with no identities when the email is already registered
