@@ -103,6 +103,7 @@ var TABS = [
   ['roles', 'Rider / artisan requests', ['super_admin', 'verification_reviewer']],
   ['disputes', 'Disputes', ['super_admin', 'support']],
   ['users', 'Users', ['super_admin', 'support', 'verification_reviewer']],
+  ['broadcasts', 'Broadcasts', ['super_admin', 'support']],
   ['finance', 'Finance', ['super_admin', 'finance']],
   ['team', 'Admin team', ['super_admin']],
   ['audit', 'Activity log', ['super_admin']],
@@ -253,6 +254,41 @@ VIEWS.team = function () {
     var x = await api('POST', '/admin/team', { user_id: u.id, role: role });
     say(x._ok ? 'Saved.' : x._err);
   };
+};
+
+// ---- broadcasts (scrolling notice at the top of the app) --------------------------------------
+VIEWS.broadcasts = async function () {
+  var r = await api('GET', '/admin/broadcasts');
+  if (!r._ok) return view('<p class="bad">' + esc(r._err) + '</p>');
+  var now = Date.now();
+  view('<div class="card"><h3>Send a broadcast</h3>' +
+    '<textarea id="bc-msg" rows="3" maxlength="400" placeholder="Message everyone will see scrolling at the top of the app (3 to 400 characters)" style="width:100%"></textarea>' +
+    '<div class="row" style="margin-top:8px"><select id="bc-aud"><option value="all">Everyone</option><option value="buyer">Buyers</option><option value="vendor">Vendors</option><option value="rider">Riders</option><option value="artisan">Artisans</option></select>' +
+    '<select id="bc-hrs"><option value="6">Show for 6 hours</option><option value="24" selected>Show for 1 day</option><option value="72">Show for 3 days</option><option value="168">Show for 7 days</option></select>' +
+    '<span class="grow"></span><button class="btn ok" id="bc-send">Send broadcast</button></div></div>' +
+    '<h3>Recent broadcasts</h3>' + ((r.broadcasts || []).length ? '' : '<p class="mute">None yet.</p>') +
+    (r.broadcasts || []).map(function (b) {
+      var live = b.active && new Date(b.ends_at).getTime() > now;
+      return '<div class="card"><div class="row"><b class="grow">' + esc(b.audience === 'all' ? 'Everyone' : b.audience) + '</b><span class="' + (live ? '' : 'mute') + '">' + (live ? 'Live until ' + esc(when(b.ends_at)) : 'Ended') + '</span></div>' +
+        '<div style="margin:6px 0">' + esc(b.message) + '</div>' +
+        (live ? '<button class="btn bad" data-stop="' + esc(b.id) + '">Stop now</button>' : '') + '</div>';
+    }).join(''));
+  $('bc-send').onclick = async function () {
+    var msg = $('bc-msg').value.trim();
+    if (msg.length < 3) return alert('Write the message first.');
+    if (!confirm('Send this to ' + $('bc-aud').options[$('bc-aud').selectedIndex].text.toLowerCase() + ' now?')) return;
+    var x = await api('POST', '/admin/broadcasts', { message: msg, audience: $('bc-aud').value, hours: parseInt($('bc-hrs').value, 10) });
+    if (!x._ok) return alert(x._err);
+    VIEWS.broadcasts();
+  };
+  Array.prototype.forEach.call(document.querySelectorAll('[data-stop]'), function (b) {
+    b.onclick = async function () {
+      if (!confirm('Stop this broadcast now?')) return;
+      var x = await api('DELETE', '/admin/broadcasts/' + b.dataset.stop);
+      if (!x._ok) return alert(x._err);
+      VIEWS.broadcasts();
+    };
+  });
 };
 
 // ---- activity log ----------------------------------------------------------------------------
