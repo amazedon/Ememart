@@ -102,6 +102,8 @@
     if (/invalid login/i.test(m)) return 'Wrong email or password';
     if (/email not confirmed/i.test(m)) return 'Please confirm your email first. Check your inbox for the code.';
     if (/already registered|already been registered/i.test(m)) return 'An account with this email already exists. Sign in instead.';
+    if (/not authorized/i.test(m)) return 'This email address cannot receive codes yet while the app is in testing. Use the email you use for Supabase, or ask the admin.';
+    if (/email rate limit/i.test(m)) return 'The email limit was reached (testing mode allows only a few codes per hour). Wait an hour and try again.';
     if (/rate limit|too many/i.test(m)) return 'Too many attempts. Please wait a few minutes and try again.';
     if (/token has expired|invalid/i.test(m)) return 'That code is wrong or has expired.';
     return m;
@@ -118,7 +120,21 @@
         const id = String(data.identifier || '').trim();
         if (!id.includes('@')) return { success: false, message: 'Please sign in with your email address.' };
         const r = await sb.auth.signInWithPassword({ email: id, password: data.password });
-        if (r.error) return { success: false, message: niceError(r.error) };
+        if (r.error) {
+          if (/not confirmed/i.test(r.error.message || '')) {
+            // account exists but the email was never confirmed: send a fresh code and ask for it
+            const rs = await sb.auth.resend({ type: 'signup', email: id });
+            window._pendingReg = { email: id, password: data.password, full_name: '', role: 'buyer' };
+            _otpPurpose = 'register';
+            if (!rs.error) {
+              el('otp-verify-info').textContent = 'Confirm your email first. A new 6-digit code was sent to ' + id + '.';
+              el('otp-verify-modal').classList.remove('hidden');
+              return { success: false, message: 'Confirm your email with the code we just sent.' };
+            }
+            return { success: false, message: niceError(rs.error) };
+          }
+          return { success: false, message: niceError(r.error) };
+        }
         const sess = await buildSession();
         return { success: true, data: { user: sess }, user: sess };
       }
@@ -158,8 +174,9 @@
   }
 
   window.sendRegistrationOTP = async function () {
-    const btn = el('send-otp-btn');
-    if (btn) { btn.textContent = 'Sending...'; btn.disabled = true; }
+    const btn = el('send-otp-btn') || el('auth-submit-btn');
+    const btnText = btn && btn.id === 'auth-submit-btn' ? 'Create Account' : 'Send OTP to Email';
+    if (btn) { btn.textContent = 'Creating account...'; btn.disabled = true; }
     try {
       const d = window._pendingReg;
       if (!d || !d.email) { showPopupNotif('❌', 'Error', 'Please fill in your details first.'); return; }
@@ -173,14 +190,14 @@
       if (r.data.user && r.data.user.identities && r.data.user.identities.length === 0) {
         showPopupNotif('⚠️', 'Already registered', 'An account with this email already exists. Sign in instead.'); return;
       }
-      if (r.data.session) { await finishRegistration(d); return; }   // email confirmation switched off
+      if (r.data.session) { await finishRegistration(d); return; }   // no email confirmation: signed in straight away
       _otpPurpose = 'register';
       el('otp-channel-modal').classList.add('hidden');
       el('otp-verify-info').textContent = 'A 6-digit code was sent to ' + d.email + '. Enter it below.';
       el('otp-verify-modal').classList.remove('hidden');
     } catch (e) {
       console.error(e); showPopupNotif('❌', 'Error', 'Connection failed. Check your internet and try again.');
-    } finally { if (btn) { btn.textContent = 'Send OTP to Email'; btn.disabled = false; } }
+    } finally { if (btn) { btn.textContent = btnText; btn.disabled = false; } }
   };
 
   window.verifyOTP = async function () {
