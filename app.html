@@ -870,6 +870,8 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
 <main class="flex-1 max-w-md w-full mx-auto p-3 flex flex-col gap-3 relative z-10">
 
 <div id="auth-panel" class="panel gap-4 fade-up">
+<div id="backend-status" class="hidden mx-4 mt-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-400" role="status"></div>
+
   <div class="bg-gray-950 border border-gray-900 rounded-2xl overflow-hidden shadow-xl">
     <div class="flex border-b border-gray-900 bg-gray-950/60">
       <button id="tab-signin" class="feed-tab-btn active" onclick="switchAuthTab('signin')">Sign In</button>
@@ -1542,7 +1544,9 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
     <span class="text-4xl">🔐</span>
     <h3 class="text-base font-black text-white">Welcome to Ememart</h3>
     <p class="text-xs text-gray-500 leading-relaxed max-w-xs">Create your hyperlocal profile or sign in to build your trust credit score, order local food, list services, and execute smart escrow trades.</p>
-    <button onclick="navTo('auth')" class="btn-primary mt-1 w-full max-w-xs">Access Account Panel</button>
+    <button onclick="navTo('auth');switchAuthTab('signup')" class="btn-primary mt-1 w-full max-w-xs">Create account</button>
+    <button onclick="navTo('auth');switchAuthTab('signin')" class="btn-sm-outline w-full max-w-xs py-3">Sign in</button>
+    
   </div>
 
   <div id="account-signed-in-view" class="hidden flex-col gap-3 fade-up">
@@ -2884,25 +2888,11 @@ function validateNigerianPhone(phone){
 // ============================================================
 // BACKEND API
 // ============================================================
-const API_BASE = 'https://www.ememart.com/api';
-
-async function apiPost(file, action, data = {}) {
-  const res = await fetch(`${API_BASE}/${file}`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ action, ...data })
-  });
-  return res.json();
-}
-
-async function apiGet(file, params = {}) {
-  const qs = new URLSearchParams(params).toString();
-  const res = await fetch(`${API_BASE}/${file}?${qs}`, { credentials: 'include' });
-  return res.json();
-}
-
-function fmtCurrency(n) { return '₦' + parseFloat(n||0).toLocaleString('en-NG',{minimumFractionDigits:2}); }
+// The old PHP server is gone. backend.js connects the app to Supabase and replaces these two
+// functions. If backend.js is missing or old, these tell the user clearly instead of failing silently.
+const NOT_CONNECTED = { success:false, message:'The app is not connected to the server. Reload the page, or clear this site\'s data and try again.' };
+async function apiPost(){ return NOT_CONNECTED; }
+async function apiGet(){ return NOT_CONNECTED; }
 
 let _otpPurpose = 'register';
 
@@ -2925,77 +2915,6 @@ async function checkBackendSession(){
     localStorage.removeItem("ememart_user");
   }
   initPresenceSystem();
-}
-
-// ============================================================
-// REQUEST REGISTRATION OTP (API helper)
-// ============================================================
-async function requestRegistrationOTP(userEmail, userName) {
-  try {
-    const response = await fetch('https://www.ememart.com/api/otp.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: userEmail, name: userName })
-    });
-    const data = await response.json();
-    if (data.success) {
-      showPopupNotif('✅', 'OTP Sent', data.message);
-    } else {
-      showPopupNotif('❌', 'OTP Error', data.message);
-    }
-  } catch (error) {
-    console.error('OTP Network Error:', error);
-    showPopupNotif('❌', 'Connection Error', 'Could not connect to the registration server.');
-  }
-}
-
-// ============================================================
-// LOGIN — API-backed sign-in
-// ============================================================
-async function loginEmemartAccount(email, password) {
-  try {
-    const response = await fetch('https://www.ememart.com/api/login.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await response.json();
-    if (data.success) {
-      localStorage.setItem('ememart_user', JSON.stringify(data.user));
-      state.session = data.user;
-      syncAccountDisplay();
-      showPopupNotif('🎉', 'Welcome back!', `Signed in as ${data.user.full_name || data.user.name || email}`);
-      navTo('home');
-    } else {
-      showPopupNotif('❌', 'Login Failed', data.message);
-    }
-  } catch (error) {
-    console.error('Login Network Error:', error);
-    showPopupNotif('❌', 'Connection Error', 'Could not reach the login server.');
-  }
-}
-
-// ============================================================
-// REFRESH WALLET UI — fetch live balance from server
-// ============================================================
-async function refreshWalletUI() {
-  const storedUser = localStorage.getItem('ememart_user');
-  if (!storedUser) return;
-  const user = JSON.parse(storedUser);
-  try {
-    const response = await fetch('https://www.ememart.com/api/wallet.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'balance', user_id: user.id })
-    });
-    const data = await response.json();
-    if (data.success) {
-      if (state.session) state.session.balance = data.balance;
-      syncAccountDisplay();
-    }
-  } catch (error) {
-    console.error('Wallet Fetch Error:', error);
-  }
 }
 
 // ============================================================
@@ -3154,100 +3073,15 @@ async function handleAuth(e) {
     full_name: `${fn} ${ln}`, email: emailInput,
     phone, password: passwordInput, role, town, lga, state: stateName
   };
-  el('otp-channel-modal').classList.remove('hidden');
+  sendRegistrationOTP();   // create the account straight away (no code step unless the server requires it)
 }
 
 // ============================================================
 // OTP CHANNEL + REGISTER
 // ============================================================
-async function sendRegistrationOTP() {
-  const btn = el('send-otp-btn');
-  if(btn){ btn.textContent = 'Sending...'; btn.disabled = true; }
-  try {
-    const d = window._pendingReg;
-    if(!d || !d.email){ showPopupNotif('❌','Error','Please fill in your details first.'); return; }
-
-    // Step 1: Send OTP via otp.php
-    const otpRes = await fetch('https://www.ememart.com/api/otp.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: d.email, name: d.full_name })
-    });
-    const otpData = await otpRes.json();
-
-    if (!otpData.success) {
-      showPopupNotif('❌', 'OTP Error', otpData.message);
-      return;
-    }
-
-    // Step 2: Also register the pending user data in auth.php session
-    await apiPost('auth.php','register_pending', {
-      full_name: d.full_name, email: d.email, phone: d.phone, password: d.password
-    });
-
-    _otpPurpose = 'register';
-    el('otp-channel-modal')?.classList.add('hidden');
-    el('otp-verify-info').textContent = `OTP sent to ${d.email}. Enter the 6-digit code.`;
-    el('otp-verify-modal').classList.remove('hidden');
-
-  } catch(e) {
-    console.error('OTP Error:', e);
-    showPopupNotif('❌','Error','Connection failed. Check your internet and try again.');
-  } finally {
-    if(btn){ btn.textContent = 'Send OTP to Email'; btn.disabled = false; }
-  }
-}
-
-async function verifyOTP() {
-  const otp = el('otp-code-input').value.trim();
-  if (!otp || otp.length !== 6) { showPopupNotif('⚠️','OTP Required','Enter the 6-digit OTP.'); return; }
-
-  const btn = el('verify-otp-btn');
-  btn.textContent = 'Verifying...'; btn.disabled = true;
-
-  try {
-    let res;
-    if (_otpPurpose === 'register') {
-      // Call register.php directly with full pending registration data + OTP
-      const d = window._pendingReg;
-      if (!d) { showPopupNotif('❌','Error','Registration data lost. Please start again.'); return; }
-      const regRes = await fetch('https://www.ememart.com/api/register.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: d.full_name, email: d.email, password: d.password,
-          phone: d.phone, role: d.role, state: d.state,
-          lga: d.lga, town: d.town, otp_code: otp
-        })
-      });
-      res = await regRes.json();
-      res.data = res.data || {}; // normalise shape
-    } else {
-      res = await apiPost('auth.php', 'forgot_verify_otp', { otp });
-    }
-
-    if (res.success) {
-      el('otp-verify-modal').classList.add('hidden');
-      if (_otpPurpose === 'register') {
-        const u = res.user || res.data?.user;
-        state.session = {
-          id: u.id, name: u.full_name, email: u.email,
-          phone: u.phone, role: u.role||'user', balance: 0,
-          town: '', lga: '', state: '', accountNum: 'EM-' + u.id
-        };
-        syncAccountDisplay();
-        showPopupNotif('🎉','Account Created!',`Welcome, ${u.full_name.split(' ')[0]}! Set your transaction PIN.`);
-        navTo('home');
-        setTimeout(() => showPinSetup(), 1500);
-      } else {
-        el('reset-password-modal').classList.remove('hidden');
-      }
-    } else {
-      showPopupNotif('❌','Invalid OTP', res.message);
-    }
-  } catch(e) { showPopupNotif('❌','Error','Connection failed.'); }
-  finally { btn.textContent = 'Verify OTP'; btn.disabled = false; }
-}
+// Real versions live in backend.js (Supabase). These only run if backend.js did not load.
+async function sendRegistrationOTP(){ showPopupNotif('⚠️','Not connected',NOT_CONNECTED.message); }
+async function verifyOTP(){ showPopupNotif('⚠️','Not connected',NOT_CONNECTED.message); }
 
 async function resendOTP() {
   try {
@@ -7549,6 +7383,15 @@ function switchFeedTab(tab){
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
   checkBackendSession();
+  setTimeout(() => {
+    const bs = el('backend-status'); if(!bs) return;
+    const m = window.EMEMART_BACKEND && window.EMEMART_BACKEND.mode;
+    if(m === 'live') return;
+    bs.textContent = m === 'dev'
+      ? 'Sign-in is switched off (demo mode). Upload the newest backend.js, then reload.'
+      : 'The server connection did not start, so sign-in and sign-up will not work. Reload, or clear this site\'s data.';
+    bs.classList.remove('hidden');
+  }, 1200);
   renderCollectionsStrip();
   renderCustomEmergencyContacts();
   // Low balance alert toggle restore
