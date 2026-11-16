@@ -154,7 +154,7 @@ VIEWS.roles = async function () {
   var r = await api('GET', '/admin/role-applications');
   if (!r._ok) return view('<p class="bad">' + esc(r._err) + '</p>');
   var list = r.applications || [];
-  view('<h3>Rider and artisan requests (' + list.length + ')</h3>' + (list.length ? '' : '<p class="mute">Nothing waiting.</p>') +
+  view('<h3>Account type change requests (' + list.length + ')</h3>' + (list.length ? '' : '<p class="mute">Nothing waiting.</p>') +
     list.map(function (a) {
       var p = a.profiles || {};
       return '<div class="card"><div class="row"><b class="grow">' + esc(p.full_name) + '</b><span>' + esc(a.role) + '</span></div>' +
