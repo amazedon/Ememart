@@ -301,6 +301,7 @@
   body.light .finance-tab.active        { color:#047857 !important; border-bottom-color:#10b981 !important; }
   body.light .btn-sm-outline            { color:#047857 !important; border-color:#6ee7b7 !important; }
   body.light .btn-sm-outline:hover      { background:#ecfdf5 !important; border-color:#10b981 !important; }
+  body.light .menu-sec-head              { border-color:#e2e8f0 !important; }
   body.light .acc-head                  { color:#0f172a !important; }
   body.light .acc-head .acc-chev        { color:#64748b !important; }
   body.light #trending-section          { background:#ffffff !important; border-color:#e2e8f0 !important; }
@@ -336,6 +337,16 @@
   body.light [class*="from-black"] [class*="text-white"], body.light [class*="from-black"][class*="text-white"],
   body.light [class*="bg-black"] [class*="text-white"], body.light [class*="bg-black"][class*="text-white"] { color:#ffffff !important; }
   body.light [class*="from-black"] [class*="text-gray-300"], body.light [class*="from-black"] [class*="text-gray-400"] { color:#e5e7eb !important; }
+  #menu-drawer{transform:translateX(100%);transition:transform .25s ease;visibility:hidden}
+  #menu-drawer.open{transform:none;visibility:visible}
+  #menu-drawer #trending-section{background:none !important;border:0 !important;padding:0 !important}
+  #menu-drawer #trending-section > div:first-child{justify-content:flex-end;cursor:default}
+  #menu-drawer #trending-section > div:first-child > div:first-child,#trending-toggle-btn{display:none}
+  .menu-sec-head{display:flex;align-items:center;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #1f2937;padding:0 0 6px;cursor:pointer;color:inherit;font:inherit}
+  .menu-sec-head .chev{margin-left:auto;color:#9ca3af;font-size:10px;transition:transform .2s}
+  #menu-drawer section.sec-open > .menu-sec-head .chev{transform:rotate(180deg)}
+  #menu-drawer section:not(.sec-open) > .menu-sec-body{display:none}
+  @media (prefers-reduced-motion:reduce){#menu-drawer{transition:none}}
 </style>
 <script>
 // ============================================================
@@ -696,16 +707,115 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
       <div class="text-[9px] font-black tracking-widest text-emerald-500 uppercase mono">Hyperlocal Wire</div>
       <h1 class="text-base font-black text-white tracking-tight flex items-center gap-1.5">🏪 EMEMART</h1>
     </div>
-    <div class="flex items-center gap-2">
-      <button id="notif-bell-btn" class="relative bg-gray-900 hover:bg-gray-800 w-9 h-9 rounded-xl flex items-center justify-center text-sm transition" onclick="toggleNotifCenter()">
-        🔔<span id="notif-count-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center hidden">0</span>
-      </button>
-      <button onclick="toggleTheme()" class="bg-gray-900 hover:bg-gray-800 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-gray-300 transition" id="theme-btn">☀️ Light</button>
-    </div>
+    <button id="menu-btn" onclick="openMenu()" aria-label="Open menu" class="relative bg-gray-900 hover:bg-gray-800 w-10 h-10 rounded-xl flex items-center justify-center transition">
+      <svg width="20" height="14" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" class="text-gray-200"><path d="M1 1.5h18M1 7h18M1 12.5h18"/></svg>
+      <span class="notif-badge absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black min-w-[16px] h-4 rounded-full flex items-center justify-center hidden">0</span>
+    </button>
   </div>
 </header>
+<!-- ===== MENU DRAWER (top-right hamburger) ===== -->
+<div id="menu-overlay" class="hidden fixed inset-0 z-[400] bg-black/60" onclick="closeMenu()"></div>
+<aside id="menu-drawer" class="fixed top-0 right-0 bottom-0 z-[410] w-[88vw] max-w-sm bg-gray-950 border-l border-gray-800 overflow-y-auto p-4 flex flex-col gap-5" aria-hidden="true">
+  <div class="flex items-center justify-between">
+    <span class="text-base font-black text-white">Menu</span>
+    <button onclick="closeMenu()" class="text-[11px] font-black text-gray-400 border border-gray-700 rounded-lg px-3 py-1.5">Close</button>
+  </div>
+  <section class="flex flex-col gap-2">
+    <h3 class="text-[11px] font-black text-white uppercase tracking-widest border-b border-gray-800 pb-1">Notifications and appearance</h3>
+    <button onclick="closeMenu();toggleNotifCenter()" class="relative text-left bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-black text-gray-200">Notifications <span class="notif-badge absolute top-2 right-3 bg-red-500 text-white text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center hidden">0</span></button>
+    <button onclick="toggleTheme()" class="theme-btn text-left bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-black text-gray-200">Switch to light</button>
+  </section>
+    <section class="flex flex-col gap-2">
+      <h3 class="text-[11px] font-black text-white uppercase tracking-widest border-b border-gray-800 pb-1">Food categories</h3>
+  <div>
+    <div class="flex justify-between items-center mb-2">
+      <span></span>
+      <button onclick="clearCategoryFilter()" id="clear-cat-btn" class="hidden text-[10px] text-emerald-400 font-bold">Clear</button>
+    </div>
+    <div class="flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none;">
+      <div class="cat-card" id="cat-rice" onclick="setCategoryFilter('rice')"><span class="text-xl"></span><span class="label">Rice</span></div>
+      <div class="cat-card" id="cat-soups" onclick="setCategoryFilter('soups')"><span class="text-xl"></span><span class="label">Soups</span></div>
+      <div class="cat-card" id="cat-snacks" onclick="setCategoryFilter('snacks')"><span class="text-xl"></span><span class="label">Snacks</span></div>
+      <div class="cat-card" id="cat-drinks" onclick="setCategoryFilter('drinks')"><span class="text-xl"></span><span class="label">Drinks</span></div>
+      <div class="cat-card" id="cat-grills" onclick="setCategoryFilter('grills')"><span class="text-xl"></span><span class="label">Grills</span></div>
+      <div class="cat-card" id="cat-swallow" onclick="setCategoryFilter('swallow')"><span class="text-xl"></span><span class="label">Swallow</span></div>
+    </div>
+  </div>
 
-<div id="notif-center" class="hidden absolute top-16 left-0 right-0 z-[150] px-4 max-w-md mx-auto">
+
+    </section>
+    <section class="flex flex-col gap-2">
+      <h3 class="text-[11px] font-black text-white uppercase tracking-widest border-b border-gray-800 pb-1">Trending now</h3>
+        <!-- TRENDING SECTION -->
+  <div id="trending-section" class="flex flex-col gap-2">
+    <!-- Header -->
+    <div class="flex justify-between items-center cursor-pointer" onclick="toggleTrendingSection()">
+      <div class="flex items-center gap-2">
+        <span class="text-base"></span>
+        <div>
+          <div class="text-[10px] font-black text-white uppercase tracking-wider">Trending Now</div>
+          <div id="trending-location-label" class="text-[9px] text-gray-500">in your area</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="event.stopPropagation();cycleTrendingScope()" id="trending-scope-btn" class="text-[9px] font-black text-emerald-400 border border-emerald-900/50 px-2 py-0.5 rounded-lg hover:bg-emerald-950 transition">Town</button>
+        <span id="trending-toggle-btn" class="text-[10px] text-gray-500 font-black">▲</span>
+      </div>
+    </div>
+
+    <!-- Top trending dish banner -->
+    <div id="trending-hero" class="hidden relative rounded-2xl overflow-hidden cursor-pointer h-28" onclick="openTrendingHero()">
+      <img id="trending-hero-img" src="" alt="" class="w-full h-full object-cover">
+      <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-3">
+        <div class="flex items-center gap-1.5 mb-1">
+          <span class="text-[8px] font-black text-amber-400 bg-amber-950/80 border border-amber-800 px-1.5 py-0.5 rounded-full animate-pulse">#1 TRENDING</span>
+          <span id="trending-hero-orders" class="text-[8px] font-black text-gray-300"></span>
+        </div>
+        <div id="trending-hero-name" class="text-sm font-black text-white leading-tight"></div>
+        <div class="flex items-center justify-between mt-0.5">
+          <div id="trending-hero-vendor" class="text-[10px] text-gray-300"></div>
+          <div id="trending-hero-price" class="text-[10px] font-black text-emerald-400 mono"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trending cards strip -->
+    <div id="trending-strip" class="flex gap-3 overflow-x-auto pb-1" style="scrollbar-width:none;"></div>
+
+    <!-- Trending keywords row -->
+    <div id="trending-keywords" class="flex gap-1.5 overflow-x-auto pb-0.5" style="scrollbar-width:none;"></div>
+  </div>
+
+
+    </section>
+    <section class="flex flex-col gap-2">
+      <h3 class="text-[11px] font-black text-white uppercase tracking-widest border-b border-gray-800 pb-1">Filters</h3>
+  <div>
+    <div class="flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none;">
+      <button class="filter-pill active" id="fpill-all" onclick="setFilter('all')">All</button>
+      <button class="filter-pill" id="fpill-nearby" onclick="setFilter('nearby')">Nearby</button>
+      <button class="filter-pill" id="fpill-cheap" onclick="setFilter('cheap')">Under ₦1k</button>
+      <button class="filter-pill" id="fpill-mid" onclick="setFilter('mid')">₦1k–₦2k</button>
+      <button class="filter-pill" id="fpill-flash" onclick="setFilter('flash')">Flash Sales</button>
+      <button class="filter-pill" id="fpill-escrow" onclick="setFilter('escrow')">Escrow</button>
+    </div>
+  </div>
+
+
+    </section>
+    <section class="flex flex-col gap-2">
+      <h3 class="text-[11px] font-black text-white uppercase tracking-widest border-b border-gray-800 pb-1">View</h3>
+  <div class="flex gap-2">
+    <button onclick="setViewMode('feed')" id="view-feed-btn" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl bg-emerald-500 text-gray-900 transition">Feed View</button>
+    <button onclick="setViewMode('map')" id="view-map-btn" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl bg-gray-800 text-gray-400 border border-gray-700 transition">Map View</button>
+  </div>
+
+
+    </section>
+</aside>
+
+
+<div id="notif-center" class="hidden fixed top-16 left-0 right-0 z-[150] px-4 max-w-md mx-auto">
   <div class="bg-gray-950 border border-gray-800 rounded-2xl shadow-2xl overflow-hidden slide-down">
     <div class="p-3 border-b border-gray-900 flex justify-between items-center">
       <span class="text-sm font-black text-white">Notifications</span>
@@ -916,77 +1026,6 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
   <button onclick="toggleSearchFilters()" class="text-[10px] text-gray-400 font-black flex items-center gap-1 self-start hover:text-emerald-400 transition" id="toggle-filters-btn">⚙️ Filters & Location Scope ▼</button>
   <div id="search-results-panel" class="hidden search-results"></div>
 
-  <div>
-    <div class="flex justify-between items-center mb-2">
-      <span class="text-[10px] font-black text-gray-400 uppercase tracking-widest">🍽️ Food Categories</span>
-      <button onclick="clearCategoryFilter()" id="clear-cat-btn" class="hidden text-[10px] text-emerald-400 font-bold">Clear</button>
-    </div>
-    <div class="flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none;">
-      <div class="cat-card" id="cat-rice" onclick="setCategoryFilter('rice')"><span class="text-xl">🍚</span><span class="label">Rice</span></div>
-      <div class="cat-card" id="cat-soups" onclick="setCategoryFilter('soups')"><span class="text-xl">🍲</span><span class="label">Soups</span></div>
-      <div class="cat-card" id="cat-snacks" onclick="setCategoryFilter('snacks')"><span class="text-xl">🥨</span><span class="label">Snacks</span></div>
-      <div class="cat-card" id="cat-drinks" onclick="setCategoryFilter('drinks')"><span class="text-xl">🥤</span><span class="label">Drinks</span></div>
-      <div class="cat-card" id="cat-grills" onclick="setCategoryFilter('grills')"><span class="text-xl">🔥</span><span class="label">Grills</span></div>
-      <div class="cat-card" id="cat-swallow" onclick="setCategoryFilter('swallow')"><span class="text-xl">🫙</span><span class="label">Swallow</span></div>
-    </div>
-  </div>
-
-  <!-- TRENDING SECTION -->
-  <div id="trending-section" class="flex flex-col gap-2 trend-closed">
-    <!-- Header -->
-    <div class="flex justify-between items-center cursor-pointer" onclick="toggleTrendingSection()">
-      <div class="flex items-center gap-2">
-        <span class="text-base">🔥</span>
-        <div>
-          <div class="text-[10px] font-black text-white uppercase tracking-wider">Trending Now</div>
-          <div id="trending-location-label" class="text-[9px] text-gray-500">in your area</div>
-        </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <button onclick="event.stopPropagation();cycleTrendingScope()" id="trending-scope-btn" class="text-[9px] font-black text-emerald-400 border border-emerald-900/50 px-2 py-0.5 rounded-lg hover:bg-emerald-950 transition"><svg width="14" height="16" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;flex-shrink:0"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg> Town</button>
-        <span id="trending-toggle-btn" class="text-[10px] text-gray-500 font-black">▼</span>
-      </div>
-    </div>
-
-    <!-- Top trending dish banner -->
-    <div id="trending-hero" class="hidden relative rounded-2xl overflow-hidden cursor-pointer h-28" onclick="openTrendingHero()">
-      <img id="trending-hero-img" src="" alt="" class="w-full h-full object-cover">
-      <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-3">
-        <div class="flex items-center gap-1.5 mb-1">
-          <span class="text-[8px] font-black text-amber-400 bg-amber-950/80 border border-amber-800 px-1.5 py-0.5 rounded-full animate-pulse">🔥 #1 TRENDING</span>
-          <span id="trending-hero-orders" class="text-[8px] font-black text-gray-300"></span>
-        </div>
-        <div id="trending-hero-name" class="text-sm font-black text-white leading-tight"></div>
-        <div class="flex items-center justify-between mt-0.5">
-          <div id="trending-hero-vendor" class="text-[10px] text-gray-300"></div>
-          <div id="trending-hero-price" class="text-[10px] font-black text-emerald-400 mono"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Trending cards strip -->
-    <div id="trending-strip" class="flex gap-3 overflow-x-auto pb-1" style="scrollbar-width:none;"></div>
-
-    <!-- Trending keywords row -->
-    <div id="trending-keywords" class="flex gap-1.5 overflow-x-auto pb-0.5" style="scrollbar-width:none;"></div>
-  </div>
-
-  <div>
-    <div class="flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none;">
-      <button class="filter-pill active" id="fpill-all" onclick="setFilter('all')">🌐 All</button>
-      <button class="filter-pill" id="fpill-nearby" onclick="setFilter('nearby')"><svg width="14" height="16" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;flex-shrink:0"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg> Nearby</button>
-      <button class="filter-pill" id="fpill-cheap" onclick="setFilter('cheap')">💚 Under ₦1k</button>
-      <button class="filter-pill" id="fpill-mid" onclick="setFilter('mid')">💛 ₦1k–₦2k</button>
-      <button class="filter-pill" id="fpill-flash" onclick="setFilter('flash')">⚡ Flash Sales</button>
-      <button class="filter-pill" id="fpill-escrow" onclick="setFilter('escrow')">🔐 Escrow</button>
-    </div>
-  </div>
-
-  <div class="flex gap-2">
-    <button onclick="setViewMode('feed')" id="view-feed-btn" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl bg-emerald-500 text-gray-900 transition">📋 Feed View</button>
-    <button onclick="setViewMode('map')" id="view-map-btn" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl bg-gray-800 text-gray-400 border border-gray-700 transition">🗺️ Map View</button>
-  </div>
-
   <div id="map-view-panel" class="hidden flex-col gap-3">
     <div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden" style="height:320px;position:relative;">
       <div id="map-canvas" style="width:100%;height:100%;position:relative;background:linear-gradient(135deg,#0a1628 0%,#0d1f3c 50%,#0a1628 100%);">
@@ -1011,12 +1050,12 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
   <div id="feed-view-panel" class="flex flex-col gap-3">
     <div id="community-section" class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
       <div class="flex border-b border-gray-800 overflow-x-auto" style="scrollbar-width:none;">
-        <button class="feed-tab-btn active" id="ftab-general" onclick="switchFeedTab('general')">🌐 All</button>
-        <button class="feed-tab-btn" id="ftab-vendor" onclick="switchFeedTab('vendor')">🍲 Food</button>
-        <button class="feed-tab-btn" id="ftab-rider" onclick="switchFeedTab('rider')">🏍️ Riders</button>
-        <button class="feed-tab-btn" id="ftab-artisan" onclick="switchFeedTab('artisan')">🔧 Artisans</button>
-        <button class="feed-tab-btn" id="ftab-following" onclick="switchFeedTab('following')">👥 Following</button>
-        <button class="feed-tab-btn" id="ftab-nearby" onclick="switchFeedTab('nearby')"><svg width="14" height="16" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;flex-shrink:0"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg> Near Me</button>
+        <button class="feed-tab-btn active" id="ftab-general" onclick="switchFeedTab('general')">All</button>
+        <button class="feed-tab-btn" id="ftab-vendor" onclick="switchFeedTab('vendor')">Food</button>
+        <button class="feed-tab-btn" id="ftab-rider" onclick="switchFeedTab('rider')">Riders</button>
+        <button class="feed-tab-btn" id="ftab-artisan" onclick="switchFeedTab('artisan')">Artisans</button>
+        <button class="feed-tab-btn" id="ftab-following" onclick="switchFeedTab('following')">Following</button>
+        <button class="feed-tab-btn" id="ftab-nearby" onclick="switchFeedTab('nearby')">Near Me</button>
       </div>
       <div id="flash-sale-bar" class="hidden bg-gradient-to-r from-red-950 to-orange-950 border-b border-red-900 p-2 flex items-center gap-2">
         <span class="flash-badge">⚡ Flash Sale</span>
@@ -1859,7 +1898,11 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
     </div>
 
     <!-- Profile Settings -->
-    <div data-acc="⚙️|Settings" style="order:12" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2">
+    <div data-acc="🔔|Notifications and Appearance" style="order:12" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2">
+      <button onclick="toggleNotifCenter()" class="relative text-left bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-black text-gray-200">Notifications <span class="notif-badge absolute top-2 right-3 bg-red-500 text-white text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center hidden">0</span></button>
+      <button onclick="toggleTheme()" class="theme-btn text-left bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-black text-gray-200">Switch to light</button>
+    </div>
+    <div data-acc="⚙️|Settings" style="order:13" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2">
       <div class="text-sm font-black text-white mb-1">⚙️ Settings</div>
       <div class="grid grid-cols-2 gap-2">
         <button onclick="openEditLocationModal()" class="bg-gray-800 border border-gray-700 rounded-xl py-2.5 flex flex-col items-center gap-1 text-[9px] font-black text-gray-300 uppercase tracking-wider hover:bg-gray-700 transition"><span class="text-lg"><svg width="20" height="24" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d="M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z" fill="#E8534A"/><circle cx="22" cy="18" r="7" fill="white"/></svg></span>Location</button>
@@ -1869,7 +1912,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
     </div>
 
     <!-- Safety & Support shortcut -->
-    <div data-acc="🛡️|Safety & Support" style="order:13" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+    <div data-acc="🛡️|Safety & Support" style="order:14" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-red-950 border border-red-900 flex items-center justify-center text-xl flex-shrink-0">🛡️</div>
@@ -2421,109 +2464,10 @@ const state = {
   activeChatPartnerId: null,
   activeDisputeReason: '',
   splitFriends: [],
-  users: [
-    { id: 'user1', name: 'Chidi Okafor', email: 'chidi@ememart.ng', role: 'user', town: 'Onitsha', lga: 'Onitsha North', state: 'Anambra', ward: 'Ward 2', phone: '08011112222', accountNum: 'U-91823', balance: 5400 },
-    { id: 'vendor1', name: 'Amaka Delights', email: 'amaka@ememart.ng', role: 'vendor', town: 'Onitsha', lga: 'Onitsha North', state: 'Anambra', ward: 'Ward 2', phone: '08088889999', business: 'Amaka Kitchens', accountNum: 'V-10293', balance: 42500 },
-    { id: 'vendor2', name: "Mama Ngozi's Kitchen", email: 'ngozi@ememart.ng', role: 'vendor', town: 'Awka', lga: 'Awka South', state: 'Anambra', ward: 'Ward 1', phone: '08022223333', business: "Mama Ngozi's Kitchen", accountNum: 'V-77182', balance: 18000 },
-    { id: 'vendor3', name: 'Suya Spot NG', email: 'suya@ememart.ng', role: 'vendor', town: 'Nnewi', lga: 'Nnewi North', state: 'Anambra', ward: 'Ward 3', phone: '08033334444', business: 'Suya Spot NG', accountNum: 'V-66073', balance: 12000 },
-    { id: 'vendor4', name: 'Chef Adaeze', email: 'adaeze@ememart.ng', role: 'vendor', town: 'Enugu', lga: 'Enugu East', state: 'Enugu', ward: 'Ward 4', phone: '08044445555', business: 'Chef Adaeze', accountNum: 'V-55964', balance: 9000 },
-    { id: 'artisan1', name: 'Chukwuemeka Repairs', email: 'emeka@ememart.ng', role: 'artisan', town: 'Onitsha', lga: 'Onitsha North', state: 'Anambra', ward: 'Ward 2', phone: '08055556666', business: 'Chukwuemeka Repairs', accountNum: 'V-44855', balance: 7500 },
-    { id: 'rider1', name: 'Obinna Express', email: 'obinna@ememart.ng', role: 'rider', town: 'Onitsha', lga: 'Onitsha North', state: 'Anambra', ward: 'Ward 2', phone: '08066667777', business: 'Obinna Express', accountNum: 'R-33746', balance: 3100 }
-  ],
-  posts: [
-    {
-      id: 'p1', authorId: 'vendor1', authorName: 'Amaka Kitchens', authorRole: 'vendor',
-      location: 'Onitsha, Onitsha North, Anambra',
-      text: '🔥 Fresh hot Jollof Rice with Peppered Chicken available for lunchtime pickup! Made with local rice, completely delicious. Limited portions available today, grab it fast.',
-      image: 'https://images.unsplash.com/photo-1604328698692-f76ea9498e76?w=600',
-      type: 'business', businessCategory: 'food', foodCategory: 'rice', escrow: true, isFood: true,
-      foodName: 'Smokey Jollof Rice (Full Option)', price: 1800, originalPrice: 2500, qty: 8,
-      foodExtras: 'Fried Plantain, Coleslaw & Moin Moin',
-      ingredients: ['Rice', 'Chicken', 'Vegetable Oil', 'Pepper', 'Onions', 'Tomato Paste'],
-      ts: now - 3600000, expiresAt: now + 7200000,
-      flashSale: true, flashPrice: 1800, orders: [], nearExpiry: false, expired: false,
-      reviews: [],
-      likes: ['user1'], comments: [{author: 'Chidi O.', text: 'Best jollof in Anambra state period! 🔥', ts: now - 1800000}],
-      mapX: 45, mapY: 38
-    },
-    {
-      id: 'p2', authorId: 'vendor2', authorName: "Mama Ngozi's Kitchen", authorRole: 'vendor',
-      location: 'Awka, Awka South, Anambra',
-      text: '🍲 Thick authentic Oha Soup served with fluffy Pounded Yam. Freshly prepared this morning with standard local ingredients. Order now with escrow shield protection.',
-      image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600',
-      type: 'business', businessCategory: 'food', foodCategory: 'soups', escrow: true, isFood: true,
-      foodName: 'Oha Soup & Fluffy Pounded Yam', price: 2200, originalPrice: 2200, qty: 15,
-      foodExtras: 'Stockfish, Dried Fish & 2 Thick Beef Portions',
-      ingredients: ['Oha Leaves', 'Cocoa Yam', 'Palm Oil', 'Beef', 'Stockfish', 'Crayfish'],
-      ts: now - 7200000, expiresAt: now + 14400000,
-      flashSale: false, flashPrice: null, orders: [], nearExpiry: false, expired: false,
-      likes: [], comments: [], reviews: [
-        {id:'rv4', buyerId:'u4', buyerName:'Adaeze Nwosu', orderId:'EM-d4', stars:5, tags:['Delicious','Generous portions'], text:"So authentic, just like home food!", ts: Date.now()-172800000},
-        {id:'rv5', buyerId:'u5', buyerName:'Ifeanyi Obi', orderId:'EM-d5', stars:4, tags:['Great value'], text:'', ts: Date.now()-86400000}
-      ], mapX: 62, mapY: 41
-    },
-    {
-      id: 'p3', authorId: 'vendor3', authorName: 'Suya Spot NG', authorRole: 'vendor',
-      location: 'Nnewi, Nnewi North, Anambra',
-      text: '🔥 Premium cuts of Spicy Beef Suya grilled over open coals. Seasoned with native yaji spice. Extremely hot and ready to wrap.',
-      image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600',
-      type: 'business', businessCategory: 'food', foodCategory: 'grills', escrow: false, isFood: true,
-      foodName: 'Spicy Beef Suya (Standard Pack)', price: 1500, originalPrice: 1500, qty: 20,
-      foodExtras: 'Sliced Onions, Cabbage & Extra Yaji spice pack',
-      ingredients: ['Beef', 'Peanut Powder', 'Yaji Spice', 'Onions', 'Vegetable Oil'],
-      ts: now - 1800000, expiresAt: now + 1800000,
-      flashSale: false, flashPrice: null, orders: [], nearExpiry: false, expired: false,
-      likes: ['vendor1'], comments: [], reviews: [
-        {id:'rv6', buyerId:'u1', buyerName:'Chidi Okafor', orderId:'EM-d6', stars:5, tags:['Delicious','Fast delivery','Would order again'], text:'Suya Spot never disappoints. Always fresh and spicy!', ts: Date.now()-43200000}
-      ], mapX: 52, mapY: 65
-    },
-    {
-      id: 'p4', authorId: 'user1', authorName: 'Chidi Okafor', authorRole: 'user',
-      location: 'Onitsha, Onitsha North, Anambra',
-      text: '⚠️ Alert: Power grid maintenance ongoing around Main Market axis. Shop owners should turn on alternative power setups. Stay safe everyone.',
-      image: null, type: 'normal', businessCategory: null, escrow: false, isFood: false,
-      foodCategory: null, ingredients: [], price: 0, originalPrice: 0, qty: 0,
-      ts: now - 10800000, expiresAt: null,
-      flashSale: false, flashPrice: null, orders: [], nearExpiry: false, expired: false,
-      likes: ['artisan1', 'vendor1'], comments: [{author: 'Emeka R.', text: 'Thanks for the timely info bro.', ts: now - 9000000}],
-      mapX: 50, mapY: 50
-    },
-    {
-      id: 'p5', authorId: 'artisan1', authorName: 'Chukwuemeka Repairs', authorRole: 'artisan',
-      location: 'Onitsha, Onitsha North, Anambra',
-      text: '🔧 Phone screen or power port faulty? I fix all brands on the spot — Samsung, iPhone, Tecno, Infinix. Fast and affordable. Come to me or I come to you!',
-      image: 'https://images.unsplash.com/photo-1599658880436-c61792e70672?w=600',
-      type: 'business', businessCategory: 'other', escrow: false, isFood: false,
-      bizServiceName: 'Phone & Electronics Repair', bizType: 'artisan', bizPrice: 2500, bizAvail: 'Mon–Sat, 9am–7pm',
-      foodCategory: null, ingredients: [], price: 0, originalPrice: 0, qty: 0,
-      ts: now - 14400000, expiresAt: null,
-      flashSale: false, flashPrice: null, orders: [], nearExpiry: false, expired: false,
-      likes: [], comments: [{author: 'Ifeanyi C.', text: 'Emeka fixed my iPhone screen in 30 mins 👏', ts: now - 12000000}],
-      mapX: 48, mapY: 55
-    },
-    {
-      id: 'p6', authorId: 'rider1', authorName: 'Obinna Express', authorRole: 'rider',
-      location: 'Onitsha, Onitsha North, Anambra',
-      text: '🏍️ Need fast delivery around Onitsha and environs? I am available now! Food, packages, documents — anything. Reliable and on time. DM me to book a run.',
-      image: 'https://images.unsplash.com/photo-1558618666-fcd250853e49?w=600',
-      type: 'business', businessCategory: 'other', escrow: false, isFood: false,
-      bizServiceName: 'Express Bike Logistics Run', bizType: 'rider', bizPrice: 800, bizAvail: '24/7 Delivery Run',
-      foodCategory: null, ingredients: [], price: 0, originalPrice: 0, qty: 0,
-      ts: now - 5400000, expiresAt: null,
-      flashSale: false, flashPrice: null, orders: [], nearExpiry: false, expired: false,
-      likes: ['user1'], comments: [], mapX: 43, mapY: 46
-    }
-  ],
-  notifications: [
-    { id: 'n1', icon: '🎁', title: 'Welcome Bonus Credited', body: 'Your ₦5,000 welcome bonus is ready. Start ordering or posting listings!', ts: now - 28800000, read: true },
-    { id: 'n2', icon: '🍲', title: 'New Flash Sale Nearby', body: 'Amaka Kitchens just slashed the price on Smoky Jollof Rice. Order now before it runs out!', ts: now - 3600000, read: true }
-  ],
-  chats: {
-    'user1-vendor1': [
-      { sender: 'user1', text: 'Hello, is the Smoky Jollof Rice still available for delivery?', ts: now - 7200000 },
-      { sender: 'vendor1', text: 'Yes! Freshly made. I can pack it up right away.', ts: now - 7100000 }
-    ]
-  },
+  users: [],
+  posts: [],
+  notifications: [],
+  chats: {},
   transactions: [],
   ingredientsData: [
     'White Rice','Ofada Rice','Basmati Rice','Parboiled Rice','Brown Rice','Beans (Black-eyed)','Honey Beans','Soybeans','Millet','Sorghum','Guinea Corn','Corn (Maize)','Ogi (Corn Pap)','Akamu','Wheat','Semolina','Garri (White)','Garri (Yellow)','Yam','Water Yam','Cocoyam','Sweet Potato','Irish Potato','Cassava','Acha (Fonio)','Plantain (Unripe)','Plantain (Ripe)','Oat',
@@ -2804,9 +2748,10 @@ function finishOnboarding(){
 // ===== THEME =====
 function applyTheme(theme, persist){
   if(theme !== 'light') theme = 'dark';
-  const btn = el('theme-btn');
   document.body.classList.toggle('light', theme === 'light');
-  if(btn){ btn.textContent = theme === 'light' ? '🌙 Dark' : '☀️ Light'; btn.setAttribute('aria-label', theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'); }
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.textContent = theme === 'light' ? 'Switch to dark' : 'Switch to light';
+  });
   const meta = document.querySelector('meta[name=theme-color]');
   if(meta) meta.content = theme === 'light' ? '#f8fafc' : '#030712';
   document.documentElement.style.colorScheme = theme;
@@ -3577,16 +3522,53 @@ function renderNotifList(){
   updateNotifBadge();
 }
 
+function setupMenuAccordion(){
+  document.querySelectorAll('#menu-drawer > section').forEach(sec => {
+    if(sec.dataset.ready) return; sec.dataset.ready = '1';
+    const h = sec.querySelector(':scope > h3'); if(!h) return;
+    const body = document.createElement('div'); body.className = 'menu-sec-body flex flex-col gap-2';
+    Array.from(sec.childNodes).forEach(n => { if(n !== h) body.appendChild(n); });
+    const head = document.createElement('button');
+    head.type = 'button'; head.className = 'menu-sec-head';
+    head.innerHTML = '<span class="text-[11px] font-black text-white uppercase tracking-widest">' + h.textContent + '</span><span class="chev">▼</span>';
+    head.onclick = () => {
+      const open = sec.classList.contains('sec-open');
+      document.querySelectorAll('#menu-drawer > section').forEach(x => x.classList.remove('sec-open'));
+      if(!open) sec.classList.add('sec-open');
+    };
+    sec.replaceChild(head, h); sec.appendChild(body);
+  });
+}
+document.addEventListener('DOMContentLoaded', setupMenuAccordion);
+function openMenu(){
+  el('menu-overlay').classList.remove('hidden');
+  const d = el('menu-drawer'); d.classList.add('open'); d.setAttribute('aria-hidden','false');
+  document.querySelectorAll('#menu-drawer > section').forEach(x => x.classList.remove('sec-open'));
+  document.body.style.overflow = 'hidden';
+}
+function closeMenu(){
+  el('menu-overlay').classList.add('hidden');
+  const d = el('menu-drawer'); d.classList.remove('open'); d.setAttribute('aria-hidden','true');
+  document.body.style.overflow = '';
+}
+// choosing a category, filter or view closes the menu so the feed is visible
+document.addEventListener('click', ev => {
+  if(ev.target.closest('#menu-drawer .cat-card, #menu-drawer .filter-pill, #menu-drawer #view-feed-btn, #menu-drawer #view-map-btn, #menu-drawer .trending-keyword')){
+    setTimeout(() => { closeMenu(); window.scrollTo({top:0,behavior:'smooth'}); }, 120);
+  }
+});
+document.addEventListener('keydown', ev => { if(ev.key === 'Escape') closeMenu(); });
+
 function updateNotifBadge(){
   const unread = state.notifications.filter(n => !n.read).length;
-  const b = el('notif-count-badge');
-  if(!b) return;
-  if(unread > 0){
-    b.textContent = unread > 9 ? '9+' : unread;
-    b.classList.remove('hidden');
-  } else {
-    b.classList.add('hidden');
-  }
+  document.querySelectorAll('.notif-badge').forEach(b => {
+    if(unread > 0){
+      b.textContent = unread > 9 ? '9+' : unread;
+      b.classList.remove('hidden');
+    } else {
+      b.classList.add('hidden');
+    }
+  });
 }
 
 function toggleNotifCenter(){
@@ -3619,8 +3601,7 @@ function getTimeAgo(ts){
 // Close Dropdowns if user clicks outside context area frames
 document.addEventListener('click', e => {
   const c = el('notif-center');
-  const b = el('notif-bell-btn');
-  if(c && !c.classList.contains('hidden') && !c.contains(e.target) && !b.contains(e.target)){
+  if(c && !c.classList.contains('hidden') && !c.contains(e.target) && !e.target.closest('[onclick*="toggleNotifCenter"]')){
     c.classList.add('hidden');
   }
   const panel = el('ing-dropdown');
@@ -5636,7 +5617,7 @@ let _trendingScope   = 'town';   // town | lga | state | all
 let _trendingVisible = true;
 let _trendingHeroId  = null;
 
-const TRENDING_SCOPE_LABELS = { town:`<svg width="11" height="13" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle"><ellipse cx="22" cy="48" rx="12" ry="4" fill="#4A90D9" opacity="0.7"/><path d=\"M22 2C13.163 2 6 9.163 6 18c0 11.25 16 32 16 32S38 29.25 38 18C38 9.163 30.837 2 22 2z\" fill=\"#E8534A\"/><circle cx=\"22\" cy=\"18\" r=\"7\" fill=\"white\"/></svg> Town`, lga:'🏘️ LGA', state:'🗺️ State', all:'🌍 All Nigeria' };
+const TRENDING_SCOPE_LABELS = { town:'Town', lga:'LGA', state:'State', all:'All Nigeria' };
 const TRENDING_SCOPE_CYCLE  = ['town','lga','state','all'];
 
 // --- Calculate trending score for a post ---
@@ -5736,7 +5717,7 @@ function renderTrending(){
   stripItems.forEach((item, i) => {
     const rank       = i+1;
     const rankClass  = rank===1?'rank-1':rank===2?'rank-2':rank===3?'rank-3':'';
-    const rankLabel  = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':`#${rank}`;
+    const rankLabel  = `#${rank}`;
     const orderCount = (item.orders||[]).length;
     const price      = item.flashSale ? item.flashPrice : item.price;
 
@@ -5775,7 +5756,7 @@ function renderTrendingKeywords(keywords){
   // "All" pill first
   const allPill = document.createElement('button');
   allPill.className = 'trending-keyword active';
-  allPill.textContent = '🔍 All';
+  allPill.textContent = 'All';
   allPill.onclick = () => {
     document.querySelectorAll('.trending-keyword').forEach(k=>k.classList.remove('active'));
     allPill.classList.add('active');
@@ -5788,7 +5769,7 @@ function renderTrendingKeywords(keywords){
   keywords.forEach(({word, count}) => {
     const btn = document.createElement('button');
     btn.className = 'trending-keyword';
-    btn.innerHTML = `🔥 ${word[0].toUpperCase()+word.slice(1)} <span style="color:#4b5563;font-weight:700">(${count})</span>`;
+    btn.innerHTML = `${word[0].toUpperCase()+word.slice(1)} <span style="color:#4b5563;font-weight:700">(${count})</span>`;
     btn.onclick = () => {
       document.querySelectorAll('.trending-keyword').forEach(k=>k.classList.remove('active'));
       btn.classList.add('active');
@@ -8259,7 +8240,6 @@ function checkFirstOrderDiscount(){
     el('first-order-banner')?.classList.remove('hidden');
     localStorage.setItem('ememart_first_order_used', '1');
     syncAccountDisplay();
-    setTimeout(() => showPopupNotif('🎁','₦500 Discount Applied!','Your first order discount has been credited back to your wallet!'), 1000);
     el('first-order-banner')?.classList.add('hidden');
   }
 }
@@ -8791,41 +8771,7 @@ window.clearMediaPreview = function(){
   renderMultiImageStrip();
 };
 
-// Upload images to Cloudinary BEFORE creating the post, then save real URLs
-const _origSubmitPost = window.submitPost;
-window.submitPost = async function(){
-  // Upload images first if any were attached
-  if(state.postImages && state.postImages.length){
-    try {
-      const uploadRes = await apiPost('media.php', 'upload', {
-        images: state.postImages,
-        folder: 'ememart/posts'
-      });
-      const uploadedImages = uploadRes.images || uploadRes.data?.images;
-      if(uploadRes.success && uploadedImages){
-        const urls = uploadedImages.map(img => img.url);
-        // Replace base64 with real Cloudinary URLs before the post is saved
-        state.postImages = urls;
-        state.postImageBase64 = urls[0] || null;
-      } else {
-        showPopupNotif('⚠️','Image Upload Issue','Could not upload images. Post will be saved without photos.');
-        state.postImages = [];
-        state.postImageBase64 = null;
-      }
-    } catch(e){
-      console.error('Cloudinary upload failed:', e);
-      showPopupNotif('⚠️','Image Upload Failed','Connection issue uploading photos. Post will be saved without photos.');
-      state.postImages = [];
-      state.postImageBase64 = null;
-    }
-  }
-
-  if(_origSubmitPost) await _origSubmitPost();
-
-  // Reset multi-images after post is created
-  state.postImages = [];
-  renderMultiImageStrip();
-}
+// Photos are kept with the post. In live mode posts-live.js uploads them to Supabase Storage.
 
 // ============================================================
 // LIGHTBOX GALLERY ENGINE
@@ -12745,12 +12691,20 @@ function handleMultiImageUpload(e){
     if(state.postImages.length >= 5){ showPopupNotif('⚠️','Max 5 Photos','You can add up to 5 photos per post.'); return; }
     const reader = new FileReader();
     reader.onload = ev => {
-      state.postImages.push(ev.target.result);
-      // Also set legacy single image for backward compat
-      if(state.postImages.length === 1){
-        state.postImageBase64 = ev.target.result;
-      }
-      renderMultiImageStrip();
+      const img = new Image();
+      img.onload = () => {
+        const max = 1280, k = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        const out = c.toDataURL('image/jpeg', 0.8);
+        if(state.postImages.length >= 5) return;
+        state.postImages.push(out);
+        if(state.postImages.length === 1) state.postImageBase64 = out;
+        renderMultiImageStrip();
+      };
+      img.onerror = () => showPopupNotif('⚠️','Photo not added','That file could not be read as a picture.');
+      img.src = ev.target.result;
     };
     reader.readAsDataURL(file);
   });
