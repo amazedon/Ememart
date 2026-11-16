@@ -435,7 +435,7 @@ document.addEventListener('click', function askOnce(){
   document.removeEventListener('click', askOnce);
 }, { once: true });
 </script>
-<link rel="stylesheet" href="tailwind.css">
+<link rel="stylesheet" href="tailwind.css?v=20261116c">
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col pb-20">
 <script>
@@ -841,6 +841,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
 
 
     </section>
+  <div id="app-version" class="mt-auto pt-4 text-center text-[10px] text-gray-500"></div>
 </aside>
 
 
@@ -7383,6 +7384,11 @@ function switchFeedTab(tab){
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
   checkBackendSession();
+  setTimeout(() => {
+    const v = el('app-version'); if(!v) return;
+    const m = window.EMEMART_BACKEND && window.EMEMART_BACKEND.mode;
+    v.textContent = 'Version 20261116c · ' + (m === 'live' ? 'real sign-in on' : m === 'dev' ? 'demo mode (old backend.js)' : 'server not connected');
+  }, 1500);
   setTimeout(() => {
     const bs = el('backend-status'); if(!bs) return;
     const m = window.EMEMART_BACKEND && window.EMEMART_BACKEND.mode;
@@ -14281,8 +14287,8 @@ function requirePin(action, callback){
 }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="rules.js"></script>
-<script src="backend.js"></script>
-<script src="posts-live.js"></script>
-<script src="orders-live.js"></script>
-<script src="notifications-live.js"></script>
+<script src="rules.js?v=20261116c"></script>
+<script src="backend.js?v=20261116c"></script>
+<script src="posts-live.js?v=20261116c"></script>
+<script src="orders-live.js?v=20261116c"></script>
+<script src="notifications-live.js?v=20261116c"></script>
