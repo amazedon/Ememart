@@ -883,57 +883,29 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
         <div class="grid grid-cols-2 gap-2">
           <div class="flex flex-col gap-1">
             <label class="label-sm">First Name*</label>
-            <input type="text" id="fn" placeholder="Chidi" class="inp">
+            <input type="text" id="fn" placeholder="Chidi" autocomplete="given-name" class="inp">
             <span class="field-error" id="err-fn">Enter your first name</span>
           </div>
           <div class="flex flex-col gap-1">
             <label class="label-sm">Last Name*</label>
-            <input type="text" id="ln" placeholder="Okafor" class="inp">
+            <input type="text" id="ln" placeholder="Okafor" autocomplete="family-name" class="inp">
             <span class="field-error" id="err-ln">Enter your last name</span>
           </div>
         </div>
-        <div class="flex flex-col gap-1"><label class="label-sm">Middle Name</label><input type="text" id="mn" placeholder="(optional)" class="inp"></div>
         <div class="flex flex-col gap-1">
-          <label class="label-sm">Account Role*</label>
-          <select id="role-select" class="inp" onchange="handleRoleChange()">
-            <option value="user">Regular User</option>
-            <option value="vendor">Food Vendor</option>
-            <option value="rider">Dispatch Rider</option>
-            <option value="artisan">Artisan / Freelancer</option>
-          </select>
+          <label class="label-sm">Username*</label>
+          <input type="text" id="inp-username" placeholder="chidi_okafor" autocomplete="username" autocapitalize="none" maxlength="20" class="inp">
+          <span class="field-error" id="err-username">Username must be 3-20 letters, numbers or _</span>
         </div>
-        <div id="business-field" class="hidden flex-col gap-1">
-          <label class="label-sm text-amber-400" id="biz-name-label">Business / Kitchen Name*</label>
-          <input type="text" id="biz-name" placeholder="e.g. Ada Kitchens" class="inp border-amber-500/40">
-          <span class="field-error" id="err-biz">Enter your business or kitchen name</span>
-        </div>
-        <div class="grid grid-cols-3 gap-2">
-          <div class="flex flex-col gap-1">
-            <label class="label-sm">Town*</label>
-            <input type="text" id="inp-town" placeholder="Onitsha" class="inp">
-            <span class="field-error" id="err-town">Enter your town</span>
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="label-sm">L.G.A*</label>
-            <input type="text" id="inp-lga" placeholder="Onitsha North" class="inp">
-            <span class="field-error" id="err-lga">Enter your LGA</span>
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="label-sm">State*</label>
-            <input type="text" id="inp-state" placeholder="Anambra" class="inp">
-            <span class="field-error" id="err-state">Enter your state</span>
-          </div>
-        </div>
-        <div class="flex flex-col gap-1"><label class="label-sm">Ward / Sector</label><input type="text" id="inp-ward" placeholder="Onitsha Ward 2" class="inp"></div>
         <div class="flex flex-col gap-1">
           <label class="label-sm">Phone Number*</label>
-          <input type="tel" id="inp-phone" placeholder="080XXXXXXXX" class="inp">
+          <input type="tel" id="inp-phone" placeholder="080XXXXXXXX" autocomplete="tel" class="inp">
           <span class="field-error" id="err-phone">Enter a valid Nigerian phone number (080XXXXXXXX)</span>
         </div>
       </div>
       <div class="flex flex-col gap-1">
         <label class="label-sm">Email Address*</label>
-        <input type="text" id="inp-email" required placeholder="Email, phone or username" class="inp">
+        <input type="text" id="inp-email" required placeholder="Email, phone or username" autocomplete="username" autocapitalize="none" class="inp">
         <span class="field-error" id="err-email">Enter a valid email address</span>
       </div>
       <div class="flex flex-col gap-1">
@@ -1642,11 +1614,12 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
       </div>
       <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex items-center justify-between">
         <div>
-          <div class="text-xs font-bold text-white">Current Role</div>
+          <div class="text-xs font-bold text-white">Current account type</div>
           <div id="acc-current-role-label" class="text-[10px] text-emerald-400 font-black mt-0.5 uppercase tracking-wider">—</div>
         </div>
-        <button onclick="openRoleChangeModal()" class="btn-sm-outline text-[9px] whitespace-nowrap">Apply to Change</button>
+        <button onclick="openRoleChangeModal()" class="btn-sm-outline text-[9px] whitespace-nowrap">Switch type</button>
       </div>
+      <div class="text-[10px] text-gray-500 leading-relaxed">Everyone starts as a user. Switch to vendor, artisan or rider here. Your first switch is instant. Any later switch needs admin approval.</div>
       <div id="acc-role-change-status" class="hidden bg-amber-950/30 border border-amber-900/40 rounded-xl p-3 text-[10px] text-amber-400 font-bold"></div>
     </div>
 
@@ -2543,7 +2516,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateAutoDarkLabel();
 
   // 2. Wire up field error clearing on input
-  ['fn','ln','biz-name','inp-town','inp-lga','inp-state','inp-phone','inp-email','inp-pw'].forEach(id => {
+  ['fn','ln','inp-username','inp-phone','inp-email','inp-pw'].forEach(id => {
     const inp = el(id);
     if(inp) inp.addEventListener('input', () => inp.classList.remove('error'));
   });
@@ -2822,36 +2795,20 @@ function switchAuthTab(mode){
   if(mode==='signup'){
     sf.classList.replace('hidden','flex');
     bs.textContent='Create Account';
+    const ie=document.getElementById('inp-email'); if(ie) ie.placeholder='you@example.com';
+    const rr=document.getElementById('auth-options-row'); if(rr){ const fp=rr.querySelector('button'); if(fp) fp.style.display='none'; }
     t1.classList.remove('active');
     t2.classList.add('active');
   } else {
     sf.classList.replace('flex','hidden');
     bs.textContent='Sign In to Ememart';
+    const ie=document.getElementById('inp-email'); if(ie) ie.placeholder='Email, phone or username';
+    const rr=document.getElementById('auth-options-row'); if(rr){ const fp=rr.querySelector('button'); if(fp) fp.style.display=''; }
     t2.classList.remove('active');
     t1.classList.add('active');
   }
 }
 
-function handleRoleChange(){
-  const r = document.getElementById('role-select').value;
-  const bf = document.getElementById('business-field');
-  const lbl = document.getElementById('biz-name-label');
-  if(r === 'vendor'){
-    bf.classList.replace('hidden','flex');
-    if(lbl) lbl.textContent = 'Kitchen / Business Name*';
-    el('biz-name').placeholder = 'e.g. Ada Kitchens';
-  } else if(r === 'artisan'){
-    bf.classList.replace('hidden','flex');
-    if(lbl) lbl.textContent = 'Business / Service Name*';
-    el('biz-name').placeholder = 'e.g. Emeka Phone Repairs';
-  } else if(r === 'rider'){
-    bf.classList.replace('hidden','flex');
-    if(lbl) lbl.textContent = 'Dispatch Brand / Rider Name*';
-    el('biz-name').placeholder = 'e.g. Obinna Express';
-  } else {
-    bf.classList.replace('flex','hidden');
-  }
-}
 
 function togglePw(){
   const p=document.getElementById('inp-pw');
@@ -3039,22 +2996,12 @@ async function handleAuth(e) {
   // ---- SIGN UP ----
   const fn = el('fn').value.trim();
   const ln = el('ln').value.trim();
-  const role = el('role-select').value;
-  const biz = el('biz-name').value.trim();
-  const town = el('inp-town').value.trim();
-  const lga = el('inp-lga').value.trim();
-  const stateName = el('inp-state').value.trim();
+  const username = el('inp-username').value.trim().toLowerCase();
   const phone = el('inp-phone').value.trim();
 
   if (!fn) { markFieldError('fn','err-fn'); return; }
   if (!ln) { markFieldError('ln','err-ln'); return; }
-  if ((role==='vendor'||role==='artisan'||role==='rider') && !biz) {
-    el('err-biz').textContent = 'Enter your business name';
-    markFieldError('biz-name','err-biz'); return;
-  }
-  if (!town) { markFieldError('inp-town','err-town'); return; }
-  if (!lga) { markFieldError('inp-lga','err-lga'); return; }
-  if (!stateName) { markFieldError('inp-state','err-state'); return; }
+  if (!/^[a-z0-9_]{3,20}$/.test(username)) { markFieldError('inp-username','err-username'); return; }
   if (!phone) { markFieldError('inp-phone','err-phone'); return; }
   if (!validateNigerianPhone(phone)) {
     el('err-phone').textContent = 'Enter a valid Nigerian phone number e.g. 08012345678';
@@ -3069,12 +3016,12 @@ async function handleAuth(e) {
     markFieldError('inp-pw','err-pw'); return;
   }
 
-  // Store pending reg and show OTP channel modal
+  // everyone starts as a regular user; vendor / artisan / rider is chosen later in Account
   window._pendingReg = {
-    full_name: `${fn} ${ln}`, email: emailInput,
-    phone, password: passwordInput, role, town, lga, state: stateName
+    full_name: `${fn} ${ln}`, username, email: emailInput,
+    phone, password: passwordInput, role: 'user', remember: rememberMeChecked
   };
-  sendRegistrationOTP();   // create the account straight away (no code step unless the server requires it)
+  sendRegistrationOTP();   // creates the account and signs in straight away
 }
 
 // ============================================================
@@ -7048,61 +6995,60 @@ window.showPanel = function(panel){
 // ============================================================
 // ROLE CHANGE APPLICATION
 // ============================================================
+function getRoleLabel(role){
+  return { user:'User', buyer:'User', vendor:'Vendor', rider:'Rider', artisan:'Artisan', admin:'Admin' }[role] || role;
+}
+window._pendingRole = null;
+
 function openRoleChangeModal(){
   if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in first.'); return; }
-  const apps = getRoleApplications();
-  const pending = apps.find(a => a.userId === state.session.id && a.status === 'pending');
-  if(pending){
-    showPopupNotif('⏳','Application Pending',`You already have a pending application to become a ${pending.newRole}. Please wait for admin review.`);
+  if(window._pendingRole){
+    showPopupNotif('⏳','Request waiting',`Your request to become a ${getRoleLabel(window._pendingRole)} is waiting for admin approval.`);
     return;
   }
+  const cur = state.session.role || 'user';
   const currentEl = el('rc-current-role');
-  if(currentEl) currentEl.textContent = getRoleLabel(state.session.role || 'user');
-  // Remove current role from options
+  if(currentEl) currentEl.textContent = getRoleLabel(cur);
   const sel = el('rc-new-role');
   if(sel){
-    Array.from(sel.options).forEach(opt => {
-      opt.disabled = opt.value === (state.session.role || 'user');
-    });
+    Array.from(sel.options).forEach(opt => { opt.disabled = opt.value === cur; });
     sel.value = '';
   }
-  if(el('rc-reason')) el('rc-reason').value = '';
-  if(el('rc-biz-name')) el('rc-biz-name').value = '';
+  const first = !state.session.role_changes;
+  if(el('rc-note')) el('rc-note').textContent = first
+    ? 'Your first switch is instant. Any later switch needs admin approval.'
+    : 'You have already switched once. This change will be reviewed by an admin before it takes effect.';
+  if(el('rc-submit-btn')) el('rc-submit-btn').textContent = first ? 'Switch now' : 'Send for approval';
   el('role-change-modal').classList.remove('hidden');
 }
 
 async function submitRoleChangeApplication(){
   if(!state.session) return;
   const newRole = el('rc-new-role')?.value;
-  const reason  = el('rc-reason')?.value.trim();
-  const bizName = el('rc-biz-name')?.value.trim();
-  if(!newRole){ showPopupNotif('⚠️','Select Role','Please select the role you want to apply for.'); return; }
-  if(!reason || reason.length < 10){ showPopupNotif('⚠️','Reason Required','Please explain why you want to change your role (at least 10 characters).'); return; }
-
+  if(!newRole){ showPopupNotif('⚠️','Pick a type','Choose the account type you want.'); return; }
   const btn = el('rc-submit-btn');
-  if(btn){ btn.textContent = 'Submitting...'; btn.disabled = true; }
-
+  const label = btn ? btn.textContent : '';
+  if(btn){ btn.textContent = 'Please wait...'; btn.disabled = true; }
   try {
-    const res = await apiPost('role_application.php', 'submit', {
-      new_role: newRole, business_name: bizName, reason
-    });
-
+    const res = await apiPost('role.php', 'switch', { role: newRole });
     if(res.success){
       el('role-change-modal').classList.add('hidden');
+      if(res.approved){
+        showPopupNotif('✅','Account type changed',`You are now a ${getRoleLabel(newRole)}.`);
+        try{ syncAccountDisplay(); initPostPanelForRole(); }catch(e){}
+      } else {
+        window._pendingRole = newRole;
+        showPopupNotif('📨','Request sent',`Your request to become a ${getRoleLabel(newRole)} is waiting for admin approval.`);
+      }
       updateRoleChangeStatusBadge();
-      showPopupNotif('📨','Application Submitted',`Your application to become a ${getRoleLabel(newRole)} has been submitted. You will be notified when it's reviewed.`);
     } else {
-      showPopupNotif('❌','Submission Failed', res.message);
+      showPopupNotif('❌','Could not switch', res.message || 'Try again.');
     }
   } catch(e){
     showPopupNotif('❌','Error','Connection failed. Please try again.');
   } finally {
-    if(btn){ btn.textContent = 'Submit Application'; btn.disabled = false; }
+    if(btn){ btn.textContent = label; btn.disabled = false; }
   }
-}
-
-function getRoleLabel(role){
-  return { user:'Regular Buyer', vendor:'Food Vendor', rider:'Dispatch Rider', artisan:'Artisan / Service Provider', admin:'Admin' }[role] || role;
 }
 
 async function updateRoleChangeStatusBadge(){
@@ -7110,32 +7056,18 @@ async function updateRoleChangeStatusBadge(){
   const statusEl = el('acc-role-change-status');
   const roleEl   = el('acc-current-role-label');
   if(roleEl) roleEl.textContent = getRoleLabel(state.session.role || 'user');
-  if(!statusEl) return;
-
   try {
-    const res = await apiPost('role_application.php', 'status', {});
-    if(!res.success || !res.data?.application){
-      statusEl.classList.add('hidden');
-      return;
+    const res = await apiPost('role.php', 'status', {});
+    if(res && res.success){
+      window._pendingRole = res.pending_role || null;
+      if(res.role) { state.session.role = res.role; if(roleEl) roleEl.textContent = getRoleLabel(res.role); }
     }
-    const app = res.data.application;
-
-    if(app.status === 'approved'){
-      statusEl.classList.remove('hidden');
-      statusEl.className = 'bg-emerald-950/40 border border-emerald-900/40 rounded-xl p-3 text-[10px] text-emerald-400 font-bold';
-      statusEl.textContent = `✅ Your application to become a ${getRoleLabel(app.new_role)} was approved! Refresh or sign in again to see your updated role.`;
-    } else if(app.status === 'pending'){
-      statusEl.classList.remove('hidden');
-      statusEl.className = 'bg-amber-950/30 border border-amber-900/40 rounded-xl p-3 text-[10px] text-amber-400 font-bold';
-      statusEl.textContent = `⏳ Application pending: → ${getRoleLabel(app.new_role)}. Awaiting admin approval.`;
-    } else if(app.status === 'rejected'){
-      statusEl.classList.remove('hidden');
-      statusEl.className = 'bg-red-950/30 border border-red-900/40 rounded-xl p-3 text-[10px] text-red-400 font-bold';
-      statusEl.textContent = `❌ Application rejected: ${app.admin_note || 'No reason given.'}`;
-    } else {
-      statusEl.classList.add('hidden');
-    }
-  } catch(e){
+  } catch(e){}
+  if(!statusEl) return;
+  if(window._pendingRole){
+    statusEl.classList.remove('hidden');
+    statusEl.textContent = `⏳ Waiting for approval: ${getRoleLabel(window._pendingRole)}`;
+  } else {
     statusEl.classList.add('hidden');
   }
 }
@@ -13595,38 +13527,25 @@ function verifyPinPress(digit){
 <div id="role-change-modal" class="modal-overlay hidden" style="align-items:flex-start;padding-top:16px;" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal-sheet flex flex-col gap-4">
     <div class="flex justify-between items-center">
-      <div>
-        <h3 class="text-base font-black text-white">🎭 Apply to Change Role</h3>
-        <p class="text-[10px] text-gray-400 mt-0.5">Your request will be reviewed by an admin</p>
-      </div>
+      <h3 class="text-base font-black text-white">Switch account type</h3>
       <button onclick="el('role-change-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black">✕</button>
     </div>
-    <div class="bg-amber-950/30 border border-amber-900/40 rounded-xl p-3 text-[10px] text-amber-300 leading-relaxed">
-      ⚠️ Each account can only hold <strong>one role</strong>. Your current role will be replaced once your application is approved. This cannot be undone without another application.
-    </div>
+    <div id="rc-note" class="bg-amber-950/30 border border-amber-900/40 rounded-xl p-3 text-[10px] text-amber-300 leading-relaxed"></div>
     <div class="flex flex-col gap-1">
-      <label class="label-sm">Current Role</label>
+      <label class="label-sm">Current type</label>
       <div id="rc-current-role" class="inp bg-gray-950 text-gray-500 cursor-not-allowed">—</div>
     </div>
     <div class="flex flex-col gap-1">
-      <label class="label-sm">Requested Role*</label>
+      <label class="label-sm">New type*</label>
       <select id="rc-new-role" class="inp">
-        <option value="">— Select new role —</option>
-        <option value="user">🛍️ Regular Buyer</option>
-        <option value="vendor">🍲 Food Vendor</option>
-        <option value="rider">🏍️ Dispatch Rider</option>
-        <option value="artisan">🔧 Artisan / Service Provider</option>
+        <option value="">Select a type</option>
+        <option value="user">User</option>
+        <option value="vendor">Vendor</option>
+        <option value="rider">Rider</option>
+        <option value="artisan">Artisan</option>
       </select>
     </div>
-    <div class="flex flex-col gap-1">
-      <label class="label-sm">Reason for Change*</label>
-      <textarea id="rc-reason" rows="3" placeholder="Explain why you want to change your role..." class="inp resize-none"></textarea>
-    </div>
-    <div class="flex flex-col gap-1">
-      <label class="label-sm">Business Name (if applicable)</label>
-      <input type="text" id="rc-biz-name" placeholder="e.g. Ada Kitchens, Swift Rides..." class="inp">
-    </div>
-    <button onclick="submitRoleChangeApplication()" class="btn-primary py-3 font-black">📨 Submit Application</button>
+    <button id="rc-submit-btn" onclick="submitRoleChangeApplication()" class="btn-primary py-3 font-black">Switch now</button>
   </div>
 </div>
 
@@ -14288,7 +14207,7 @@ function requirePin(action, callback){
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="rules.js?v=20261116c"></script>
-<script src="backend.js?v=20261116c"></script>
+<script src="backend.js?v=20261116d"></script>
 <script src="posts-live.js?v=20261116c"></script>
 <script src="orders-live.js?v=20261116c"></script>
-<script src="notifications-live.js?v=20261116c"></script>
+<script src="notifications-live.js?v=20261116d"></script>
