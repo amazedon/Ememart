@@ -13,7 +13,7 @@
   // ---- DEV MODE: no login while the app is being built --------------------------------------
   // true  = nobody has to sign in. The app opens straight away as a test user and the backend is not used.
   // false = real Supabase sign-up / login (set your anon key above first).
-  const DEV_NO_LOGIN = true;
+  const DEV_NO_LOGIN = false;
 
   if (DEV_NO_LOGIN) {
     const testUser = {
