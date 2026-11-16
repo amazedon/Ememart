@@ -163,4 +163,15 @@
   function start() { if (!me()) return; loadNotifs(); loadChats(); subscribe(); }
   window.addEventListener('load', function () { setTimeout(start, 1000); });
   setInterval(function () { if (!document.hidden && me()) { loadNotifs(); loadChats(); } }, 20000);
+
+  // ---- broadcasts: the scrolling notice at the top of the app -------------------------------
+  async function loadBroadcasts() {
+    try {
+      var r = await sb.from('broadcasts').select('id,message,audience').order('created_at', { ascending: false }).limit(5);
+      if (!r.error && typeof setBroadcasts === 'function') setBroadcasts(r.data || []);
+    } catch (e) {}
+  }
+  window.addEventListener('load', function () { setTimeout(loadBroadcasts, 800); });
+  setInterval(function () { if (!document.hidden) loadBroadcasts(); }, 300000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) loadBroadcasts(); });
 })();
