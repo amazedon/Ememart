@@ -358,6 +358,19 @@
   body.light #broadcast-bar{background:#fef9e7 !important;border-color:#f6e8b4 !important;color:#92400e !important}
   body.light .bc-close{background:linear-gradient(90deg,transparent,#fef9e7 45%) !important;color:#92400e !important}
   @media (prefers-reduced-motion:reduce){.bc-track{animation:none;white-space:normal;padding:9px 40px 9px 16px;display:block}}
+  #acc-page{position:fixed;inset:0;z-index:190;background:#030712;color:#f3f4f6;overflow-y:auto;overscroll-behavior:contain;transform:translateX(100%);visibility:hidden;transition:transform .22s ease,visibility 0s .22s}
+  #acc-page.open{transform:none;visibility:visible;transition:transform .22s ease}
+  .acc-page-bar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:#030712;border-bottom:1px solid #1f2937}
+  .acc-page-back{background:#111827;border:1px solid #1f2937;color:#f9fafb;font-weight:900;font-size:12px;border-radius:12px;padding:8px 14px;cursor:pointer}
+  .acc-page-title{font-size:16px;font-weight:900}
+  .acc-page-body{max-width:28rem;margin:0 auto;padding:16px}
+  .acc-page-body .acc-body{display:flex !important}
+  .acc-page-body [data-dup]{display:none}
+  #notif-center{z-index:195 !important}
+  body.light #acc-page{background:#f1f5f9;color:#0f172a}
+  body.light .acc-page-bar{background:#f8fafc;border-color:#e2e8f0}
+  body.light .acc-page-back{background:#fff;border-color:#e2e8f0;color:#0f172a}
+  @media (prefers-reduced-motion:reduce){#acc-page{transition:none}}
 </style>
 <script>
 // ============================================================
@@ -1633,7 +1646,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
     </div>
 
     <!-- Notification Preferences -->
-    <div data-acc="🔔|Notification Preferences" style="order:11" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+    <div data-acc="🔔|Notifications" style="order:11" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
       <div class="text-sm font-black text-white mb-1">🔔 Notification Preferences</div>
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between">
@@ -1656,6 +1669,11 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
           <div><div class="text-xs font-bold text-white">🔊 Sound Effects</div><div class="text-[9px] text-gray-500">Play sound on new notifications</div></div>
           <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="notif-sound-toggle" class="sr-only peer" onchange="toggleNotifSound(this.checked)"><div class="w-9 h-5 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div></label>
         </div>
+      </div>
+      <div class="border-t border-gray-800 pt-3 mt-1 flex flex-col gap-2">
+        <div class="text-sm font-black text-white mb-1">Notification centre and appearance</div>
+      <button onclick="toggleNotifCenter()" class="relative text-left bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-black text-gray-200">Notifications <span class="notif-badge absolute top-2 right-3 bg-red-500 text-white text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center hidden">0</span></button>
+      <button onclick="toggleTheme()" class="theme-btn text-left bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-black text-gray-200">Switch to light</button>
       </div>
     </div>
     <div data-acc="🎁|Bookings, Rewards & Referrals" style="order:7" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
@@ -1914,10 +1932,6 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
     </div>
 
     <!-- Profile Settings -->
-    <div data-acc="🔔|Notifications and Appearance" style="order:12" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2">
-      <button onclick="toggleNotifCenter()" class="relative text-left bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-black text-gray-200">Notifications <span class="notif-badge absolute top-2 right-3 bg-red-500 text-white text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center hidden">0</span></button>
-      <button onclick="toggleTheme()" class="theme-btn text-left bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-black text-gray-200">Switch to light</button>
-    </div>
     <div data-acc="⚙️|Settings" style="order:13" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2">
       <div class="text-sm font-black text-white mb-1">⚙️ Settings</div>
       <div class="grid grid-cols-2 gap-2">
@@ -10655,6 +10669,16 @@ function applyBalanceVisibility(){
 </div>
 
 
+
+<!-- FULL-SCREEN ACCOUNT PAGE (each Account section opens here) -->
+<div id="acc-page" role="dialog" aria-modal="true" aria-labelledby="acc-page-title">
+  <div class="acc-page-bar">
+    <button type="button" class="acc-page-back" onclick="closeAccPage()" aria-label="Back to Account">‹ Back</button>
+    <span id="acc-page-title" class="acc-page-title"></span>
+  </div>
+  <div id="acc-page-body" class="acc-page-body"></div>
+</div>
+
 <!-- DELETE ACCOUNT MODAL -->
 <div id="delete-account-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal-sheet flex flex-col gap-4">
@@ -14139,27 +14163,48 @@ function verifyPinPress(digit){
 
 <style>
 .acc-head{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:#f9fafb;font-weight:900;font-size:13px;cursor:pointer;padding:2px 0}
-.acc-head .acc-chev{margin-left:auto;color:#9ca3af;transition:transform .2s}
-.acc-open>.acc-head .acc-chev{transform:rotate(180deg)}
+.acc-head .acc-chev{margin-left:auto;color:#9ca3af;font-size:22px;line-height:1}
+
 [data-acc]:not(.acc-open)>.acc-body{display:none}
 </style>
 <script>
 (function(){
+  function norm(t){ return (t||'').replace(/[^A-Za-z]+/g,' ').trim().toLowerCase(); }
   function build(){
     document.querySelectorAll('#account-signed-in-view [data-acc]').forEach(function(card){
       if(card.dataset.accReady) return; card.dataset.accReady='1';
       var p=card.dataset.acc.split('|');
-      var body=document.createElement('div'); body.className='acc-body flex flex-col gap-2';
+      var body=document.createElement('div'); body.className='acc-body flex flex-col gap-3';
       while(card.firstChild) body.appendChild(card.firstChild);
       var head=document.createElement('button'); head.type='button'; head.className='acc-head';
-      head.innerHTML='<span class="text-lg">'+p[0]+'</span><span>'+p[1]+'</span><span class="acc-chev">▼</span>';
-      head.onclick=function(){ card.classList.toggle('acc-open'); };
+      head.innerHTML='<span class="text-lg">'+p[0]+'</span><span>'+p[1]+'</span><span class="acc-chev">›</span>';
+      head.onclick=function(){ openAccPage(card,p[0],p[1]); };
       card.appendChild(head); card.appendChild(body);
       card.classList.remove('overflow-hidden'); card.style.padding='14px 16px';
     });
     var l=document.getElementById('buyer-orders-list'); if(l) l.classList.remove('hidden');
     var t=document.getElementById('buyer-orders-toggle'); if(t) t.style.display='none';
   }
+  var current=null;
+  window.openAccPage=function(card,icon,title){
+    var pg=document.getElementById('acc-page'); if(!pg||current) return;
+    var body=card.querySelector(':scope > .acc-body'); if(!body) return;
+    document.getElementById('acc-page-title').textContent=title;
+    var first=body.firstElementChild;
+    if(first && norm(first.textContent)===norm(title)) first.setAttribute('data-dup','1');
+    document.getElementById('acc-page-body').appendChild(body);
+    current={card:card,body:body};
+    pg.classList.add('open'); pg.scrollTop=0; document.body.style.overflow='hidden';
+    try{ history.pushState({accPage:1},''); }catch(e){}
+  };
+  window.closeAccPage=function(fromPop){
+    var pg=document.getElementById('acc-page'); if(!current) return;
+    current.card.appendChild(current.body); current=null;
+    pg.classList.remove('open'); document.body.style.overflow='';
+    if(!fromPop){ try{ if(history.state && history.state.accPage) history.back(); }catch(e){} }
+  };
+  window.addEventListener('popstate',function(){ if(current) window.closeAccPage(true); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape' && current) window.closeAccPage(); });
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',build); else build();
 })();
 </script>
