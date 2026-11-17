@@ -68,6 +68,8 @@
     return Object.assign({}, data, { success: res.ok, message: res.ok ? (data.message || '') : (data.error || 'Request failed') });
   }
   window.callApi = callApi;
+  // Push notifications: paste your VAPID public key here (see DEPLOY notes). Leave empty to keep push off.
+  window.EMEMART_VAPID_PUBLIC_KEY = window.EMEMART_VAPID_PUBLIC_KEY || '';
 
   // Builds the "session" object the rest of the app expects.
   async function buildSession() {
