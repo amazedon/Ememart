@@ -1,0 +1,137 @@
+// partners-live.js  (save in the SAME folder as app.html)
+// Connects ratings, the rider portal, my disputes and push notifications to the Supabase API.
+// Only runs when backend.js is in live mode.
+(function () {
+  'use strict';
+  var B = window.EMEMART_BACKEND;
+  if (!B || B.mode !== 'live' || !window.callApi) return;
+  var api = window.callApi;
+  function me() { return typeof state !== 'undefined' && state.session ? state.session : null; }
+  function toast(i, t, m) { try { showPopupNotif(i, t, m); } catch (e) {} }
+  function E(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function naira(k) { return '₦' + (Number(k || 0) / 100).toLocaleString('en-NG'); }
+
+  // ---- 1. true ratings (computed on the server, nobody can edit an average) -------------------
+  window.EMEMART_PARTNER_STATS = window.EMEMART_PARTNER_STATS || {};
+  window.EMEMART_REMOTE_REVIEWS = window.EMEMART_REMOTE_REVIEWS || {};
+  async function loadStats() {
+    try {
+      var r = await api('GET', '/partners/stats');
+      window.EMEMART_PARTNER_STATS = r.stats || {};
+      if (typeof renderFeed === 'function') renderFeed();
+    } catch (e) { /* ratings just show as New */ }
+  }
+  var _op = window.openVendorProfile;
+  if (typeof _op === 'function') {
+    window.openVendorProfile = function (userId) {
+      _op.apply(this, arguments);
+      api('GET', '/partners/' + encodeURIComponent(userId) + '/reviews').then(function (r) {
+        window.EMEMART_REMOTE_REVIEWS[userId] = (r.reviews || []).map(function (x) {
+          return { id: x.id, stars: x.stars, text: x.comment || '', ts: new Date(x.created_at).getTime(), buyerId: x.customer_id, buyerName: x.customer_name, foodName: 'order' };
+        });
+        if (typeof renderVendorReviews === 'function') renderVendorReviews(userId);
+      }).catch(function () {});
+    };
+  }
+  // submit a rating to the server (one per completed order, checked there)
+  window.submitReview = async function () {
+    if (!_reviewState || !_reviewState.stars) { toast('⚠️', 'No rating', 'Please choose 1 to 5 stars.'); return; }
+    var btn = E('submit-review-btn'); if (btn) btn.disabled = true;
+    try {
+      await api('POST', '/orders/' + encodeURIComponent(_reviewState.orderId) + '/review', { stars: _reviewState.stars, comment: (E('review-text').value || '').trim() || undefined });
+      _reviewState.done = true;
+      try { var r = JSON.parse(localStorage.getItem('ememart_rated_orders') || '[]'); r.push(String(_reviewState.orderId)); localStorage.setItem('ememart_rated_orders', JSON.stringify(r)); } catch (e) {}
+      E('review-modal').classList.add('hidden');
+      toast('⭐', 'Thank you', 'Your rating was sent.');
+      loadStats();
+    } catch (e) {
+      toast('❌', 'Could not send rating', e.message || 'Try again.');
+      if (btn) btn.disabled = false;
+    }
+  };
+  // orders delivered but not rated yet -> one reminder
+  async function remindUnrated() {
+    try {
+      var r = await api('GET', '/reviews/pending');
+      var seen = JSON.parse(localStorage.getItem('ememart_review_reminded') || '[]'), changed = false;
+      (r.pending || []).forEach(function (o) {
+        if (seen.indexOf(o.id) >= 0) return;
+        state.notifications.unshift({ id: 'n-rv-' + o.id, icon: '⭐', title: 'Rate your order', body: 'How was your experience with ' + ((o.item_snapshot && o.item_snapshot.seller_name) || 'your Partner') + '? Tap to rate.', ts: Date.now(), read: false, action: 'review:' + (o.post_id || '') + ':' + o.id });
+        seen.push(o.id); changed = true;
+      });
+      if (changed) { localStorage.setItem('ememart_review_reminded', JSON.stringify(seen)); saveNotificationsToStorage(); renderNotifList(); }
+    } catch (e) {}
+  }
+
+  // ---- 2. rider portal ---------------------------------------------------------------------
+  function card(j, actions) {
+    var s = j.item_snapshot || {};
+    return '<div class="bg-gray-950 border border-gray-800 rounded-2xl p-3 text-xs flex flex-col gap-2">' +
+      '<div class="font-black text-white">' + esc(s.title || 'Delivery') + '</div>' +
+      '<div class="text-gray-400">From ' + esc(s.seller_name || 'Partner') + '</div>' +
+      '<div class="text-gray-400">To: ' + esc(j.delivery_address || 'Customer address') + '</div>' +
+      '<div class="flex items-center justify-between"><span class="text-emerald-400 font-black">Delivery fee ' + naira(j.delivery_fee_kobo) + '</span>' + (actions || '') + '</div></div>';
+  }
+  var NEXT = { accepted: ['picked_up', 'Picked up'], picked_up: ['on_the_way', 'On the way'], on_the_way: ['delivered', 'Delivered'] };
+  window.refreshAvailableOrders = async function () {
+    var w = E('rider-available-list'); if (!w) return;
+    w.innerHTML = '<div class="text-center py-6 text-xs text-gray-500">Loading...</div>';
+    try {
+      var r = await api('GET', '/rider/jobs');
+      w.innerHTML = (r.jobs || []).map(function (j) {
+        return card(j, '<button class="btn-primary px-4 py-2 text-xs" style="width:auto" onclick="riderAccept(\'' + j.id + '\')">Accept</button>');
+      }).join('') || '<div class="text-center py-8 text-xs text-gray-500 italic">No delivery jobs right now. Pull to refresh.</div>';
+    } catch (e) { w.innerHTML = '<div class="text-center py-6 text-xs text-red-400">' + esc(e.message || 'Could not load jobs') + '</div>'; }
+  };
+  window.renderRiderActiveDeliveries = async function () {
+    var w = E('rider-active-list'); if (!w) return;
+    try {
+      var r = await api('GET', '/rider/mine');
+      var act = (r.jobs || []).filter(function (j) { return j.delivery_status && j.delivery_status !== 'delivered'; });
+      w.innerHTML = act.map(function (j) {
+        var n = NEXT[j.delivery_status];
+        return card(j, n ? '<button class="btn-primary px-4 py-2 text-xs" style="width:auto" onclick="riderStep(\'' + j.id + '\',\'' + n[0] + '\')">' + n[1] + '</button>' : '');
+      }).join('') || '<div class="text-center py-8 text-xs text-gray-500 italic">No active deliveries.</div>';
+    } catch (e) { w.innerHTML = '<div class="text-center py-6 text-xs text-red-400">' + esc(e.message || 'Could not load') + '</div>'; }
+  };
+  window.renderRiderHistory = async function () {
+    var w = E('rider-history-list'); if (!w) return;
+    try {
+      var r = await api('GET', '/rider/mine');
+      var done = (r.jobs || []).filter(function (j) { return j.delivery_status === 'delivered'; });
+      var total = E('rider-total-deliveries'); if (total) total.textContent = done.length;
+      w.innerHTML = done.map(function (j) { return card(j, '<span class="text-gray-500">Delivered</span>'); }).join('') || '<div class="text-center py-8 text-xs text-gray-500 italic">No completed deliveries yet.</div>';
+    } catch (e) {}
+  };
+  window.riderAccept = async function (id) {
+    try { await api('POST', '/rider/jobs/' + id + '/accept'); toast('✅', 'Job accepted', 'Head to the Partner for pickup.'); switchRiderTab('active'); }
+    catch (e) { toast('⚠️', 'Not available', e.message || 'Try another job.'); refreshAvailableOrders(); }
+  };
+  window.riderStep = async function (id, status) {
+    try { await api('POST', '/rider/jobs/' + id + '/status', { status: status }); renderRiderActiveDeliveries(); if (status === 'delivered') toast('✅', 'Delivered', 'The customer was asked to confirm.'); }
+    catch (e) { toast('❌', 'Could not update', e.message || 'Try again.'); }
+  };
+
+  // ---- 3. push notifications ---------------------------------------------------------------
+  // Needs window.EMEMART_VAPID_PUBLIC_KEY (set in backend.js). Asks once, after the user is signed in.
+  function b64(u) { var p = '='.repeat((4 - u.length % 4) % 4), s = (u + p).replace(/-/g, '+').replace(/_/g, '/'), r = atob(s), a = new Uint8Array(r.length); for (var i = 0; i < r.length; i++) a[i] = r.charCodeAt(i); return a; }
+  async function enablePush() {
+    try {
+      var key = window.EMEMART_VAPID_PUBLIC_KEY;
+      if (!key || !me() || !('serviceWorker' in navigator) || !('PushManager' in window) || Notification.permission === 'denied') return;
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        if (Notification.permission !== 'granted') { var p = await Notification.requestPermission(); if (p !== 'granted') return; }
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(key) });
+      }
+      var j = sub.toJSON();
+      await api('POST', '/push/subscribe', { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
+    } catch (e) {}
+  }
+
+  function start() { loadStats(); remindUnrated(); setTimeout(enablePush, 4000); }
+  var tries = 0, t = setInterval(function () { if (me() || ++tries > 40) { clearInterval(t); if (me()) start(); } }, 500);
+  window.addEventListener('ememart:signed-in', start);
+})();
