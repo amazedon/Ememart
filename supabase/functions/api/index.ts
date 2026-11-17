@@ -44,6 +44,27 @@ export async function notify(
   userId: string, kind: string, title: string, body: string, data: Record<string, unknown> = {},
 ) {
   await admin.from("notifications").insert({ user_id: userId, kind, title, body, data });
+  await sendPush(userId, title, body, data); // best effort: never blocks or fails the action
+}
+
+// Web push. Needs secrets VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (a mailto: address). Skipped when not set.
+async function sendPush(userId: string, title: string, body: string, data: Record<string, unknown>) {
+  try {
+    const pub = Deno.env.get("VAPID_PUBLIC_KEY"), priv = Deno.env.get("VAPID_PRIVATE_KEY");
+    if (!pub || !priv) return;
+    const { data: subs } = await admin.from("push_subscriptions").select("endpoint, p256dh, auth").eq("user_id", userId);
+    if (!subs?.length) return;
+    const webpush = (await import("npm:web-push@3.6.7")).default;
+    webpush.setVapidDetails(Deno.env.get("VAPID_SUBJECT") ?? "mailto:support@ememart.com", pub, priv);
+    const payload = JSON.stringify({ title, body, data });
+    await Promise.all(subs.map(async (s: any) => {
+      try {
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
+      } catch (e: any) {
+        if (e?.statusCode === 404 || e?.statusCode === 410) await admin.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+      }
+    }));
+  } catch (e) { console.error("push failed", e); }
 }
 
 export async function audit(actor: string | null, action: string, target: string, detail: unknown = {}) {
@@ -225,12 +246,13 @@ export const me = newRouter();
 
 me.get("/me", async (c) => {
   const p = c.get("profile");
-  const [{ data: wallet }, { data: adm }] = await Promise.all([
+  const [{ data: wallet }, { data: adm }, { data: pend }] = await Promise.all([
     admin.from("wallets").select("balance_kobo").eq("user_id", p.id).single(),
     admin.from("admin_users").select("role").eq("user_id", p.id).maybeSingle(),
+    admin.from("role_applications").select("role").eq("user_id", p.id).eq("status", "pending").maybeSingle(),
   ]);
   const { pin_hash, pin_failed, pin_locked_until, ...safe } = p;
-  return c.json({ profile: safe, has_pin: !!pin_hash, balance_kobo: wallet?.balance_kobo ?? 0, admin_role: adm?.role ?? null });
+  return c.json({ profile: safe, has_pin: !!pin_hash, balance_kobo: wallet?.balance_kobo ?? 0, admin_role: adm?.role ?? null, pending_role: pend?.role ?? null });
 });
 
 me.post("/me/pin", async (c) => {
@@ -244,15 +266,65 @@ me.post("/me/pin", async (c) => {
   return c.json({ ok: true });
 });
 
-me.post("/me/role-application", async (c) => {
+// ----- delete my account -----
+// Blocks while money or orders are still open, then wipes personal data and closes the login.
+me.post("/me/delete", async (c) => {
   const p = c.get("profile");
-  const b = await parseBody(c, z.object({ role: z.enum(["rider", "artisan"]), details: z.record(z.unknown()).default({}) }));
-  const { data: open } = await admin.from("role_applications").select("id")
-    .eq("user_id", p.id).eq("role", b.role).eq("status", "pending").maybeSingle();
-  if (open) throw new HttpError(409, "You already have a pending application");
-  const { data, error } = await admin.from("role_applications").insert({ user_id: p.id, role: b.role, details: b.details }).select("id").single();
+  const b = await parseBody(c, z.object({ confirm: z.literal("DELETE"), pin: pinSchema.optional() }));
+  if (p.pin_hash) {
+    if (!b.pin) throw new HttpError(400, "Enter your transaction PIN to delete your account");
+    await checkPin(p, b.pin);
+  }
+  const { data: adm } = await admin.from("admin_users").select("user_id").eq("user_id", p.id).maybeSingle();
+  if (adm) throw new HttpError(409, "Admin accounts must be removed from the admin team first");
+
+  const { data: w } = await admin.from("wallets").select("balance_kobo").eq("user_id", p.id).maybeSingle();
+  if (Number(w?.balance_kobo ?? 0) > 0) throw new HttpError(409, "Withdraw your wallet balance before deleting your account");
+
+  const { count: openOrders } = await admin.from("orders").select("id", { count: "exact", head: true })
+    .or(`buyer_id.eq.${p.id},seller_id.eq.${p.id}`).in("status", ["held", "delivered", "disputed"]);
+  if (openOrders) throw new HttpError(409, "You still have orders in progress. Finish or cancel them first");
+
+  const { count: openBookings } = await admin.from("bookings").select("id", { count: "exact", head: true })
+    .or(`buyer_id.eq.${p.id},vendor_id.eq.${p.id}`).in("status", ["requested", "accepted"]);
+  if (openBookings) throw new HttpError(409, "You still have open bookings. Finish or cancel them first");
+
+  const { count: openWd } = await admin.from("withdrawals").select("id", { count: "exact", head: true })
+    .eq("user_id", p.id).eq("status", "pending");
+  if (openWd) throw new HttpError(409, "A withdrawal is still processing. Try again once it completes");
+
+  // files first (photos, avatar, ID documents), then the database rows, then the login
+  for (const bucket of ["post-images", "avatars", "kyc-docs"]) {
+    const { data: files } = await admin.storage.from(bucket).list(p.id, { limit: 1000 });
+    const paths = (files ?? []).map((f) => `${p.id}/${f.name}`);
+    if (paths.length) await admin.storage.from(bucket).remove(paths);
+  }
+  const { error } = await admin.rpc("delete_account_data", { p_uid: p.id });
+  if (error) throw new HttpError(500, "Could not delete the account: " + error.message);
+  const { error: authErr } = await admin.auth.admin.updateUserById(p.id, {
+    email: `deleted-${p.id}@deleted.invalid`, ban_duration: "876000h", user_metadata: {},
+  });
+  if (authErr) throw new HttpError(500, "Account data was removed but the login could not be closed: " + authErr.message);
+  await audit(p.id, "account.deleted", p.id, {});
+  return c.json({ ok: true });
+});
+
+// Switch account type. The first switch is instant; every later switch needs admin approval.
+me.post("/me/role", async (c) => {
+  const p = c.get("profile");
+  const b = await parseBody(c, z.object({ role: z.enum(["buyer", "vendor", "artisan", "rider"]), details: z.record(z.unknown()).default({}) }));
+  if (p.role === b.role) throw new HttpError(409, "You are already on this account type");
+  const { data: adm } = await admin.from("admin_users").select("user_id").eq("user_id", p.id).maybeSingle();
+  if (adm) throw new HttpError(409, "Admin accounts cannot switch type");
+  if ((p.role_changes ?? 0) === 0) {
+    await admin.from("profiles").update({ role: b.role, role_changes: 1 }).eq("id", p.id);
+    return c.json({ approved: true, role: b.role });
+  }
+  const { data: open } = await admin.from("role_applications").select("id").eq("user_id", p.id).eq("status", "pending").maybeSingle();
+  if (open) throw new HttpError(409, "You already have a request waiting for approval");
+  const { error } = await admin.from("role_applications").insert({ user_id: p.id, role: b.role, details: b.details });
   if (error) throw new HttpError(400, error.message);
-  return c.json({ id: data.id }, 201);
+  return c.json({ pending: true, role: b.role }, 201);
 });
 
 // Verification (CAC / NIN / license). Admin reviews manually.
@@ -1080,6 +1152,7 @@ const PERMS: Record<string, Role[]> = {
   users: ["super_admin", "support", "verification_reviewer"],
   finance: ["super_admin", "finance"],
   super: ["super_admin"],
+  broadcast: ["super_admin", "support"],
 };
 
 // Every /admin/* request must come from someone in admin_users with a suitable role.
@@ -1094,6 +1167,34 @@ function need(c: any, area: keyof typeof PERMS) {
   if (!PERMS[area].includes(role)) throw new HttpError(403, "Your admin role cannot do this");
   return role;
 }
+
+// ----- broadcasts (scrolling notice shown to everyone in the app) -----
+adminRoutes.get("/admin/broadcasts", async (c) => {
+  need(c, "broadcast");
+  const { data } = await admin.from("broadcasts").select("*").order("created_at", { ascending: false }).limit(50);
+  return c.json({ broadcasts: data ?? [] });
+});
+adminRoutes.post("/admin/broadcasts", async (c) => {
+  need(c, "broadcast");
+  const b = await parseBody(c, z.object({
+    message: z.string().trim().min(3).max(400),
+    audience: z.enum(["all", "buyer", "vendor", "rider", "artisan"]).default("all"),
+    hours: z.number().int().min(1).max(168).default(24),
+  }));
+  const { data, error } = await admin.from("broadcasts").insert({
+    message: b.message, audience: b.audience, created_by: c.get("uid"),
+    ends_at: new Date(Date.now() + b.hours * 3600_000).toISOString(),
+  }).select("id").single();
+  if (error) throw new HttpError(400, error.message);
+  await audit(c.get("uid"), "broadcast.sent", data.id, { audience: b.audience, hours: b.hours });
+  return c.json({ id: data.id }, 201);
+});
+adminRoutes.delete("/admin/broadcasts/:id", async (c) => {
+  need(c, "broadcast");
+  await admin.from("broadcasts").update({ active: false }).eq("id", c.req.param("id"));
+  await audit(c.get("uid"), "broadcast.stopped", c.req.param("id"), {});
+  return c.json({ ok: true });
+});
 
 // ----- verification -----
 adminRoutes.get("/admin/verifications", async (c) => {
@@ -1162,7 +1263,7 @@ adminRoutes.post("/admin/role-applications/:id/review", async (c) => {
   const { data: a } = await admin.from("role_applications").select("*").eq("id", c.req.param("id")).maybeSingle();
   if (!a || a.status !== "pending") throw new HttpError(404, "No pending application");
   await admin.from("role_applications").update({ status: b.approve ? "approved" : "rejected", reviewer_id: c.get("uid"), reviewed_at: new Date().toISOString(), reject_reason: b.reason ?? null }).eq("id", a.id);
-  if (b.approve) await admin.from("profiles").update({ role: a.role }).eq("id", a.user_id);
+  if (b.approve) await admin.from("profiles").update({ role: a.role, role_changes: 2 }).eq("id", a.user_id);
   await notify(a.user_id, "role_application", b.approve ? "Application approved" : "Application declined", b.approve ? `You are now a ${a.role}.` : (b.reason ?? ""), {});
   await audit(c.get("uid"), "role_application.review", a.id, { approve: b.approve });
   return c.json({ ok: true });
@@ -1259,6 +1360,129 @@ adminRoutes.get("/admin/audit", async (c) => {
   return c.json({ entries: data ?? [] });
 });
 
+// supabase/functions/api/partners.ts
+// Ratings (one per completed order), partner rating stats, rider delivery jobs, my disputes, push subscriptions.
+
+export const partners = newRouter();
+
+// ---------- ratings ----------
+// Only the customer of a delivered/released order can rate, once per order, never themselves.
+partners.post("/orders/:id/review", async (c) => {
+  const uid = c.get("uid");
+  const b = await parseBody(c, z.object({ stars: z.number().int().min(1).max(5), comment: z.string().trim().max(500).optional() }));
+  const { data: o } = await admin.from("orders").select("id, buyer_id, seller_id, post_id, status").eq("id", c.req.param("id")).maybeSingle();
+  if (!o || o.buyer_id !== uid) throw new HttpError(404, "Order not found");
+  if (!["delivered", "released"].includes(o.status)) throw new HttpError(400, "You can rate after the order is delivered");
+  if (o.seller_id === uid) throw new HttpError(400, "You cannot rate yourself");
+  const { error } = await admin.from("reviews").insert({
+    order_id: o.id, partner_id: o.seller_id, customer_id: uid, post_id: o.post_id, stars: b.stars, comment: b.comment || null,
+  });
+  if (error) throw new HttpError(400, error.code === "23505" ? "This order has already been rated" : error.message);
+  await notify(o.seller_id, "new_rating", "New rating", `You received a ${b.stars}-star rating.`, { order: o.id });
+  return c.json({ ok: true }, 201);
+});
+
+// Orders I can still rate (delivered/released and not yet rated), for the reminder
+partners.get("/reviews/pending", async (c) => {
+  const uid = c.get("uid");
+  const { data: os } = await admin.from("orders").select("id, seller_id, post_id, item_snapshot").eq("buyer_id", uid).in("status", ["delivered", "released"]).limit(50);
+  const ids = (os ?? []).map((o: any) => o.id);
+  const { data: done } = ids.length ? await admin.from("reviews").select("order_id").in("order_id", ids) : { data: [] };
+  const rated = new Set((done ?? []).map((r: any) => r.order_id));
+  return c.json({ pending: (os ?? []).filter((o: any) => !rated.has(o.id)) });
+});
+
+// Everyone's true rating (average, count, 5..1 breakdown, completed orders)
+partners.get("/partners/stats", async (c) => {
+  const { data } = await admin.from("partner_stats").select("*");
+  const stats: Record<string, unknown> = {};
+  for (const r of data ?? []) {
+    stats[r.partner_id] = { avg: Number(r.avg_stars), count: r.ratings, orders: r.completed_orders, dist: [0, r.s1, r.s2, r.s3, r.s4, r.s5] };
+  }
+  return c.json({ stats });
+});
+
+partners.get("/partners/:id/reviews", async (c) => {
+  const { data } = await admin.from("reviews").select("id, stars, comment, created_at, customer_id, post_id").eq("partner_id", c.req.param("id")).order("created_at", { ascending: false }).limit(50);
+  const ids = [...new Set((data ?? []).map((r: any) => r.customer_id))];
+  const { data: profs } = ids.length ? await admin.from("public_profiles").select("id, full_name").in("id", ids) : { data: [] };
+  const name = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
+  return c.json({ reviews: (data ?? []).map((r: any) => ({ ...r, customer_name: name.get(r.customer_id) ?? "Customer" })) });
+});
+
+// ---------- my disputes ----------
+partners.get("/disputes", async (c) => {
+  const uid = c.get("uid");
+  const { data: os } = await admin.from("orders").select("id").or(`buyer_id.eq.${uid},seller_id.eq.${uid}`);
+  const ids = (os ?? []).map((o: any) => o.id);
+  if (!ids.length) return c.json({ disputes: [] });
+  const { data } = await admin.from("disputes").select("*, dispute_evidence(id, path, note, created_at)").in("order_id", ids).order("created_at", { ascending: false });
+  return c.json({ disputes: data ?? [] });
+});
+
+// ---------- rider delivery ----------
+function needRider(c: any) {
+  if (c.get("profile").role !== "rider") throw new HttpError(403, "Only riders can do this");
+}
+// Paid orders with a delivery address and no rider yet
+partners.get("/rider/jobs", async (c) => {
+  needRider(c);
+  const { data } = await admin.from("orders").select("id, item_snapshot, delivery_address, delivery_fee_kobo, note, created_at, seller_id")
+    .eq("status", "held").is("rider_id", null).not("delivery_address", "is", null).order("created_at", { ascending: false }).limit(50);
+  return c.json({ jobs: data ?? [] });
+});
+partners.get("/rider/mine", async (c) => {
+  needRider(c);
+  const { data } = await admin.from("orders").select("id, item_snapshot, delivery_address, delivery_fee_kobo, delivery_status, rider_accepted_at, rider_delivered_at, buyer_id, seller_id, status")
+    .eq("rider_id", c.get("uid")).order("rider_accepted_at", { ascending: false }).limit(100);
+  return c.json({ jobs: data ?? [] });
+});
+partners.post("/rider/jobs/:id/accept", async (c) => {
+  needRider(c);
+  // The "rider_id is null" condition makes this safe when two riders tap at the same time.
+  const { data, error } = await admin.from("orders").update({ rider_id: c.get("uid"), delivery_status: "accepted", rider_accepted_at: new Date().toISOString() })
+    .eq("id", c.req.param("id")).eq("status", "held").is("rider_id", null).select("id, buyer_id, seller_id").maybeSingle();
+  if (error) throw new HttpError(400, error.message);
+  if (!data) throw new HttpError(409, "Another rider already took this job");
+  await notify(data.buyer_id, "rider_assigned", "Rider on the way", "A rider accepted your delivery.", { order: data.id });
+  await notify(data.seller_id, "rider_assigned", "Rider assigned", "A rider will pick up the order.", { order: data.id });
+  return c.json({ ok: true });
+});
+partners.post("/rider/jobs/:id/status", async (c) => {
+  needRider(c);
+  const b = await parseBody(c, z.object({ status: z.enum(["picked_up", "on_the_way", "delivered"]) }));
+  const { data: o } = await admin.from("orders").select("id, buyer_id, seller_id, rider_id").eq("id", c.req.param("id")).maybeSingle();
+  if (!o || o.rider_id !== c.get("uid")) throw new HttpError(404, "Job not found");
+  const patch: Record<string, unknown> = { delivery_status: b.status };
+  if (b.status === "delivered") patch.rider_delivered_at = new Date().toISOString();
+  await admin.from("orders").update(patch).eq("id", o.id);
+  const text = { picked_up: "Your order was picked up.", on_the_way: "Your rider is on the way.", delivered: "The rider marked your order as delivered. Please confirm in the app." }[b.status];
+  await notify(o.buyer_id, "delivery_" + b.status, "Delivery update", text, { order: o.id });
+  await audit(c.get("uid"), "rider." + b.status, o.id);
+  return c.json({ ok: true });
+});
+
+// ---------- push subscriptions ----------
+partners.post("/push/subscribe", async (c) => {
+  const b = await parseBody(c, z.object({ endpoint: z.string().url(), p256dh: z.string(), auth: z.string() }));
+  await admin.from("push_subscriptions").upsert({ user_id: c.get("uid"), endpoint: b.endpoint, p256dh: b.p256dh, auth: b.auth }, { onConflict: "endpoint" });
+  return c.json({ ok: true }, 201);
+});
+partners.post("/push/unsubscribe", async (c) => {
+  const b = await parseBody(c, z.object({ endpoint: z.string() }));
+  await admin.from("push_subscriptions").delete().eq("endpoint", b.endpoint).eq("user_id", c.get("uid"));
+  return c.json({ ok: true });
+});
+
+// ----- fake reviews: admins can delete a review, never edit a rating -----
+adminRoutes.delete("/admin/reviews/:id", async (c) => {
+  need(c, "users");
+  const { error } = await admin.from("reviews").delete().eq("id", c.req.param("id"));
+  if (error) throw new HttpError(400, error.message);
+  await audit(c.get("uid"), "review.deleted", c.req.param("id"), {});
+  return c.json({ ok: true });
+});
+
 const app = new Hono<AppEnv>().basePath("/api");
 
 app.use("*", async (c, next) => {
@@ -1289,6 +1513,7 @@ app.route("/", me);
 app.route("/", wallet);
 app.route("/", orders);
 app.route("/", market);
+app.route("/", partners);
 app.route("/", adminRoutes);
 
 app.onError((err, c) => {
