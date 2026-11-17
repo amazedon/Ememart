@@ -83,13 +83,23 @@
       id: authUser.id, name: name, full_name: name,
       email: authUser.email || p.email || '', phone: p.phone || meta.phone || '',
       role: role, username: p.username || '', role_changes: p.role_changes || 0, balance: Number(me.balance_kobo || 0) / 100, wallet_balance: Number(me.balance_kobo || 0) / 100,
-      town: meta.town || '', lga: meta.lga || '', state: meta.state || '',
+      town: meta.town || '', lga: meta.lga || '', state: meta.state || '', business: meta.business || '',
       accountNum: 'EM-' + authUser.id.slice(0, 8).toUpperCase(),
       verified: !!p.verified, vendorTier: p.tier || 'free', has_pin: !!me.has_pin, admin_role: me.admin_role || null,
       avatar: meta.avatar_url || meta.picture || null,
     };
   }
   window.buildSession = buildSession;
+
+  // Saves the profile form: details live in auth metadata (town/LGA/state/business) and name/phone also in profiles.
+  window.persistProfile = async function (f) {
+    const { error } = await sb.auth.updateUser({ data: { full_name: f.full_name, phone: f.phone, business: f.business, town: f.town, lga: f.lga, state: f.state } });
+    if (error) throw new Error(error.message);
+    try {
+      const { data: u } = await sb.auth.getUser();
+      if (u && u.user) await sb.from('profiles').update({ full_name: f.full_name, phone: f.phone || null, area: [f.town, f.lga, f.state].filter(Boolean).join(', ') }).eq('id', u.user.id);
+    } catch (e) { /* metadata is the source of truth; ignore profile-table errors */ }
+  };
 
   function setSession(sess) {
     state.session = sess;
