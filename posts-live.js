@@ -150,6 +150,26 @@
     loadPosts();
   };
 
+  // ---- edit (text, name, price, availability of your own post) ------------------------------
+  window.persistPostEdit = async function (post, changes) {
+    var u = me(); if (!u) throw new Error('Please sign in first.');
+    if (post.authorId !== u.id) throw new Error('You can only edit your own posts.');
+    var cur = await sb.from('posts').select('extra').eq('id', post.id).single();
+    if (cur.error) throw cur.error;
+    var extra = Object.assign({}, cur.data.extra || {}, changes);
+    var upd = { extra: extra };
+    var title = changes.foodName || changes.bizServiceName;
+    if (title) upd.title = title;
+    var price = changes.price != null ? changes.price : changes.bizPrice;
+    if (price != null) upd.price_kobo = Math.round(price * 100);
+    if (changes.text != null) upd.description = changes.text;
+    if (!post.isFood && !post.bizType) upd.title = (changes.text || '').slice(0, 80) || 'Post';
+    var r = await sb.from('posts').update(upd).eq('id', post.id);
+    if (r.error) throw r.error;
+    Object.assign(post, changes);
+    loadPosts();
+  };
+
   // ---- likes -------------------------------------------------------------------------------
   window.likePost = async function (id) {
     var u = me(); if (!u) { toast('🔐', 'Sign in Required', 'Please sign in to like posts.'); return; }
