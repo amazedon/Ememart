@@ -179,6 +179,75 @@ document.addEventListener('click', function askOnce(){
   .post-menu-item.danger{color:#ef4444}
   body.light .post-menu-item{color:#0f172a}
   body.light .post-menu-item.danger{color:#dc2626}
+
+  /* ---------- Create post screen ---------- */
+  .pf-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;border-bottom:1px solid #1f2937;padding-bottom:10px}
+  .pf-chip{font-size:10px;font-weight:800;color:#6ee7b7;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);padding:5px 10px;border-radius:999px;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pf-card{background:#111827;border:1px solid #1f2937;border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px}
+  .pf-head{font-size:13px;font-weight:900;color:#f9fafb;display:flex;align-items:center;gap:8px}
+  .pf-sub{font-size:10px;font-weight:700;color:#6b7280}
+  .pf-role{font-size:12px;font-weight:900;color:#10b981}
+  .pf-escrow{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:16px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);cursor:pointer}
+  .pf-photo{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;border:1.5px dashed #374151;border-radius:14px;background:#0b1220;cursor:pointer}
+  .pf-actions{position:sticky;bottom:0;display:flex;gap:10px;padding:12px 0 6px;background:linear-gradient(to top,#030712 70%,rgba(3,7,18,0));z-index:5}
+  .pf-row{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center}
+  body.light .pf-top{border-color:#e2e8f0}
+  body.light .pf-card{background:#fff;border-color:#e2e8f0}
+  body.light .pf-head{color:#0f172a}
+  body.light .pf-photo{background:#f8fafc;border-color:#cbd5e1}
+  body.light .pf-actions{background:linear-gradient(to top,#fff 70%,rgba(255,255,255,0))}
+  body.light .pf-chip{color:#047857}
+
+  /* ---------- Post details screen ---------- */
+  .pd-card{background:#111827;border:1px solid #1f2937;border-radius:18px;padding:14px}
+  .pd-gallery{position:relative;width:100%;background:#0b1220}
+  .pd-gallery-inner{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;height:min(78vw,340px)}
+  .pd-gallery-inner::-webkit-scrollbar{display:none}
+  .pd-slide{flex:0 0 100%;scroll-snap-align:center;display:flex;align-items:center;justify-content:center;background:#0b1220}
+  .pd-slide img,.pd-slide video{width:100%;height:100%;object-fit:contain}
+  .pd-count{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.65);color:#fff;font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px}
+  .pd-dots{position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:6px}
+  .pd-dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.45)}
+  .pd-dots i.on{background:#fff}
+  .pd-price-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .pd-price{font-size:26px;font-weight:900;color:#10b981}
+  .pd-pill{font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;background:rgba(148,163,184,.15);color:#cbd5e1}
+  .pd-pill.good{background:rgba(16,185,129,.15);color:#34d399}
+  .pd-pill.bad{background:rgba(239,68,68,.15);color:#f87171}
+  .pd-actions{display:flex;align-items:center;border-top:1px solid #1f2937;margin:12px -14px -14px}
+  .pd-sec-title{font-size:13px;font-weight:900;color:#f9fafb;margin-bottom:8px}
+  .pd-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .pd-item{background:#111827;border:1px solid #1f2937;border-radius:14px;padding:10px 12px;min-width:0}
+  .pd-item.wide{grid-column:1 / -1}
+  .pd-k{font-size:10px;font-weight:700;color:#9ca3af;margin-bottom:2px}
+  .pd-v{font-size:13px;font-weight:800;color:#f9fafb;word-break:break-word}
+  .pd-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+  .pd-chips span{font-size:11px;font-weight:700;background:rgba(148,163,184,.14);color:#cbd5e1;padding:4px 10px;border-radius:999px}
+  .pd-secure{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.28);border-radius:18px;padding:14px;display:flex;gap:12px;align-items:flex-start}
+  .pd-secure .ico{width:28px;height:28px;color:#10b981;flex:none}
+  .pd-secure b{display:block;font-size:13px;color:#6ee7b7;margin-bottom:2px}
+  .pd-secure span.t{font-size:12px;color:#9ca3af;line-height:1.5}
+  .pd-grow{background:linear-gradient(135deg,#047857,#065f46);color:#fff;border-radius:18px;padding:16px}
+  .pd-grow-btn{margin-top:12px;background:#fff;color:#065f46;font-weight:900;font-size:13px;padding:10px 18px;border-radius:12px}
+  .pd-similar{display:flex;gap:10px;overflow-x:auto;padding:0 16px 8px;scrollbar-width:none}
+  .pd-similar::-webkit-scrollbar{display:none}
+  .pd-sim{flex:0 0 150px;background:#111827;border:1px solid #1f2937;border-radius:16px;padding:8px;cursor:pointer}
+  .pd-sim .ph{height:90px;border-radius:10px;background:linear-gradient(135deg,#065f46,#0f172a);overflow:hidden;margin-bottom:6px}
+  .pd-sim .ph img{width:100%;height:100%;object-fit:cover}
+  .pd-sim b{display:block;font-size:12px;color:#f9fafb;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .pd-sim em{display:block;font-style:normal;font-size:13px;font-weight:900;color:#10b981;margin-top:2px}
+  .pd-sim small{display:block;font-size:10px;color:#9ca3af;margin-top:1px}
+  body.light #post-detail-modal{background:#f8fafc}
+  body.light .pd-card,body.light .pd-item,body.light .pd-sim{background:#fff;border-color:#e2e8f0}
+  body.light .pd-sec-title,body.light .pd-v,body.light .pd-sim b{color:#0f172a}
+  body.light .pd-k,body.light .pd-sim small{color:#64748b}
+  body.light .pd-actions{border-color:#e2e8f0}
+  body.light .pd-gallery,body.light .pd-slide{background:#f1f5f9}
+  body.light .pd-price,body.light .pd-sim em{color:#059669}
+  body.light .pd-pill{color:#475569}
+  body.light .pd-chips span{color:#475569}
+  body.light .pd-secure span.t{color:#475569}
+  body.light .pd-secure b{color:#047857}
   .listing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
   .listing-card{background:#111827;border:1px solid #1f2937;border-radius:18px;padding:8px;cursor:pointer;display:flex;flex-direction:column;min-width:0;transition:border-color .15s}
   .listing-card:active{transform:scale(.98)}
@@ -4261,60 +4330,118 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
 </div><!-- end vendor-profile-panel -->
 
 <div id="post-panel" class="panel gap-3">
-  <div class="border-b border-gray-800 pb-2">
-    <h2 class="text-lg font-black text-white">Create Post</h2>
-    <p id="post-panel-subtitle" class="text-xs text-gray-400 mt-0.5">Share an update with your community.</p>
+  <div class="pf-top">
+    <div>
+      <h2 class="text-lg font-black text-white">Create post</h2>
+      <p id="post-panel-subtitle" class="text-xs text-gray-400 mt-0.5">Share an update with your community.</p>
+    </div>
+    <div id="pf-posting-as" class="pf-chip hidden"></div>
   </div>
-  
-  <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
 
-    <!-- Role-based type switcher — hidden for regular users -->
+  <div class="flex flex-col gap-3">
+
+    <!-- Role-based type switcher: hidden for regular users -->
     <div id="post-type-switcher" class="hidden flex gap-2 p-1 bg-gray-950 rounded-xl border border-gray-800">
-      <button id="post-type-normal" onclick="setPostType('normal')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-gray-900 transition">📝 Update</button>
-      <button id="post-type-biz" onclick="setPostType('business')" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg bg-transparent text-gray-400 transition">🏪 Listing</button>
+      <button id="post-type-normal" onclick="setPostType('normal')" class="flex-1 py-2 text-[11px] font-black rounded-lg bg-emerald-500 text-gray-900 transition">Update</button>
+      <button id="post-type-biz" onclick="setPostType('business')" class="flex-1 py-2 text-[11px] font-black rounded-lg bg-transparent text-gray-400 transition">Listing</button>
     </div>
 
-    <!-- Guest / regular user notice (no listing option) -->
-    <div id="post-user-notice" class="hidden bg-sky-950/30 border border-sky-900/40 rounded-xl p-3 text-[10px] text-sky-300 leading-relaxed">
-      📝 You can post regular updates. To sell or offer services, apply for a business role in <strong>Account → Apply to Change Role</strong>.
+    <div id="post-user-notice" class="hidden bg-sky-950/30 border border-sky-900/40 rounded-xl p-3 text-[11px] text-sky-300 leading-relaxed">
+      You can post regular updates. To sell or offer services, choose Vendor, Artisan or Rider in <strong>Account → Account Role</strong>.
     </div>
 
-    <div id="post-biz-fields" class="hidden flex-col gap-3 border border-dashed border-gray-800 p-3 rounded-xl bg-gray-950/40 fade-up">
-      <!-- Listing type is auto-set by role — selector hidden, role label shown -->
-      <div id="post-biz-role-label" class="text-[10px] font-black text-emerald-400 uppercase tracking-wider"></div>
+    <div id="post-biz-fields" class="hidden flex-col gap-3 fade-up">
+      <div id="post-biz-role-label" class="pf-role"></div>
       <select id="post-biz-cat" onchange="handleBizCategoryChange()" class="hidden inp">
         <option value="food">Food Delivery Item</option>
         <option value="other">Artisan / General Services</option>
       </select>
 
-      <div id="food-delivery-inputs" class="flex flex-col gap-3">
-        <div class="flex flex-col gap-1">
-          <label class="label-sm">Food / Item Name*</label>
-          <input type="text" id="food-name" placeholder="Smokey Jollof Rice" class="inp">
+      <!-- 1. Basic details -->
+      <section class="pf-card">
+        <div class="pf-head">Basic details</div>
+
+        <div id="food-delivery-inputs" class="flex flex-col gap-3">
+          <div class="flex flex-col gap-1">
+            <label class="label-sm">Food / item name*</label>
+            <input type="text" id="food-name" placeholder="Smokey Jollof Rice" class="inp">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="flex flex-col gap-1"><label class="label-sm">Price (₦)*</label><input type="number" id="food-price" placeholder="2500" class="inp"></div>
+            <div class="flex flex-col gap-1"><label class="label-sm">Portions available*</label><input type="number" id="food-qty" placeholder="10" class="inp"></div>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="label-sm">Category</label>
+            <select id="food-cat-tag" class="inp">
+              <option value="rice">Rice</option>
+              <option value="soups">Soups & Stews</option>
+              <option value="snacks">Snacks & Pastries</option>
+              <option value="drinks">Drinks & Juices</option>
+              <option value="grills">Grills & Suya</option>
+              <option value="swallow">Swallow</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="general-biz-inputs" class="hidden flex-col gap-3">
+          <div class="flex flex-col gap-1">
+            <label class="label-sm">Service / business title*</label>
+            <input type="text" id="biz-service-name" placeholder="AC Repair & Maintenance" class="inp">
+          </div>
+          <div id="biz-type-wrapper" class="flex flex-col gap-1">
+            <label class="label-sm">Service type</label>
+            <select id="biz-artisan-type" onchange="refreshPostFormRoleFields()" class="inp">
+              <option value="artisan">Artisan / Handyman</option>
+              <option value="rider">Dispatch Rider / Logistics</option>
+              <option value="freelancer">Freelancer / Designer / Developer</option>
+              <option value="shop">Physical Shop / Retailer</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="flex flex-col gap-1"><label class="label-sm">Price (₦)</label><input type="number" id="biz-price" placeholder="Leave empty if it varies" class="inp"></div>
+            <div class="flex flex-col gap-1"><label class="label-sm">Working hours</label><input type="text" id="biz-avail" placeholder="Mon-Sat, 8am-6pm" class="inp"></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div class="flex flex-col gap-1">
+            <label class="label-sm">Price type</label>
+            <select id="pf-price-type" class="inp">
+              <option value="">Select</option>
+              <option>Fixed</option><option>Negotiable</option><option>Per Hour</option><option>Per Job</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="label-sm">Sub-category</label>
+            <input type="text" id="pf-subcat" placeholder="e.g. Fried rice" class="inp">
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-2">
-          <div class="flex flex-col gap-1"><label class="label-sm">Price (₦)*</label><input type="number" id="food-price" placeholder="2500" class="inp"></div>
-          <div class="flex flex-col gap-1"><label class="label-sm">Quantity (Portions)*</label><input type="number" id="food-qty" placeholder="10" class="inp"></div>
+          <div id="pf-condition-wrap" class="flex flex-col gap-1">
+            <label class="label-sm">Condition</label>
+            <select id="pf-condition" class="inp">
+              <option value="">Select</option>
+              <option>Brand new</option><option>Fairly used</option><option>Used</option><option>Fresh / made today</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="label-sm">Tags / keywords</label>
+            <input type="text" id="pf-tags" placeholder="spicy, party, cheap" class="inp">
+          </div>
         </div>
+      </section>
+
+      <!-- 2. Role specific -->
+      <section id="pf-food-extra" class="pf-card">
+        <div class="pf-head">Food details</div>
         <div class="flex flex-col gap-1">
-          <label class="label-sm">Category tag</label>
-          <select id="food-cat-tag" class="inp">
-            <option value="rice">Rice Selection</option>
-            <option value="soups">Soups & Stews</option>
-            <option value="snacks">Snacks & Pastries</option>
-            <option value="drinks">Drinks & Juices</option>
-            <option value="grills">Grills & Suya</option>
-            <option value="swallow">Swallow Options</option>
-          </select>
-        </div>
-        <div class="flex flex-col gap-1">
-          <label class="label-sm">What accompanies this dish? (Extras)</label>
-          <input type="text" id="food-extras" placeholder="Fried Plantain, Coleslaw & Grilled Chicken" class="inp">
+          <label class="label-sm">What comes with it?</label>
+          <input type="text" id="food-extras" placeholder="Fried plantain, coleslaw and grilled chicken" class="inp">
         </div>
         <div class="bg-gray-950 p-2.5 border border-gray-800 rounded-xl flex flex-col gap-2">
-          <label class="label-sm">Tag Ingredients for Allergens / Preferences</label>
+          <label class="label-sm">Ingredients (for allergies and preferences)</label>
           <div class="relative">
-            <input type="text" id="ing-search" oninput="searchIngredients(this.value)" placeholder="Search ingredients (e.g. Pepper, Peanut...)" class="inp text-xs pr-10">
+            <input type="text" id="ing-search" oninput="searchIngredients(this.value)" placeholder="Search ingredients (e.g. Pepper, Peanut)" class="inp text-xs pr-10">
             <button type="button" onclick="addCustomIng()" class="absolute right-2 top-1/2 -translate-y-1/2 bg-gray-800 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold">+</button>
           </div>
           <div id="ing-dropdown" class="hidden max-h-32 overflow-y-auto bg-gray-900 border border-gray-800 rounded-xl mt-1 text-xs"></div>
@@ -4323,90 +4450,129 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
         <div class="grid grid-cols-2 gap-2 bg-red-950/10 border border-red-900/30 p-2 rounded-xl">
           <label class="flex items-center gap-2 cursor-pointer select-none">
             <input type="checkbox" id="post-flash-sale" onchange="el('flash-price-wrapper').classList.toggle('hidden', !this.checked)" class="accent-emerald-500">
-            <span class="text-[10px] font-black text-orange-400 uppercase tracking-wider">⚡ Flash Sale</span>
+            <span class="text-[11px] font-black text-orange-400">⚡ Flash sale</span>
           </label>
           <div id="flash-price-wrapper" class="hidden flex-col gap-0.5">
-            <label class="label-sm text-[9px]">Flash Price (₦)*</label>
+            <label class="label-sm text-[9px]">Flash price (₦)*</label>
             <input type="number" id="post-flash-price" placeholder="1500" class="inp py-1 text-xs">
           </div>
         </div>
-      </div>
+      </section>
 
-      <div id="general-biz-inputs" class="hidden flex-col gap-3">
-        <div class="flex flex-col gap-1">
-          <label class="label-sm">Service / Business Title*</label>
-          <input type="text" id="biz-service-name" placeholder="AC Repair & Maintenance" class="inp">
+      <section id="pf-artisan-extra" class="pf-card hidden">
+        <div class="pf-head">Service details</div>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="flex flex-col gap-1"><label class="label-sm">Duration of a job</label><input type="text" id="pf-duration" placeholder="e.g. 2-3 hours" class="inp"></div>
+          <div class="flex flex-col gap-1"><label class="label-sm">Experience</label><input type="text" id="pf-experience" placeholder="e.g. 6 years" class="inp"></div>
         </div>
-        <div id="biz-type-wrapper" class="flex flex-col gap-1">
-          <label class="label-sm">Service Type / Specialty</label>
-          <select id="biz-artisan-type" class="inp">
-            <option value="artisan">🔧 Artisan / Handyman</option>
-            <option value="rider">🏍️ Dispatch Rider / Logistics</option>
-            <option value="freelancer">💻 Freelancer / Designer / Developer</option>
-            <option value="shop">🏪 Physical Shop / Retailer</option>
-          </select>
+        <div class="flex flex-col gap-1"><label class="label-sm">Materials / what's included</label><input type="text" id="pf-materials" placeholder="e.g. Parts and labour, 1 month warranty" class="inp"></div>
+      </section>
+
+      <section id="pf-rider-extra" class="pf-card hidden">
+        <div class="pf-head">Delivery service details</div>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="flex flex-col gap-1"><label class="label-sm">Vehicle</label><input type="text" id="pf-vehicle" placeholder="e.g. Motorbike" class="inp"></div>
+          <div class="flex flex-col gap-1"><label class="label-sm">Route / area covered</label><input type="text" id="pf-route" placeholder="e.g. Onitsha to Nnewi" class="inp"></div>
+        </div>
+      </section>
+
+      <!-- 3. Delivery & availability -->
+      <section class="pf-card">
+        <div class="pf-head">Delivery and availability</div>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="flex flex-col gap-1">
+            <label class="label-sm">Availability</label>
+            <select id="pf-avail-status" class="inp">
+              <option value="">Select</option>
+              <option>Available Now</option><option>Open</option><option>Closed</option><option>Out of Stock</option><option>By Appointment</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="label-sm">Delivery method</label>
+            <select id="pf-delivery-method" class="inp">
+              <option value="">Select</option>
+              <option>Pickup only</option><option>Delivery only</option><option>Pickup or delivery</option><option>I come to you</option>
+            </select>
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-2">
-          <div class="flex flex-col gap-1"><label class="label-sm">Starting Price (₦)</label><input type="number" id="biz-price" placeholder="Free consultation" class="inp"></div>
-          <div class="flex flex-col gap-1"><label class="label-sm">Availability Hours</label><input type="text" id="biz-avail" placeholder="Mon-Sat, 8am-6pm" class="inp"></div>
+          <div class="flex flex-col gap-1"><label class="label-sm">Delivery time</label><input type="text" id="pf-delivery-time" placeholder="e.g. 30-45 minutes" class="inp"></div>
+          <div class="flex flex-col gap-1"><label class="label-sm">Delivery fee (₦)</label><input type="number" id="pf-delivery-fee" placeholder="e.g. 500" class="inp"></div>
         </div>
-      </div>
+        <div id="pf-stock-wrap" class="flex flex-col gap-1"><label class="label-sm">Stock / quantity left</label><input type="text" id="pf-stock" placeholder="e.g. 12 units" class="inp"></div>
+      </section>
 
-      <!-- 🔐 Escrow — shown on ALL business listing posts -->
-      <label class="flex items-center gap-2 p-2 bg-indigo-950/20 border border-indigo-900/40 rounded-xl cursor-pointer select-none">
+      <!-- 4. Location -->
+      <section class="pf-card">
+        <div class="pf-head">Location</div>
+        <div class="grid grid-cols-3 gap-2">
+          <div class="flex flex-col gap-1"><label class="label-sm">Town</label><input type="text" id="pf-town" class="inp"></div>
+          <div class="flex flex-col gap-1"><label class="label-sm">LGA</label><input type="text" id="pf-lga" class="inp"></div>
+          <div class="flex flex-col gap-1"><label class="label-sm">State</label><input type="text" id="pf-state" class="inp"></div>
+        </div>
+      </section>
+
+      <!-- 5. Custom details -->
+      <section class="pf-card">
+        <div class="pf-head">More details <span class="pf-sub">optional</span></div>
+        <div id="pf-custom-rows" class="flex flex-col gap-2"></div>
+        <button type="button" onclick="addCustomDetailRow()" class="btn-sm-outline text-[11px]">+ Add a detail</button>
+      </section>
+
+      <label class="pf-escrow">
         <input type="checkbox" id="post-escrow" class="accent-indigo-500">
         <div>
-          <span class="text-[10px] font-black text-indigo-400 uppercase tracking-wider block">🔐 Protect with Escrow</span>
-          <span class="text-[9px] text-gray-500 font-normal">Funds held safely until buyer confirms receipt. Highly recommended.</span>
+          <span class="block text-[12px] font-black text-indigo-300">Protect this listing with escrow</span>
+          <span class="block text-[10px] text-gray-500 font-normal">Payment is held safely until the buyer confirms they got what they paid for.</span>
         </div>
       </label>
     </div>
 
-    <div class="flex flex-col gap-1">
-      <label class="label-sm" id="post-text-label">Post Update Content</label>
-      <textarea id="post-text" rows="3" placeholder="What's happening in your area right now?" class="inp resize-none"></textarea>
-    </div>
+    <!-- Description + photos -->
+    <section class="pf-card">
+      <div class="pf-head" id="post-text-label">Post update</div>
+      <textarea id="post-text" rows="4" placeholder="What's happening in your area right now?" class="inp resize-none"></textarea>
+      <div class="flex flex-col gap-2">
+        <label class="pf-photo" id="multi-img-upload-label">
+          <span class="text-lg">📸</span>
+          <div class="text-center">
+            <div class="text-xs font-black text-gray-300">Add photos</div>
+            <div class="text-[10px] text-gray-500" id="multi-img-count-label">Up to 5 images · tap to browse</div>
+          </div>
+          <input type="file" accept="image/*" multiple class="hidden" id="multi-img-input" onchange="handleMultiImageUpload(event)">
+        </label>
+        <div id="multi-img-strip" class="hidden flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none;"></div>
+      </div>
+      <div id="media-preview" class="hidden"><img id="img-preview-el" class="hidden"></div>
+    </section>
 
-    <!-- Multi-image upload (up to 5) -->
-    <div class="flex flex-col gap-2">
-      <label class="w-full bg-gray-950 border border-dashed border-gray-700 hover:border-emerald-600 px-3 py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition" id="multi-img-upload-label">
-        <span class="text-lg">📸</span>
-        <div class="text-center">
-          <div class="text-xs font-black text-gray-300">Add Photos</div>
-          <div class="text-[9px] text-gray-500" id="multi-img-count-label">Up to 5 images · tap to browse</div>
-        </div>
-        <input type="file" accept="image/*" multiple class="hidden" id="multi-img-input" onchange="handleMultiImageUpload(event)">
-      </label>
-      <div id="multi-img-strip" class="hidden flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none;"></div>
-    </div>
-    <div id="media-preview" class="hidden"><img id="img-preview-el" class="hidden"></div>
-
-    <div class="flex gap-2 mt-1">
-      <button onclick="previewPost()" class="btn-sm-outline flex-1">👁️ Preview</button>
-      <button onclick="submitPost()" class="btn-primary flex-1">🚀 Publish Now</button>
-    </div>
-
-    <!-- Advanced Options -->
+    <!-- Advanced -->
     <div class="border border-gray-800 rounded-xl overflow-hidden">
-      <button onclick="toggleAdvancedPost()" class="w-full p-3 flex justify-between items-center text-[10px] font-black text-gray-400 uppercase tracking-wider bg-gray-900 hover:bg-gray-800 transition">
-        <span>⚙️ Advanced Options</span>
+      <button onclick="toggleAdvancedPost()" class="w-full p-3 flex justify-between items-center text-[11px] font-black text-gray-400 bg-gray-900 hover:bg-gray-800 transition">
+        <span>⚙️ More options</span>
         <span id="advanced-post-chevron">▼</span>
       </button>
       <div id="advanced-post-options" class="hidden flex flex-col gap-3 p-3 bg-gray-950">
         <div class="flex flex-col gap-1">
-          <label class="label-sm">📅 Schedule Post (optional)</label>
+          <label class="label-sm">Schedule post (optional)</label>
           <input type="datetime-local" id="post-schedule-time" class="inp text-xs">
           <div class="text-[10px] text-gray-500">Leave blank to post immediately</div>
         </div>
         <div class="flex flex-col gap-1">
-          <label class="label-sm">📋 Load Template</label>
+          <label class="label-sm">Load template</label>
           <div id="post-templates-list" class="flex flex-col gap-1.5">
             <div id="no-templates-msg" class="text-[10px] text-gray-500 italic">No saved templates yet.</div>
           </div>
-          <button onclick="savePostAsTemplate()" class="btn-sm-outline text-[9px] mt-1">💾 Save Current as Template</button>
+          <button onclick="savePostAsTemplate()" class="btn-sm-outline text-[10px] mt-1">Save current as template</button>
         </div>
-        <button onclick="reorderLastPost()" class="btn-sm-outline text-[9px]">🔄 Repost Last Listing</button>
+        <button onclick="reorderLastPost()" class="btn-sm-outline text-[10px]">Repost last listing</button>
       </div>
+    </div>
+
+    <!-- Sticky actions -->
+    <div class="pf-actions">
+      <button onclick="previewPost()" class="btn-sm-outline flex-1">Preview</button>
+      <button onclick="submitPost()" class="btn-primary flex-[2]">Publish now</button>
     </div>
   </div>
 </div>
@@ -4606,7 +4772,10 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
           <h3 id="acc-name" class="text-base font-black text-white">—</h3>
           <span id="acc-role-label" class="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-900/40 px-2 py-0.5 rounded-md font-bold tracking-wider uppercase mono">user profile</span>
         </div>
-        <button onclick="handleSignOut()" class="text-xs font-bold text-red-400 hover:text-red-300 border border-red-900/50 px-2.5 py-1 rounded-xl transition">Sign Out</button>
+        <div class="flex flex-col gap-1.5 items-end">
+          <button onclick="openProfileModal()" class="text-xs font-bold text-emerald-400 border border-emerald-900/50 px-2.5 py-1 rounded-xl transition">Edit profile</button>
+          <button onclick="handleSignOut()" class="text-xs font-bold text-red-400 hover:text-red-300 border border-red-900/50 px-2.5 py-1 rounded-xl transition">Sign Out</button>
+        </div>
       </div>
 
       <div class="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-gray-800/60 pt-3 text-xs">
@@ -6215,6 +6384,7 @@ function navTo(panelId){
       return;
     }
   }
+  if(panelId === 'post' && state.session && !ensureProfileForPosting(() => navTo('post'))) return;
   document.querySelectorAll('footer button').forEach(b=>{
     b.classList.remove('text-emerald-400');
     b.classList.add('text-gray-500');
@@ -6769,7 +6939,7 @@ async function saveEditedPost(postId){
   const post = state.posts.find(p => p.id === postId);
   if(!post) return;
   const v = id => { const e = document.getElementById(id); return e ? e.value.trim() : null; };
-  const changes = { text: v('ep-text') };
+  const changes = { text: v('ep-text'), updatedAt: Date.now() };
   if(post.isFood){
     const n = v('ep-name'); const pr = Number(v('ep-price'));
     if(!n){ showPopupNotif('⚠️','Name needed','Enter the dish name.'); return; }
@@ -7700,22 +7870,17 @@ ${type==='pdf'?'<script>window.onload=function(){window.print()}<\/script>':''}
 
 function setPostType(type){
   state.postType = type;
-  const normalBtn = el('post-type-normal');
-  const bizBtn = el('post-type-biz');
-  const bizFields = el('post-biz-fields');
+  const on='flex-1 py-2 text-[11px] font-black rounded-lg bg-emerald-500 text-gray-900 transition', off='flex-1 py-2 text-[11px] font-black rounded-lg bg-transparent text-gray-400 transition';
+  const biz = type === 'business';
+  const nb = el('post-type-normal'), bb = el('post-type-biz');
+  if(nb) nb.className = biz ? off : on;
+  if(bb) bb.className = biz ? on : off;
+  const bf = el('post-biz-fields');
+  if(bf){ bf.classList.toggle('hidden', !biz); bf.classList.toggle('flex', biz); }
   const label = el('post-text-label');
-  
-  if(type === 'business'){
-    bizBtn.className = 'flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-gray-900 transition';
-    normalBtn.className = 'flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg bg-transparent text-gray-400 transition';
-    bizFields.classList.replace('hidden','flex');
-    label.textContent = 'Listing Description / Notes';
-  } else {
-    normalBtn.className = 'flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-gray-900 transition';
-    bizBtn.className = 'flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg bg-transparent text-gray-400 transition';
-    bizFields.classList.replace('flex','hidden');
-    label.textContent = 'Post Update Content';
-  }
+  if(label) label.textContent = biz ? 'Description and notes' : 'Post update';
+  refreshPostFormRoleFields();
+  prefillPostLocation();
 }
 
 function handleBizCategoryChange(){
@@ -7730,6 +7895,7 @@ function handleBizCategoryChange(){
     genInps.classList.replace('hidden','flex');
     foodInps.classList.replace('flex','hidden');
   }
+  refreshPostFormRoleFields();
 }
 
 function searchIngredients(q){
@@ -7830,6 +7996,7 @@ function clearMediaPreview(){
 
 function submitPost(){
   if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in first.'); return; }
+  if(!ensureProfileForPosting(() => submitPost())) return;
   if(state.session?.role === 'vendor' && !checkVendorPostLimit()) return;
 
   const text   = el('post-text')?.value.trim() || '';
@@ -7876,6 +8043,8 @@ function submitPost(){
   if(el('food-name')) el('food-name').value = '';
   if(el('food-price')) el('food-price').value = '';
   if(el('biz-service-name')) el('biz-service-name').value = '';
+  resetPostExtras();
+  state.postImages = []; try{ state.selectedIngredients && state.selectedIngredients.clear(); el('ing-chips') && (el('ing-chips').innerHTML=''); }catch(e){}
   state.postImageBase64 = null;
   clearMediaPreview();
 
@@ -9890,6 +10059,236 @@ function checkLowBalanceAlert(){
 let _pdPostId   = null;
 let _pdAuthorId = null;
 
+// ============================================================
+// POST FORM: extra fields (price type, delivery, duration, vehicle, location, custom details)
+// ============================================================
+function addCustomDetailRow(label, value){
+  const box = el('pf-custom-rows');
+  if(!box) return;
+  if(box.children.length >= 8){ showPopupNotif('ℹ️','Limit reached','You can add up to 8 extra details.'); return; }
+  const row = document.createElement('div');
+  row.className = 'pf-row';
+  row.innerHTML = `<input type="text" class="inp pf-cl" placeholder="Label (e.g. Warranty)"><input type="text" class="inp pf-cv" placeholder="Value (e.g. 1 month)"><button type="button" class="text-gray-400 px-2 text-lg" aria-label="Remove">✕</button>`;
+  row.querySelector('.pf-cl').value = label || '';
+  row.querySelector('.pf-cv').value = value || '';
+  row.querySelector('button').onclick = () => row.remove();
+  box.appendChild(row);
+}
+
+function refreshPostFormRoleFields(){
+  const biz = state.postType === 'business';
+  const isFood = biz && state.businessCategory === 'food';
+  const typeSel = el('biz-artisan-type');
+  const t = typeSel ? typeSel.value : '';
+  const isRider = biz && !isFood && (t === 'rider' || state.session?.role === 'rider');
+  const isArtisan = biz && !isFood && !isRider;
+  el('pf-food-extra')?.classList.toggle('hidden', !isFood);
+  el('pf-artisan-extra')?.classList.toggle('hidden', !isArtisan);
+  el('pf-rider-extra')?.classList.toggle('hidden', !isRider);
+  el('pf-condition-wrap')?.classList.toggle('hidden', isFood || isRider);
+  el('pf-stock-wrap')?.classList.toggle('hidden', isFood);
+}
+
+function prefillPostLocation(){
+  const s = state.session || {};
+  const set = (id, v) => { const e = el(id); if(e && !e.value) e.value = v || ''; };
+  set('pf-town', s.town); set('pf-lga', s.lga); set('pf-state', s.state);
+  const chip = el('pf-posting-as');
+  if(chip){
+    const roleLbl = { vendor:'Vendor', artisan:'Artisan', rider:'Rider', user:'User' }[s.role || 'user'] || '';
+    const who = s.business || s.name || '';
+    chip.textContent = who ? `${who} · ${roleLbl}` : '';
+    chip.classList.toggle('hidden', !who);
+  }
+}
+
+function collectPostExtras(){
+  const v = id => { const e = el(id); return e ? String(e.value || '').trim() : ''; };
+  const out = {};
+  const put = (k, val) => { if(val !== '' && val != null) out[k] = val; };
+  put('priceType', v('pf-price-type'));
+  put('subCategory', v('pf-subcat'));
+  put('condition', v('pf-condition'));
+  const tags = v('pf-tags').split(',').map(x => x.trim()).filter(Boolean);
+  if(tags.length) out.tags = tags;
+  put('availStatus', v('pf-avail-status'));
+  put('deliveryMethod', v('pf-delivery-method'));
+  put('deliveryTime', v('pf-delivery-time'));
+  put('deliveryFee', v('pf-delivery-fee'));
+  put('stockNote', v('pf-stock'));
+  put('duration', v('pf-duration'));
+  put('experience', v('pf-experience'));
+  put('materials', v('pf-materials'));
+  put('vehicle', v('pf-vehicle'));
+  put('route', v('pf-route'));
+  const custom = [];
+  document.querySelectorAll('#pf-custom-rows .pf-row').forEach(r => {
+    const l = r.querySelector('.pf-cl').value.trim(), val = r.querySelector('.pf-cv').value.trim();
+    if(l && val) custom.push({ label: l, value: val });
+  });
+  if(custom.length) out.customFields = custom;
+  const town = v('pf-town'), lga = v('pf-lga'), st = v('pf-state');
+  if(town || lga || st){
+    out.town = town; out.lga = lga; out.state = st;
+    out.location = [town, lga, st].filter(Boolean).join(', ');
+  }
+  return out;
+}
+
+function resetPostExtras(){
+  ['pf-price-type','pf-subcat','pf-condition','pf-tags','pf-avail-status','pf-delivery-method','pf-delivery-time','pf-delivery-fee','pf-stock','pf-duration','pf-experience','pf-materials','pf-vehicle','pf-route','food-extras','food-qty','biz-price','biz-avail','post-flash-price'].forEach(id => { const e = el(id); if(e) e.value = ''; });
+  const rows = el('pf-custom-rows'); if(rows) rows.innerHTML = '';
+  ['post-escrow','post-flash-sale'].forEach(id => { const e = el(id); if(e) e.checked = false; });
+  el('flash-price-wrapper')?.classList.add('hidden');
+}
+
+// ============================================================
+// POST DETAILS: built from everything the seller filled in
+// ============================================================
+function pdEsc(v){ return String(plainText(v)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function pdDate(ts){ try{ return new Date(ts).toLocaleString('en-NG',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}); }catch(e){ return ''; } }
+function pdMoney(v){ const n = Number(v); return (v !== '' && isFinite(n)) ? '₦' + n.toLocaleString('en-NG') : String(v); }
+function pdLabelFromKey(k){ return k.replace(/([A-Z])/g,' $1').replace(/[_-]+/g,' ').replace(/^./, c => c.toUpperCase()).trim(); }
+
+const PD_FOOD_CATS = { rice:'Rice', soups:'Soups & Stews', snacks:'Snacks & Pastries', drinks:'Drinks & Juices', grills:'Grills & Suya', swallow:'Swallow' };
+const PD_BIZ_TYPES = { artisan:'Artisan / Handyman', rider:'Dispatch / Logistics', freelancer:'Freelancer', shop:'Shop / Retailer' };
+const PD_KNOWN = new Set(['id','authorId','authorName','authorRole','authorVerified','text','image','images','imageFallback','likes','comments','reviews','reactions','ts','updatedAt','type','isFood','businessCategory','foodName','foodExtras','foodCategory','ingredients','price','originalPrice','flashSale','flashPrice','qty','bizServiceName','bizType','bizPrice','bizAvail','escrow','location','town','lga','state','mapX','mapY','retention','expiresAt','deleteAt','openSince','nextReminderAt','reminderStage','expired','boostedUntil','isBooking','bookingMeta','demo','tags','customFields','priceType','subCategory','condition','availStatus','deliveryMethod','deliveryTime','deliveryFee','stockNote','duration','experience','materials','vehicle','route','pinned','category']);
+
+function buildPostDetailSections(post, ctx){
+  const S = { basic:[], delivery:[], more:[] };
+  const add = (sec, label, value, opt) => {
+    if(value === undefined || value === null) return;
+    if(Array.isArray(value)){ if(!value.length) return; }
+    else { value = String(value).trim(); if(!value) return; }
+    S[sec].push(Object.assign({ label, value }, opt || {}));
+  };
+  const { isFood, isRider, expired, soldOut, isOpen } = ctx;
+
+  // Basic details
+  if(isFood) add('basic','Category', PD_FOOD_CATS[post.foodCategory] || post.foodCategory);
+  else add('basic','Category', PD_BIZ_TYPES[post.bizType] || post.category);
+  add('basic','Sub-category', post.subCategory);
+  add('basic','Price type', post.priceType);
+  add('basic','Condition', post.condition);
+  add('basic','Duration', post.duration);
+  add('basic','Experience', post.experience);
+  add('basic','Vehicle', post.vehicle);
+  add('basic','Route / area', post.route, { wide:true });
+  add('basic','Materials / what\'s included', post.materials, { wide:true });
+  add('basic','Comes with', post.foodExtras, { wide:true });
+  add('basic','Ingredients', post.ingredients, { wide:true, chips:true });
+  add('basic','Tags', post.tags, { wide:true, chips:true });
+  if(post.town || post.lga || post.state){
+    add('basic','Town', post.town); add('basic','LGA', post.lga); add('basic','State', post.state);
+  } else add('basic','Location', post.location, { wide:true });
+
+  // Delivery and availability
+  let status = post.availStatus;
+  if(!status && isFood) status = expired ? 'Expired' : soldOut ? 'Sold out' : isOpen ? 'Open now' : 'Closed';
+  add('delivery','Availability', status);
+  add('delivery','Working hours', post.bizAvail);
+  add('delivery','Delivery method', post.deliveryMethod);
+  add('delivery','Delivery time', post.deliveryTime);
+  if(post.deliveryFee !== undefined && post.deliveryFee !== '') add('delivery','Delivery fee', Number(post.deliveryFee) === 0 ? 'Free' : pdMoney(post.deliveryFee));
+  if(isFood && post.qty > 0 && !expired && !soldOut) add('delivery','Portions left', post.qty);
+  add('delivery','Stock left', post.stockNote);
+  if(isFood && post.expiresAt) add('delivery', expired ? 'Ended' : 'Offer ends', pdDate(post.expiresAt));
+  if(post.flashSale && post.flashPrice) add('delivery','Flash sale', pdMoney(post.flashPrice) + ' (was ' + pdMoney(post.price) + ')');
+  if(post.escrow) add('delivery','Payment', 'Protected by escrow');
+  if(post.isBooking) add('delivery','Order type', 'Pre-order / booking');
+
+  // More details
+  (post.customFields || []).forEach(c => add('more', c.label, c.value));
+  Object.keys(post).forEach(k => {
+    if(PD_KNOWN.has(k)) return;
+    const val = post[k];
+    if(typeof val === 'string' && val.trim() && val.length <= 160) add('more', pdLabelFromKey(k), val);
+    else if(typeof val === 'number' && isFinite(val)) add('more', pdLabelFromKey(k), val);
+  });
+  add('more','Date posted', post.ts ? pdDate(post.ts) : '');
+  if(post.updatedAt && post.updatedAt - (post.ts||0) > 60000) add('more','Last updated', pdDate(post.updatedAt));
+  return S;
+}
+
+function renderPostDetailExtras(post, ctx){
+  const { isFood, isRider, isArtisan, isMine, expired, soldOut, isOpen } = ctx;
+
+  // legacy blocks stay hidden: everything is in the details grid now
+  ['pd-extras','pd-ingredients','pd-avail-hours'].forEach(id => el(id)?.classList.add('hidden'));
+
+  // price card
+  const amount = isFood ? (post.flashSale && post.flashPrice ? post.flashPrice : post.price) : post.bizPrice;
+  let html = '';
+  if(amount > 0){
+    html += `<span class="pd-price mono">₦${Number(amount).toLocaleString('en-NG')}</span>`;
+    if(isFood && post.flashSale && post.flashPrice) html += `<span class="text-gray-500 line-through text-sm mono">₦${Number(post.price).toLocaleString('en-NG')}</span>`;
+  } else {
+    html += `<span class="pd-price" style="font-size:18px">Contact for price</span>`;
+  }
+  const ptype = post.priceType || (!isFood && amount > 0 ? 'per service' : '');
+  if(ptype) html += `<span class="pd-pill">${pdEsc(ptype)}</span>`;
+  let st = post.availStatus;
+  let stCls = 'good';
+  if(!st && isFood){ st = expired ? 'Expired' : soldOut ? 'Sold out' : isOpen ? 'Open now' : 'Closed'; }
+  if(st){
+    if(/closed|out of stock|sold|expired/i.test(st)) stCls = 'bad';
+    html += `<span class="pd-pill ${stCls}">${pdEsc(st)}</span>`;
+  }
+  if(isFood && post.qty > 0 && !expired && !soldOut) html += `<span class="pd-pill">${post.qty} left</span>`;
+  el('pd-price-row').innerHTML = html;
+
+  // details grid
+  const S = buildPostDetailSections(post, ctx);
+  const titles = { basic:'Basic details', delivery:'Delivery and availability', more:'More details' };
+  let out = '';
+  ['basic','delivery','more'].forEach(k => {
+    if(!S[k].length) return;
+    out += `<div><div class="pd-sec-title">${titles[k]}</div><div class="pd-grid">` +
+      S[k].map(it => {
+        const val = it.chips
+          ? `<div class="pd-chips">${it.value.map(x => `<span>${pdEsc(x)}</span>`).join('')}</div>`
+          : `<div class="pd-v">${pdEsc(it.value)}</div>`;
+        return `<div class="pd-item${it.wide ? ' wide' : ''}"><div class="pd-k">${pdEsc(it.label)}</div>${val}</div>`;
+      }).join('') + `</div></div>`;
+  });
+  el('pd-details').innerHTML = out;
+
+  // description
+  const hasText = !!(post.text && String(post.text).trim());
+  el('pd-desc-card').classList.toggle('hidden', !hasText);
+
+  // secure transaction notice
+  el('pd-secure').innerHTML = `
+    <svg class="ico" viewBox="0 0 24 24"><path d="M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+    <div><b>Secure transaction</b><span class="t">Pay through EMEMART. Your money stays in escrow and is released to the seller only after you confirm delivery. Never pay outside the app, and never send money before you have agreed the details.${post.escrow ? ' This seller has turned on escrow protection for this listing.' : ''}</span></div>`;
+
+  // grow your business (not shown to the owner)
+  el('pd-grow').classList.toggle('hidden', !!isMine);
+
+  // similar items
+  const same = state.posts.filter(p => p.id !== post.id && !p.expired && (
+      (isFood && (p.isFood || p.businessCategory === 'food')) ||
+      (!isFood && p.bizType && p.bizType === post.bizType) ||
+      (!isFood && !p.isFood && !p.bizType && !post.bizType && p.type !== 'business')
+    ));
+  same.sort((a,b) => (b.town === post.town) - (a.town === post.town) || (b.ts||0) - (a.ts||0));
+  const list = same.slice(0, 8);
+  el('pd-similar-wrap').classList.toggle('hidden', !list.length);
+  const box = el('pd-similar');
+  box.innerHTML = '';
+  list.forEach(p => {
+    const t = p.foodName || p.bizServiceName || (p.text||'').slice(0,40) || p.authorName || 'Listing';
+    const a = (p.isFood ? p.price : p.bizPrice);
+    const card = document.createElement('div');
+    card.className = 'pd-sim';
+    card.onclick = () => openPostDetail(p.id);
+    card.innerHTML = `<div class="ph">${p.image ? `<img src="${p.image}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}</div><b data-noicon></b><em>${a > 0 ? '₦' + Number(a).toLocaleString('en-NG') : 'See details'}</em><small data-noicon></small>`;
+    card.querySelector('b').textContent = plainText(t);
+    card.querySelector('small').textContent = plainText(p.authorName || '');
+    box.appendChild(card);
+  });
+}
+
 function openPostDetail(postId){
   const post = state.posts.find(p => p.id === postId);
   if(!post) return;
@@ -9914,22 +10313,20 @@ function openPostDetail(postId){
   const gallery = el('pd-gallery');
   const galleryInner = el('pd-gallery-inner');
   const galleryDots  = el('pd-gallery-dots');
+  const isVid = s => /^data:video|\.(mp4|webm|mov)(\?|$)/i.test(s||'');
   if(images.length){
     gallery.classList.remove('hidden');
-    galleryInner.innerHTML = images.map(src =>
-      `<div class="flex-shrink-0 w-full h-full snap-center" style="min-width:100%">
-        <img src="${src}" class="w-full h-full object-cover">
-       </div>`
-    ).join('');
-    galleryDots.innerHTML = images.length > 1
-      ? images.map((_,i) => `<div class="w-1.5 h-1.5 rounded-full ${i===0?'bg-white':'bg-gray-600'} transition-all"></div>`).join('')
-      : '';
-    // Update dots on scroll
+    galleryInner.innerHTML = images.map((src,i) => isVid(src)
+      ? `<div class="pd-slide"><video src="${src}" controls playsinline></video></div>`
+      : `<div class="pd-slide" onclick="openGallery('${post.id}',${i})"><img src="${src}" alt="" onerror="this.style.opacity=.2"></div>`).join('');
+    const cnt = el('pd-gallery-count');
+    if(cnt){ cnt.textContent = `1 / ${images.length}`; cnt.classList.toggle('hidden', images.length < 2); }
+    galleryDots.innerHTML = images.length > 1 ? images.map((_,i) => `<i class="${i===0?'on':''}"></i>`).join('') : '';
+    galleryInner.scrollLeft = 0;
     galleryInner.onscroll = () => {
-      const idx = Math.round(galleryInner.scrollLeft / galleryInner.offsetWidth);
-      galleryDots.querySelectorAll('div').forEach((d,i) => {
-        d.className = `w-1.5 h-1.5 rounded-full ${i===idx?'bg-white':'bg-gray-600'} transition-all`;
-      });
+      const idx = Math.round(galleryInner.scrollLeft / (galleryInner.offsetWidth||1));
+      if(cnt) cnt.textContent = `${idx+1} / ${images.length}`;
+      galleryDots.querySelectorAll('i').forEach((d,n) => d.className = n===idx?'on':'');
     };
   } else {
     gallery.classList.add('hidden');
@@ -10066,6 +10463,8 @@ function openPostDetail(postId){
   } else {
     orderBar.classList.add('hidden');
   }
+
+  renderPostDetailExtras(post, { isFood, isRider, isArtisan, isMine, expired, soldOut, isOpen });
 
   // Show modal, scroll to top
   const modal = el('post-detail-modal');
@@ -10220,6 +10619,77 @@ function getRoleLabel(role){
   return { user:'User', buyer:'User', vendor:'Vendor', rider:'Rider', artisan:'Artisan', admin:'Admin' }[role] || role;
 }
 window._pendingRole = null;
+
+// ============================================================
+// PROFILE: edit + complete-before-posting gate
+// ============================================================
+let _pmAfter = null;
+function profileGap(){
+  const s = state.session; if(!s) return [];
+  const gaps = [];
+  if((s.role||'user') === 'user' && !window._pendingRole) gaps.push('role');
+  if(!s.town || !s.lga || !s.state) gaps.push('location');
+  if((s.role||'user') !== 'user' && !s.business) gaps.push('business');
+  return gaps;
+}
+function openProfileModal(gate, after){
+  if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in first.'); return; }
+  const s = state.session;
+  _pmAfter = after || null;
+  const parts = String(s.full_name || s.name || '').trim().split(/\s+/);
+  el('pm-fn').value = parts.shift() || ''; el('pm-ln').value = parts.join(' ');
+  el('pm-biz').value = s.business || ''; el('pm-phone').value = s.phone || '';
+  el('pm-town').value = s.town || ''; el('pm-lga').value = s.lga || ''; el('pm-state').value = s.state || '';
+  const needRole = (s.role||'user') === 'user' && !window._pendingRole;
+  el('pm-role-wrap').classList.toggle('hidden', !needRole);
+  el('pm-role').value = '';
+  el('pm-biz-wrap').classList.toggle('hidden', !needRole && (s.role||'user') === 'user');
+  el('pm-title').textContent = gate ? 'Complete your profile to post' : 'Edit profile';
+  const note = el('pm-note');
+  note.textContent = gate ? 'Choose what you will post and add your location. This appears on your listings so buyers can find you.' : '';
+  note.classList.toggle('hidden', !gate);
+  el('pm-save').textContent = gate ? 'Save and continue' : 'Save changes';
+  el('profile-modal').classList.remove('hidden');
+}
+function closeProfileModal(){ el('profile-modal').classList.add('hidden'); _pmAfter = null; }
+async function saveProfileForm(){
+  const s = state.session; if(!s) return;
+  const v = id => el(id).value.trim();
+  const fn = v('pm-fn');
+  if(!fn){ showPopupNotif('⚠️','Name needed','Enter your first name.'); return; }
+  const needRole = !el('pm-role-wrap').classList.contains('hidden');
+  const role = needRole ? el('pm-role').value : '';
+  if(needRole && !role){ showPopupNotif('⚠️','Choose a type','Pick Vendor, Artisan or Rider.'); return; }
+  const biz = v('pm-biz');
+  if((needRole || (s.role||'user') !== 'user') && !biz){ showPopupNotif('⚠️','Business name needed','Enter the name buyers will see.'); return; }
+  if(!v('pm-town') || !v('pm-lga') || !v('pm-state')){ showPopupNotif('⚠️','Location needed','Enter your town, LGA and state.'); return; }
+  const fields = { full_name: [fn, v('pm-ln')].filter(Boolean).join(' '), phone: v('pm-phone'), business: biz, town: v('pm-town'), lga: v('pm-lga'), state: v('pm-state') };
+  const btn = el('pm-save'); const lbl = btn.textContent; btn.disabled = true; btn.textContent = 'Saving...';
+  try{
+    if(typeof window.persistProfile === 'function') await window.persistProfile(fields);
+    Object.assign(s, { name: fields.full_name, full_name: fields.full_name, phone: fields.phone, business: fields.business, town: fields.town, lga: fields.lga, state: fields.state });
+    if(role){
+      const res = await apiPost('role.php', 'switch', { role });
+      if(res && res.success){
+        if(res.approved) s.role = role; else window._pendingRole = role;
+      } else { showPopupNotif('❌','Could not set type', (res && res.message) || 'Try again.'); }
+    }
+    try{ saveState(); }catch(e){}
+    try{ syncAccountDisplay(); initPostPanelForRole(); updateRoleChangeStatusBadge(); }catch(e){}
+    const next = _pmAfter; el('profile-modal').classList.add('hidden'); _pmAfter = null;
+    showPopupNotif('✅','Profile saved','Your details are updated.');
+    if(next && !profileGap().length) next();
+  }catch(e){
+    showPopupNotif('❌','Not saved', (e && e.message) || 'Please try again.');
+  }finally{ btn.disabled = false; btn.textContent = lbl; }
+}
+function ensureProfileForPosting(after){
+  if(!state.session) return true;
+  if(!profileGap().length) return true;
+  if(window._pendingRole && (state.session.role||'user') === 'user' && profileGap().length === 0) return true;
+  openProfileModal(true, after);
+  return false;
+}
 
 function openRoleChangeModal(){
   if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in first.'); return; }
@@ -15900,6 +16370,8 @@ function buildPreviewPostObject(){
     post.bizAvail       = el('biz-avail')?.value.trim() || 'Available';
   }
 
+  if(state.postType === 'business') Object.assign(post, collectPostExtras());
+  else { const x = collectPostExtras(); if(x.tags) post.tags = x.tags; if(x.town||x.lga||x.state){ post.town=x.town; post.lga=x.lga; post.state=x.state; post.location=x.location; } }
   return post;
 }
 
@@ -16770,6 +17242,39 @@ function verifyPinPress(digit){
   </div>
 </div>
 
+<!-- EDIT PROFILE / COMPLETE PROFILE MODAL -->
+<div id="profile-modal" class="modal-overlay hidden" style="align-items:flex-start;padding-top:16px;" onclick="if(event.target===this)closeProfileModal()">
+  <div class="modal-sheet flex flex-col gap-3" style="max-height:92vh;overflow-y:auto">
+    <div class="flex justify-between items-center">
+      <h3 id="pm-title" class="text-base font-black text-white">Edit profile</h3>
+      <button onclick="closeProfileModal()" class="text-gray-400 text-lg font-black" aria-label="Close">✕</button>
+    </div>
+    <div id="pm-note" class="hidden bg-sky-950/30 border border-sky-900/40 rounded-xl p-3 text-[11px] text-sky-300 leading-relaxed"></div>
+    <div id="pm-role-wrap" class="flex flex-col gap-1">
+      <label class="label-sm">What will you post?*</label>
+      <select id="pm-role" class="inp">
+        <option value="">Choose one</option>
+        <option value="vendor">Vendor – food and drinks</option>
+        <option value="artisan">Artisan – skills and services</option>
+        <option value="rider">Rider – delivery and dispatch</option>
+      </select>
+      <span class="text-[10px] text-gray-500">Your first choice is instant. Changing it later needs admin approval.</span>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="flex flex-col gap-1"><label class="label-sm">First name*</label><input id="pm-fn" class="inp" type="text" autocomplete="given-name"></div>
+      <div class="flex flex-col gap-1"><label class="label-sm">Last name</label><input id="pm-ln" class="inp" type="text" autocomplete="family-name"></div>
+    </div>
+    <div id="pm-biz-wrap" class="flex flex-col gap-1"><label class="label-sm">Business or display name*</label><input id="pm-biz" class="inp" type="text" placeholder="e.g. Mama Put Kitchen"></div>
+    <div class="flex flex-col gap-1"><label class="label-sm">Phone</label><input id="pm-phone" class="inp" type="tel" autocomplete="tel"></div>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="flex flex-col gap-1"><label class="label-sm">Town*</label><input id="pm-town" class="inp" type="text"></div>
+      <div class="flex flex-col gap-1"><label class="label-sm">LGA*</label><input id="pm-lga" class="inp" type="text"></div>
+    </div>
+    <div class="flex flex-col gap-1"><label class="label-sm">State*</label><input id="pm-state" class="inp" type="text"></div>
+    <button id="pm-save" onclick="saveProfileForm()" class="btn-primary py-3 font-black">Save changes</button>
+  </div>
+</div>
+
 <!-- POST DETAIL MODAL -->
 <div id="post-detail-modal" class="fixed inset-0 z-50 hidden flex flex-col bg-gray-950" style="overscroll-behavior:contain;">
   <!-- Sticky Header -->
@@ -16787,16 +17292,65 @@ function verifyPinPress(digit){
   <!-- Scrollable Body -->
   <div class="flex-1 overflow-y-auto pb-24" id="post-detail-body" style="-webkit-overflow-scrolling:touch;">
 
-    <!-- 1. Post Images Gallery -->
-    <div id="pd-gallery" class="w-full bg-gray-900 hidden" style="height:260px;position:relative;">
-      <div id="pd-gallery-inner" class="w-full h-full flex overflow-x-auto snap-x snap-mandatory" style="scrollbar-width:none;-webkit-overflow-scrolling:touch;"></div>
-      <div id="pd-gallery-dots" class="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5"></div>
+    <!-- 1. Image gallery -->
+    <div id="pd-gallery" class="pd-gallery hidden">
+      <div id="pd-gallery-inner" class="pd-gallery-inner"></div>
+      <div id="pd-gallery-count" class="pd-count hidden"></div>
+      <div id="pd-gallery-dots" class="pd-dots"></div>
     </div>
 
-    <!-- 2. Seller Profile Card -->
-    <div id="pd-seller-card" class="mx-3 mt-3 bg-gray-900 border border-gray-800 rounded-2xl p-4 flex gap-3 items-start cursor-pointer active:opacity-80 transition" onclick="openVendorProfile(_pdAuthorId)">
+    <!-- 2. Price card -->
+    <div class="pd-card mx-3 mt-3">
+      <div class="flex items-start gap-2 flex-wrap mb-1">
+        <span id="pd-role-badge" class="text-[8px] font-black px-1.5 py-0.5 rounded-full border"></span>
+        <span id="pd-escrow-badge" class="hidden text-[8px] font-black text-purple-300 bg-purple-950/50 px-1.5 py-0.5 rounded-full border border-purple-800/50">🔐 Escrow</span>
+        <span id="pd-flash-badge" class="hidden text-[8px] font-black text-white bg-red-600 px-1.5 py-0.5 rounded-full">⚡ FLASH</span>
+      </div>
+      <h2 id="pd-title" class="text-lg font-black text-white leading-tight"></h2>
+      <div id="pd-time" class="text-[10px] text-gray-500 mt-0.5"></div>
+      <div id="pd-price-row" class="pd-price-row"></div>
+      <div id="pd-expiry-bar" class="hidden flex flex-col gap-1 mt-2">
+        <div class="timer-bar w-full"><div id="pd-expiry-fill" class="h-full rounded-full transition-all bg-emerald-500"></div></div>
+        <div id="pd-expiry-label" class="text-[10px] mono text-gray-400 text-right"></div>
+      </div>
+      <div class="pd-actions" id="pd-actions-row">
+        <button id="pd-like-btn" onclick="pdToggleLike()" class="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-red-400 transition">
+          <span id="pd-like-icon" class="text-base">🤍</span><span>Like</span><span id="pd-like-count" class="text-gray-600 text-[10px]"></span>
+        </button>
+        <div class="w-px h-6 bg-gray-800"></div>
+        <button onclick="openCommentsModal(_pdPostId)" class="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-sky-400 transition">
+          <span class="text-base">💬</span><span>Comment</span><span id="pd-cmt-count" class="text-gray-600 text-[10px]"></span>
+        </button>
+        <div class="w-px h-6 bg-gray-800"></div>
+        <button onclick="sharePost(_pdPostId)" class="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-emerald-400 transition">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          <span>Share</span>
+        </button>
+        <div class="w-px h-6 bg-gray-800"></div>
+        <button id="pd-save-btn" onclick="pdToggleSave()" class="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-amber-400 transition">
+          <svg id="pd-save-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          <span id="pd-save-label">Save</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 3. Details grid (built from everything the seller filled in) -->
+    <div id="pd-details" class="mx-3 mt-3 flex flex-col gap-3"></div>
+
+    <!-- 4. Description -->
+    <div id="pd-desc-card" class="pd-card mx-3 mt-3 hidden">
+      <div class="pd-sec-title">Description</div>
+      <p id="pd-text" class="text-sm text-gray-300 leading-relaxed" style="white-space:pre-line"></p>
+    </div>
+
+    <!-- 5. Secure transaction notice -->
+    <div id="pd-secure" class="pd-secure mx-3 mt-3"></div>
+
+    <!-- 6. Partner card -->
+    <div id="pd-seller-card" class="pd-card mx-3 mt-3 flex gap-3 items-start cursor-pointer active:opacity-80 transition" onclick="openVendorProfile(_pdAuthorId)">
       <div id="pd-seller-avatar" class="w-14 h-14 rounded-2xl bg-emerald-700 flex items-center justify-center text-2xl font-black text-white flex-shrink-0 overflow-hidden border-2 border-gray-700"></div>
       <div class="flex-1 min-w-0">
+        <div class="text-[10px] font-bold text-gray-500 mb-0.5">Sold by</div>
         <div class="flex items-center gap-1.5 flex-wrap">
           <span id="pd-seller-name" class="font-black text-white text-sm"></span>
           <span id="pd-seller-verified" class="hidden text-[9px] bg-emerald-900/50 text-emerald-400 border border-emerald-800/50 px-1.5 py-0.5 rounded-full font-black">✓ VERIFIED</span>
@@ -16818,97 +17372,44 @@ function verifyPinPress(digit){
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 mt-1"><path d="M9 18l6-6-6-6"/></svg>
     </div>
 
-    <!-- 3. Post Content -->
-    <div class="mx-3 mt-3 bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
-      <!-- Title + badges -->
-      <div>
-        <div class="flex items-start gap-2 flex-wrap mb-1">
-          <span id="pd-role-badge" class="text-[8px] font-black px-1.5 py-0.5 rounded-full border"></span>
-          <span id="pd-escrow-badge" class="hidden text-[8px] font-black text-purple-300 bg-purple-950/50 px-1.5 py-0.5 rounded-full border border-purple-800/50">🔐 Escrow</span>
-          <span id="pd-flash-badge" class="hidden text-[8px] font-black text-white bg-red-600 px-1.5 py-0.5 rounded-full">⚡ FLASH</span>
-        </div>
-        <h2 id="pd-title" class="text-lg font-black text-white leading-tight"></h2>
-        <div id="pd-time" class="text-[10px] text-gray-500 mt-0.5"></div>
-      </div>
-
-      <!-- Price + availability -->
-      <div id="pd-price-row" class="flex items-center justify-between gap-2 flex-wrap"></div>
-
-      <!-- Description -->
-      <p id="pd-text" class="text-sm text-gray-300 leading-relaxed"></p>
-
-      <!-- Extras / ingredients -->
-      <div id="pd-extras" class="hidden text-xs text-gray-400"></div>
-      <div id="pd-ingredients" class="hidden flex-wrap gap-1.5 pt-1 border-t border-gray-800/50"></div>
-
-      <!-- Availability hours -->
-      <div id="pd-avail-hours" class="hidden text-xs text-gray-400 flex items-center gap-1.5">
-        <span>🕐</span><span id="pd-avail-text"></span>
-      </div>
-
-      <!-- Expiry bar -->
-      <div id="pd-expiry-bar" class="hidden flex flex-col gap-1">
-        <div class="timer-bar w-full"><div id="pd-expiry-fill" class="h-full rounded-full transition-all bg-emerald-500"></div></div>
-        <div id="pd-expiry-label" class="text-[10px] mono text-gray-400 text-right"></div>
-      </div>
-    </div>
-
-    <!-- 4. Like · Comment · Share · Save row -->
-    <div class="mx-3 mt-3 bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-      <div class="flex items-center border-b border-gray-800" id="pd-actions-row">
-        <!-- Like -->
-        <button id="pd-like-btn" onclick="pdToggleLike()" class="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-red-400 transition">
-          <span id="pd-like-icon" class="text-base">🤍</span>
-          <span>Like</span>
-          <span id="pd-like-count" class="text-gray-600 text-[10px]"></span>
-        </button>
-        <div class="w-px h-6 bg-gray-800"></div>
-        <!-- Comment -->
-        <button onclick="openCommentsModal(_pdPostId)" class="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-sky-400 transition">
-          <span class="text-base">💬</span>
-          <span>Comment</span>
-          <span id="pd-cmt-count" class="text-gray-600 text-[10px]"></span>
-        </button>
-        <div class="w-px h-6 bg-gray-800"></div>
-        <!-- Share -->
-        <button onclick="sharePost(_pdPostId)" class="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-emerald-400 transition">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-          <span>Share</span>
-        </button>
-        <div class="w-px h-6 bg-gray-800"></div>
-        <!-- Save -->
-        <button id="pd-save-btn" onclick="pdToggleSave()" class="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-amber-400 transition">
-          <svg id="pd-save-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-          <span id="pd-save-label">Save</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- 5. Contact the Seller (hidden for own posts & non-business) -->
+    <!-- Contact the seller (hidden for own posts and non-business posts) -->
     <div id="pd-contact-section" class="mx-3 mt-3 flex flex-col gap-3 hidden">
-      <!-- Call / Callback row -->
       <div class="flex gap-2">
         <button onclick="pdRequestCallback()" class="flex-1 py-3 rounded-2xl border-2 border-emerald-600 text-emerald-400 font-black text-xs hover:bg-emerald-950/40 transition">Request call back</button>
         <button onclick="pdCallSeller()" class="flex-1 py-3 rounded-2xl bg-emerald-500 text-gray-900 font-black text-xs flex items-center justify-center gap-2 hover:bg-emerald-400 transition">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1l-2.3 2.2z"/></svg>
           Call
         </button>
       </div>
-
-      <!-- Chat panel -->
-      <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
+      <div class="pd-card flex flex-col gap-3">
         <div class="text-sm font-black text-white">Chat with the seller</div>
-        <!-- Quick chips -->
         <div class="flex flex-wrap gap-2">
           <button onclick="pdSetQuickMsg('Make an offer')" class="px-3 py-1.5 rounded-full border border-emerald-700 text-emerald-400 text-xs font-bold hover:bg-emerald-950/40 transition">Make an offer</button>
           <button onclick="pdSetQuickMsg('Is this available?')" class="px-3 py-1.5 rounded-full border border-emerald-700 text-emerald-400 text-xs font-bold hover:bg-emerald-950/40 transition">Is this available?</button>
           <button onclick="pdSetQuickMsg('Last price?')" class="px-3 py-1.5 rounded-full border border-emerald-700 text-emerald-400 text-xs font-bold hover:bg-emerald-950/40 transition">Last price?</button>
         </div>
-        <!-- Message input -->
         <textarea id="pd-chat-input" rows="3" placeholder="Write your message here" class="inp resize-none text-sm"></textarea>
-        <!-- Start chat button -->
         <button onclick="pdStartChat()" class="w-full py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-gray-900 font-black text-sm transition">Start chat</button>
       </div>
+    </div>
+
+    <!-- 7. Grow your business -->
+    <div id="pd-grow" class="pd-grow mx-3 mt-3">
+      <div class="text-base font-black">Grow your business on EMEMART</div>
+      <div class="text-[12px] opacity-90 mt-1 leading-relaxed">Reach buyers in your town. Post your food, your skills or your delivery service and get paid safely through escrow.</div>
+      <button onclick="closePostDetail(); navTo('post')" class="pd-grow-btn">Start selling</button>
+    </div>
+
+    <!-- 8. Similar items -->
+    <div id="pd-similar-wrap" class="mt-4 hidden">
+      <div class="pd-sec-title px-4">Similar items</div>
+      <div id="pd-similar" class="pd-similar"></div>
+    </div>
+
+    <!-- legacy holders (kept hidden so older code keeps working) -->
+    <div class="hidden">
+      <div id="pd-extras"></div><div id="pd-ingredients"></div>
+      <div id="pd-avail-hours"><span id="pd-avail-text"></span></div>
     </div>
 
     <!-- Spacer so content clears sticky Order button -->
@@ -17484,7 +17985,7 @@ function requirePin(action, callback){
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="rules.js?v=20261116c"></script>
-<script src="backend.js?v=20261116d"></script>
+<script src="backend.js?v=20261117a"></script>
 <script src="posts-live.js?v=20261117a"></script>
 <script src="orders-live.js?v=20261116c"></script>
 <script src="notifications-live.js?v=20261116d"></script>
