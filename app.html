@@ -266,6 +266,15 @@ document.addEventListener('click', function askOnce(){
   .hs-wrap.can-left .hs-left{display:flex}
   .hs-wrap>.sellers-row~.hs-arrow,.hs-wrap>.hs-scroll:not(.flex)~.hs-arrow{}
   .hs-arrow:focus-visible{outline:2px solid #10b981}
+  .cd-chip{display:inline-flex;align-items:center;gap:4px;font-weight:800;border-radius:999px;padding:1px 8px 1px 6px;font-variant-numeric:tabular-nums}
+  .cd-chip svg{width:11px;height:11px;fill:currentColor}
+  .cd-chip b{font-weight:800}
+  .cd-ok{background:#ecfdf5;color:#047857}
+  .cd-low{background:#fef2f2;color:#b91c1c}
+  .cd-end{background:#f1f5f9;color:#64748b}
+  .cd-low svg{animation:cdp 1s steps(2) infinite}
+  @keyframes cdp{50%{opacity:.35}}
+  @media(prefers-reduced-motion:reduce){.cd-low svg{animation:none}}
   .fc-row{display:flex;gap:8px}
   .fc-btn{flex:1;font-size:11px;font-weight:800;color:#6b7280;background:#111827;border:1px solid #1f2937;border-radius:12px;padding:9px 10px;white-space:nowrap}
   body.light .fc-btn{background:#fff;border-color:#e2e8f0;color:#334155}
@@ -7044,6 +7053,54 @@ async function saveEditedPost(postId){
   }
 }
 
+function fmtCountdown(ms){
+  if(ms<=0) return 'Ended';
+  const s=Math.floor(ms/1000), d=Math.floor(s/86400), h=Math.floor(s%86400/3600), m=Math.floor(s%3600/60), x=s%60;
+  const p=n=>String(n).padStart(2,'0');
+  return (d>0? d+'d ' : '') + (h>0||d>0 ? p(h)+':' : '') + p(m)+':'+p(x);
+}
+// Live countdown for food posts that expire; plain "x ago" for everything else
+function postTimeHtml(post){
+  if(post && post.isFood && post.expiresAt){
+    const left=post.expiresAt-Date.now();
+    const cls=left<=0?'cd-end':left<3600000?'cd-low':'cd-ok';
+    return `<span class="cd-chip ${cls}" data-exp="${post.expiresAt}" data-pid="${post.id}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 1H9v2h6zm-4 13h2V8h-2zm8.03-6.61 1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.96 8.96 0 0 0 12 4a9 9 0 1 0 9 9c0-2.12-.74-4.07-1.97-5.61M12 20a7 7 0 1 1 0-14 7 7 0 0 1 0 14"/></svg><b>${fmtCountdown(left)}</b>${left>0?' left':''}</span>`;
+  }
+  return timeAgo(post && post.ts);
+}
+let _cdTimer=null;
+function tickCountdowns(){
+  const now=Date.now();
+  document.querySelectorAll('[data-exp]').forEach(n=>{
+    const left=(+n.dataset.exp)-now;
+    const b=n.querySelector('b');
+    if(b) b.textContent=fmtCountdown(left);
+    n.classList.toggle('cd-end',left<=0);
+    n.classList.toggle('cd-low',left>0&&left<3600000);
+    n.classList.toggle('cd-ok',left>=3600000);
+    if(left<=0 && !n.dataset.done){ n.querySelector('b') && (n.innerHTML='<b>Closed</b>'); n.dataset.done='1'; clearTimeout(window._cdRe); window._cdRe=setTimeout(()=>{try{renderFeed()}catch(e){}},300); }
+  });
+  document.querySelectorAll('[data-st-exp]').forEach(n=>{
+    if((+n.dataset.stExp)-now>0) return;
+    const pill=n.classList.contains('pd-pill');
+    n.textContent = pill ? 'Closed' : (/Now/.test(n.textContent)?'🔴 Closed':'🔴 CLOSED');
+    n.classList.remove('good','text-emerald-400');
+    n.classList.add(pill?'bad':'text-red-400');
+    n.removeAttribute('data-st-exp');
+  });
+  document.querySelectorAll('[data-bar-exp]').forEach(n=>{
+    const exp=+n.dataset.barExp, ts=+n.dataset.barTs||now, left=exp-now, total=exp-ts;
+    const pct=total>0?Math.max(0,Math.min(100,left/total*100)):0;
+    n.style.width=pct+'%';
+    n.className=n.className.replace(/bg-(emerald|amber|red)-500/,'')+' '+(pct>50?'bg-emerald-500':pct>25?'bg-amber-500':'bg-red-500');
+  });
+  document.querySelectorAll('[data-label-exp]').forEach(n=>{
+    const left=(+n.dataset.labelExp)-now;
+    n.textContent = left<=0 ? 'Closed' : fmtCountdown(left)+' left';
+  });
+}
+if(!_cdTimer){ _cdTimer=setInterval(tickCountdowns,1000); }
+
 function timeAgo(ts){
   if(!ts) return '';
   const diff = Date.now() - ts;
@@ -7100,9 +7157,9 @@ function buildPostCard(post){
   // Availability
   let availHtml = '';
   if(isFood){
-    availHtml = expired ? '<span class="text-[9px] text-red-400 font-black">⏰ EXPIRED</span>'
+    availHtml = expired ? '<span class="text-[9px] text-red-400 font-black">🔴 CLOSED</span>'
               : soldOut ? '<span class="text-[9px] text-red-400 font-black">❌ SOLD OUT</span>'
-              : isOpen  ? '<span class="text-[9px] text-emerald-400 font-black">🟢 OPEN</span>'
+              : isOpen  ? `<span class="text-[9px] text-emerald-400 font-black" ${post.expiresAt?`data-st-exp="${post.expiresAt}"`:''}>🟢 OPEN</span>`
               : '<span class="text-[9px] text-gray-400 font-black">🔴 CLOSED</span>';
     if(post.qty > 0 && !expired && !soldOut) availHtml += `<span class="text-[9px] text-gray-400">${post.qty} left</span>`;
   } else if(post.bizAvail){
@@ -7144,8 +7201,8 @@ function buildPostCard(post){
 
     expiryHtml = `
       <div class="px-0 py-1 flex items-center gap-2">
-        <div class="timer-bar flex-1"><div class="${barColor} h-full rounded-full transition-all" style="width:${timerPct}%"></div></div>
-        <span class="text-[10px] mono font-black ${expired?'text-red-400':'text-gray-400'}">${expired?'⛔ Expired':timeLeftStr+' left'}</span>
+        <div class="timer-bar flex-1"><div class="${barColor} h-full rounded-full" data-bar-exp="${post.expiresAt}" data-bar-ts="${post.ts||''}" style="width:${timerPct}%"></div></div>
+        <span class="text-[10px] mono font-black ${expired?'text-red-400':'text-gray-400'}" ${expired?'':`data-label-exp="${post.expiresAt}"`}>${expired?'Closed':timeLeftStr+' left'}</span>
       </div>`;
 
     if(expired && isMine){
@@ -7200,7 +7257,7 @@ function buildPostCard(post){
               <span>·</span>
               <span>${pinIcon(11)} ${post.location || ''}</span>
               <span>·</span>
-              <span>${timeAgo(post.ts)}</span>
+              <span>${postTimeHtml(post)}</span>
             </div>
             ${starsHtml ? `<div class="flex items-center gap-1 mt-1">${starsHtml}</div>` : ''}
           </div>
@@ -7552,10 +7609,10 @@ function buildListingCard(post){
   let status = '';
   if(isFood){
     let open = true; try{ open = isVendorOpen(post) !== 'closed'; }catch(e){}
-    status = expired ? 'Expired' : soldOut ? 'Sold out' : open ? 'Open' : 'Closed';
+    status = expired ? 'Closed' : soldOut ? 'Sold out' : open ? 'Open' : 'Closed';
   }
   const tick = post.verified ? '<span>✅</span>' : '';
-  const meta = [post.location, post.ts ? getTimeAgo(post.ts) : '', post.demo ? 'Sample' : ''].filter(Boolean).join(' · ');
+  const meta = [post.location, post.ts ? (post.isFood && post.expiresAt ? '' : getTimeAgo(post.ts)) : '', post.demo ? 'Sample' : ''].filter(Boolean).join(' · ');
   const photoIcon = isFood ? '🍲' : isRider ? '🏍️' : '🔧';
   const card = document.createElement('div');
   card.className = 'listing-card';
@@ -10547,7 +10604,8 @@ function buildPostDetailSections(post, ctx){
 
   // Delivery and availability
   let status = post.availStatus;
-  if(!status && isFood) status = expired ? 'Expired' : soldOut ? 'Sold out' : isOpen ? 'Open now' : 'Closed';
+  if(isFood && expired) status = 'Closed';
+  else if(!status && isFood) status = soldOut ? 'Sold out' : isOpen ? 'Open now' : 'Closed';
   add('delivery','Availability', status);
   add('delivery','Working hours', post.bizAvail);
   add('delivery','Delivery method', post.deliveryMethod);
@@ -10592,10 +10650,11 @@ function renderPostDetailExtras(post, ctx){
   if(ptype) html += `<span class="pd-pill">${pdEsc(ptype)}</span>`;
   let st = post.availStatus;
   let stCls = 'good';
-  if(!st && isFood){ st = expired ? 'Expired' : soldOut ? 'Sold out' : isOpen ? 'Open now' : 'Closed'; }
+  if(isFood && expired) st = 'Closed';
+  else if(!st && isFood){ st = soldOut ? 'Sold out' : isOpen ? 'Open now' : 'Closed'; }
   if(st){
     if(/closed|out of stock|sold|expired/i.test(st)) stCls = 'bad';
-    html += `<span class="pd-pill ${stCls}">${pdEsc(st)}</span>`;
+    html += `<span class="pd-pill ${stCls}" ${isFood&&post.expiresAt&&!expired?`data-st-exp="${post.expiresAt}"`:''}>${pdEsc(st)}</span>`;
   }
   if(isFood && post.qty > 0 && !expired && !soldOut) html += `<span class="pd-pill">${post.qty} left</span>`;
   el('pd-price-row').innerHTML = html;
@@ -10745,7 +10804,7 @@ function openPostDetail(postId){
   el('pd-escrow-badge').classList.toggle('hidden', !post.escrow);
   el('pd-flash-badge').classList.toggle('hidden', !post.flashSale);
   el('pd-title').textContent = post.foodName || post.bizServiceName || post.authorName;
-  el('pd-time').textContent = timeAgo(post.ts);
+  el('pd-time').innerHTML = postTimeHtml(post);
   el('pd-text').textContent = post.text || '';
 
   // Price row
@@ -10758,9 +10817,9 @@ function openPostDetail(postId){
     priceRowHtml += `<span class="text-emerald-400 font-black text-2xl mono">₦${fmt(post.bizPrice)}</span><span class="text-xs text-gray-400 ml-1">per service</span>`;
   }
   if(isFood){
-    const statusHtml = expired ? '<span class="text-xs text-red-400 font-black">⏰ Expired</span>'
+    const statusHtml = expired ? '<span class="text-xs text-red-400 font-black">🔴 Closed</span>'
       : soldOut ? '<span class="text-xs text-red-400 font-black">❌ Sold Out</span>'
-      : isOpen  ? '<span class="text-xs text-emerald-400 font-black">🟢 Open Now</span>'
+      : isOpen  ? `<span class="text-xs text-emerald-400 font-black" ${post.expiresAt?`data-st-exp="${post.expiresAt}"`:''}>🟢 Open Now</span>`
       : '<span class="text-xs text-gray-400 font-black">🔴 Closed</span>';
     priceRowHtml += `<div class="flex items-center gap-2">${statusHtml}${post.qty>0&&!expired&&!soldOut?`<span class="text-xs text-gray-400">${post.qty} left</span>`:''}</div>`;
   } else if(post.bizAvail){
@@ -10798,7 +10857,8 @@ function openPostDetail(postId){
     fill.style.width = pct + '%';
     fill.className = `h-full rounded-full transition-all ${pct>50?'bg-emerald-500':pct>25?'bg-amber-500':'bg-red-500'}`;
     const remMins = Math.floor(left/60000);
-    el('pd-expiry-label').textContent = expired ? '⛔ Expired' : remMins >= 60 ? `${Math.floor(remMins/60)}h ${remMins%60}m left` : `${remMins}m left`;
+    if(!expired){ el('pd-expiry-label').dataset.labelExp=post.expiresAt; fill.dataset.barExp=post.expiresAt; fill.dataset.barTs=post.ts||''; }
+    el('pd-expiry-label').textContent = expired ? 'Closed' : remMins >= 60 ? `${Math.floor(remMins/60)}h ${remMins%60}m left` : `${remMins}m left`;
   } else { expiryBar.classList.add('hidden'); }
 
   // 4. Like/Save state
