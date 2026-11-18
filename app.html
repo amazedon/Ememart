@@ -248,6 +248,11 @@ document.addEventListener('click', function askOnce(){
   body.light .pd-chips span{color:#475569}
   body.light .pd-secure span.t{color:#475569}
   body.light .pd-secure b{color:#047857}
+  .pf-seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .pf-seg button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:12px;border:1.5px solid #374151;background:transparent;color:#9ca3af;font-size:11px;font-weight:800}
+  .pf-seg button svg{width:20px;height:20px;fill:currentColor}
+  .pf-seg button.on{border-color:#059669;background:#ecfdf5;color:#047857}
+  body.light .pf-seg button{border-color:#e2e8f0;color:#64748b}
   .fc-row{display:flex;gap:8px}
   .fc-btn{flex:1;font-size:11px;font-weight:800;color:#6b7280;background:#111827;border:1px solid #1f2937;border-radius:12px;padding:9px 10px;white-space:nowrap}
   body.light .fc-btn{background:#fff;border-color:#e2e8f0;color:#334155}
@@ -4500,6 +4505,15 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
 
       <section id="pf-artisan-extra" class="pf-card hidden">
         <div class="pf-head">Service details</div>
+        <div class="flex flex-col gap-1">
+          <label class="label-sm">Where do you work?</label>
+          <input type="hidden" id="pf-service-loc" value="">
+          <div class="pf-seg" id="pf-svcloc">
+            <button type="button" data-v="Home service" onclick="setServiceLoc('Home service')"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Home service</button>
+            <button type="button" data-v="Workshop" onclick="setServiceLoc('Workshop')"><svg viewBox="0 0 24 24"><path d="m22.7 19-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4"/></svg>Workshop</button>
+            <button type="button" data-v="Both" onclick="setServiceLoc('Both')"><svg viewBox="0 0 24 24"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>Both</button>
+          </div>
+        </div>
         <div class="grid grid-cols-2 gap-2">
           <div class="flex flex-col gap-1"><label class="label-sm">Duration of a job</label><input type="text" id="pf-duration" placeholder="e.g. 2-3 hours" class="inp"></div>
           <div class="flex flex-col gap-1"><label class="label-sm">Experience</label><input type="text" id="pf-experience" placeholder="e.g. 6 years" class="inp"></div>
@@ -4572,15 +4586,15 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
       <div class="pf-head" id="post-text-label">Post update</div>
       <textarea id="post-text" rows="4" placeholder="What's happening in your area right now?" class="inp resize-none"></textarea>
       <div class="flex flex-col gap-2">
-        <label class="pf-photo" id="multi-img-upload-label">
+        <label class="pf-photo" id="post-image-upload-label">
           <span class="text-lg">📸</span>
           <div class="text-center">
             <div class="text-xs font-black text-gray-300">Add photos</div>
-            <div class="text-[10px] text-gray-500" id="multi-img-count-label">Up to 5 images · tap to browse</div>
+            <div class="text-[10px] text-gray-500" id="multi-image-count-label">Up to 5 images · tap to browse</div>
           </div>
           <input type="file" accept="image/*" multiple class="hidden" id="multi-img-input" onchange="handleMultiImageUpload(event)">
         </label>
-        <div id="multi-img-strip" class="hidden flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none;"></div>
+        <div id="multi-image-strip" class="hidden flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none;"></div>
       </div>
       <div id="media-preview" class="hidden"><img id="img-preview-el" class="hidden"></div>
     </section>
@@ -10357,6 +10371,12 @@ function prefillPostLocation(){
   }
 }
 
+function setServiceLoc(v){
+  const h = el('pf-service-loc'); if(!h) return;
+  h.value = (h.value === v) ? '' : v;
+  document.querySelectorAll('#pf-svcloc button').forEach(b => b.classList.toggle('on', b.dataset.v === h.value));
+}
+
 function collectPostExtras(){
   const v = id => { const e = el(id); return e ? String(e.value || '').trim() : ''; };
   const out = {};
@@ -10371,6 +10391,7 @@ function collectPostExtras(){
   put('deliveryTime', v('pf-delivery-time'));
   put('deliveryFee', v('pf-delivery-fee'));
   put('stockNote', v('pf-stock'));
+  put('serviceLocation', v('pf-service-loc'));
   put('duration', v('pf-duration'));
   put('experience', v('pf-experience'));
   put('materials', v('pf-materials'));
@@ -10391,7 +10412,8 @@ function collectPostExtras(){
 }
 
 function resetPostExtras(){
-  ['pf-price-type','pf-subcat','pf-condition','pf-tags','pf-avail-status','pf-delivery-method','pf-delivery-time','pf-delivery-fee','pf-stock','pf-duration','pf-experience','pf-materials','pf-vehicle','pf-route','food-extras','food-qty','biz-price','biz-avail','post-flash-price'].forEach(id => { const e = el(id); if(e) e.value = ''; });
+  ['pf-price-type','pf-subcat','pf-condition','pf-tags','pf-avail-status','pf-delivery-method','pf-delivery-time','pf-delivery-fee','pf-stock','pf-service-loc','pf-duration','pf-experience','pf-materials','pf-vehicle','pf-route','food-extras','food-qty','biz-price','biz-avail','post-flash-price'].forEach(id => { const e = el(id); if(e) e.value = ''; });
+  document.querySelectorAll('#pf-svcloc button').forEach(b => b.classList.remove('on'));
   const rows = el('pf-custom-rows'); if(rows) rows.innerHTML = '';
   ['post-escrow','post-flash-sale'].forEach(id => { const e = el(id); if(e) e.checked = false; });
   el('flash-price-wrapper')?.classList.add('hidden');
@@ -10431,7 +10453,7 @@ function pdLabelFromKey(k){ return k.replace(/([A-Z])/g,' $1').replace(/[_-]+/g,
 
 const PD_FOOD_CATS = { rice:'Rice', soups:'Soups & Stews', snacks:'Snacks & Pastries', drinks:'Drinks & Juices', grills:'Grills & Suya', swallow:'Swallow' };
 const PD_BIZ_TYPES = { artisan:'Artisan / Handyman', rider:'Dispatch / Logistics', freelancer:'Freelancer', shop:'Shop / Retailer' };
-const PD_KNOWN = new Set(['id','authorId','authorName','authorRole','authorVerified','text','image','images','imageFallback','likes','comments','reviews','reactions','ts','updatedAt','type','isFood','businessCategory','foodName','foodExtras','foodCategory','ingredients','price','originalPrice','flashSale','flashPrice','qty','bizServiceName','bizType','bizPrice','bizAvail','escrow','location','town','lga','state','mapX','mapY','retention','expiresAt','deleteAt','openSince','nextReminderAt','reminderStage','expired','boostedUntil','isBooking','bookingMeta','demo','tags','customFields','priceType','subCategory','condition','availStatus','deliveryMethod','deliveryTime','deliveryFee','stockNote','duration','experience','materials','vehicle','route','pinned','category']);
+const PD_KNOWN = new Set(['id','authorId','authorName','authorRole','authorVerified','text','image','images','imageFallback','likes','comments','reviews','reactions','ts','updatedAt','type','isFood','businessCategory','foodName','foodExtras','foodCategory','ingredients','price','originalPrice','flashSale','flashPrice','qty','bizServiceName','bizType','bizPrice','bizAvail','escrow','location','town','lga','state','mapX','mapY','retention','expiresAt','deleteAt','openSince','nextReminderAt','reminderStage','expired','boostedUntil','isBooking','bookingMeta','demo','tags','customFields','priceType','subCategory','condition','availStatus','deliveryMethod','deliveryTime','deliveryFee','stockNote','serviceLocation','duration','experience','materials','vehicle','route','pinned','category']);
 
 function buildPostDetailSections(post, ctx){
   const S = { basic:[], delivery:[], more:[] };
@@ -10449,6 +10471,7 @@ function buildPostDetailSections(post, ctx){
   add('basic','Sub-category', post.subCategory);
   add('basic','Price type', post.priceType);
   add('basic','Condition', post.condition);
+  add('basic','Service location', post.serviceLocation);
   add('basic','Duration', post.duration);
   add('basic','Experience', post.experience);
   add('basic','Vehicle', post.vehicle);
@@ -17940,9 +17963,6 @@ function verifyPinPress(digit){
 <button id="my-status-btn" class="hidden text-[10px] border border-gray-700 rounded-xl px-3 py-1.5 text-gray-300 hover:border-emerald-500 hover:text-emerald-400 transition" onclick="toggleMyStatus()">🟢 Online</button>
 
 <!-- ── Multi-image upload strip (post panel) ── -->
-<div id="multi-image-strip" class="hidden flex gap-2 overflow-x-auto py-1"></div>
-<span id="multi-image-count-label" class="hidden text-[10px] text-gray-400">0 / 5 images</span>
-<label id="post-image-upload-label" class="hidden cursor-pointer text-[10px] text-emerald-400 font-bold">+ Add Images</label>
 
 <!-- ── Publish checklist ── -->
 <div id="publish-checklist" class="hidden flex-col gap-1.5 bg-gray-950 border border-gray-800 rounded-xl p-3 text-[10px] text-gray-400"></div>
