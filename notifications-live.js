@@ -16,7 +16,7 @@
       E('popup-icon').textContent = icon; E('popup-title').textContent = title; E('popup-body').textContent = body;
       var p = E('popup-notif'); p.classList.remove('hidden'); setTimeout(function () { p.classList.add('hidden'); }, 5000);
     } catch (e) {}
-    try { if (document.hidden && window._swReg && Notification.permission === 'granted') window._swReg.showNotification(title, { body: body, icon: '/icons/icon-192.png' }); } catch (e) {}
+    try { if (document.hidden && window._swReg && Notification.permission === 'granted') window._swReg.showNotification(title, { body: body, icon: '/icon-192.png' }); } catch (e) {}
   }
 
   var ICON = { new_order: '🛒', order_delivered: '🏍️', escrow_released: '💰', order_cancelled: '❌', dispute_opened: '⚖️', dispute_resolved: '⚖️',
