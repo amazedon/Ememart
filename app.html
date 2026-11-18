@@ -253,6 +253,19 @@ document.addEventListener('click', function askOnce(){
   .pf-seg button svg{width:20px;height:20px;fill:currentColor}
   .pf-seg button.on{border-color:#059669;background:#ecfdf5;color:#047857}
   body.light .pf-seg button{border-color:#e2e8f0;color:#64748b}
+  .hs-wrap{position:relative}
+  .hs-scroll{scroll-behavior:smooth;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+  .tabs-wrap .feed-tab-btn{flex:0 0 auto;padding:10px 16px;scroll-snap-align:start}
+  .hs-arrow{position:absolute;top:0;bottom:0;width:44px;z-index:3;border:0;display:none;align-items:center;cursor:pointer;padding:0}
+  .hs-arrow svg{width:22px;height:22px;fill:#10b981;background:#fff;border-radius:999px;box-shadow:0 1px 6px rgba(0,0,0,.25);padding:2px}
+  .hs-right{right:0;justify-content:flex-end;padding-right:4px;background:linear-gradient(to left,#111827 35%,rgba(17,24,39,0))}
+  .hs-left{left:0;justify-content:flex-start;padding-left:4px;background:linear-gradient(to right,#111827 35%,rgba(17,24,39,0))}
+  body.light .hs-right{background:linear-gradient(to left,#fff 35%,rgba(255,255,255,0))}
+  body.light .hs-left{background:linear-gradient(to right,#fff 35%,rgba(255,255,255,0))}
+  .hs-wrap.can-right .hs-right{display:flex}
+  .hs-wrap.can-left .hs-left{display:flex}
+  .hs-wrap>.sellers-row~.hs-arrow,.hs-wrap>.hs-scroll:not(.flex)~.hs-arrow{}
+  .hs-arrow:focus-visible{outline:2px solid #10b981}
   .fc-row{display:flex;gap:8px}
   .fc-btn{flex:1;font-size:11px;font-weight:800;color:#6b7280;background:#111827;border:1px solid #1f2937;border-radius:12px;padding:9px 10px;white-space:nowrap}
   body.light .fc-btn{background:#fff;border-color:#e2e8f0;color:#334155}
@@ -4142,8 +4155,14 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
     <div id="recent-searches-chips" class="flex gap-1.5 overflow-x-auto" style="scrollbar-width:none;"></div>
     <button onclick="clearRecentSearches()" class="text-[9px] text-red-400 font-black flex-shrink-0">Clear</button>
   </div>
+  <!-- Filter wrapper: buttons row is ALWAYS on top and never moves; panels open BELOW it -->
+  <div id="filter-wrap" class="flex flex-col gap-2">
+  <div class="fc-row filter-buttons-row">
+    <button onclick="toggleSearchFilters()" class="fc-btn" id="toggle-filters-btn" aria-expanded="false">Filters &amp; Location Scope ▼</button>
+    <button onclick="toggleFoodCats()" class="fc-btn" id="toggle-foodcats-btn" aria-expanded="false">Food Categories ▼</button>
+  </div>
   <!-- Search scope + filters -->
-  <div id="search-filters-panel" class="hidden flex flex-col gap-2 bg-gray-900 border border-gray-800 rounded-2xl p-3 fade-up">
+  <div id="search-filters-panel" class="filter-panel hidden flex flex-col gap-2 bg-gray-900 border border-gray-800 rounded-2xl p-3 fade-up">
     <div class="flex items-center justify-between">
       <span class="text-[10px] font-black text-gray-400 uppercase tracking-wider">Search Filters</span>
       <button onclick="clearSearchFilters()" class="text-[9px] text-emerald-400 font-black">Reset</button>
@@ -4188,12 +4207,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
     </div>
     <button onclick="applySearchFilters()" class="btn-primary py-2 text-xs">🔍 Apply Filters</button>
   </div>
-  <!-- Toggle filters button -->
-  <div class="fc-row">
-    <button onclick="toggleSearchFilters()" class="fc-btn" id="toggle-filters-btn">Filters &amp; Location Scope ▼</button>
-    <button onclick="toggleFoodCats()" class="fc-btn" id="toggle-foodcats-btn">Food Categories ▼</button>
-  </div>
-  <div id="food-cat-panel" class="hidden bg-gray-900 border border-gray-800 rounded-2xl p-3 fade-up">
+  <div id="food-cat-panel" class="categories-panel hidden bg-gray-900 border border-gray-800 rounded-2xl p-3 fade-up">
     <div class="flex justify-between items-center mb-2">
       <span class="text-[10px] font-black text-gray-400 uppercase tracking-wider">Food categories</span>
       <button onclick="clearCategoryFilter()" id="clear-cat-btn" class="hidden text-[10px] text-emerald-400 font-bold">Clear</button>
@@ -4208,6 +4222,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
       <div class="cat-card" id="cat-soups" onclick="setCategoryFilter('soups')"><span class="label">Soups</span></div>
     </div>
   </div>
+  </div><!-- /filter-wrap -->
   <div id="search-results-panel" class="hidden search-results"></div>
 
   <div id="map-view-panel" class="hidden flex-col gap-3">
@@ -4233,13 +4248,17 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
 
   <div id="feed-view-panel" class="flex flex-col gap-3">
     <div id="community-section" class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-      <div class="flex border-b border-gray-800 overflow-x-auto" style="scrollbar-width:none;">
+      <div class="hs-wrap tabs-wrap border-b border-gray-800">
+      <button type="button" class="hs-arrow hs-left" aria-label="Scroll tabs left" onclick="hsScroll(this,-1)"><svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
+      <div class="hs-scroll flex overflow-x-auto" style="scrollbar-width:none;">
         <button class="feed-tab-btn active" id="ftab-general" onclick="switchFeedTab('general')">All</button>
         <button class="feed-tab-btn" id="ftab-vendor" onclick="switchFeedTab('vendor')">Food</button>
         <button class="feed-tab-btn" id="ftab-rider" onclick="switchFeedTab('rider')">Riders</button>
         <button class="feed-tab-btn" id="ftab-artisan" onclick="switchFeedTab('artisan')">Artisans</button>
         <button class="feed-tab-btn" id="ftab-following" onclick="switchFeedTab('following')">Follows</button>
         <button class="feed-tab-btn" id="ftab-nearby" onclick="switchFeedTab('nearby')">Nearby</button>
+      </div>
+      <button type="button" class="hs-arrow hs-right" aria-label="Scroll tabs right" onclick="hsScroll(this,1)"><svg viewBox="0 0 24 24"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></button>
       </div>
       <div id="flash-sale-bar" class="hidden bg-gradient-to-r from-red-950 to-orange-950 border-b border-red-900 p-2 flex items-center gap-2">
         <span class="flash-badge">⚡ Flash Sale</span>
@@ -7378,12 +7397,55 @@ function applyLocSearchLive(){
   _feedFilter.loc = (el('filter-loc')?.value || '').trim();
   renderFeed();
 }
+
+// Horizontal scroll rows: arrows + fade + peek hint
+function hsUpdate(w){
+  const s=w.querySelector('.hs-scroll'); if(!s) return;
+  w.classList.toggle('can-left', s.scrollLeft>6);
+  w.classList.toggle('can-right', s.scrollLeft+s.clientWidth < s.scrollWidth-6);
+}
+function hsScroll(btn,dir){
+  const w=btn.closest('.hs-wrap'), s=w.querySelector('.hs-scroll');
+  s.scrollBy({left:dir*Math.max(120,s.clientWidth*0.6),behavior:'smooth'});
+}
+function hsInit(root){
+  (root||document).querySelectorAll('.hs-wrap').forEach(w=>{
+    const s=w.querySelector('.hs-scroll'); if(!s||w._hs) return; w._hs=1;
+    s.addEventListener('scroll',()=>hsUpdate(w),{passive:true});
+    hsUpdate(w);
+  });
+}
+window.addEventListener('resize',()=>document.querySelectorAll('.hs-wrap').forEach(hsUpdate));
+window.addEventListener('load',()=>{
+  hsInit(); setTimeout(()=>document.querySelectorAll('.hs-wrap').forEach(hsUpdate),300);
+  // one-time peek nudge so people see more tabs exist
+  setTimeout(()=>{ const w=document.querySelector('.tabs-wrap'); const s=w&&w.querySelector('.hs-scroll'); if(!s||!w.classList.contains('can-right')) return;
+    s.scrollTo({left:60,behavior:'smooth'}); setTimeout(()=>s.scrollTo({left:0,behavior:'smooth'}),700); },900);
+});
+
+// Auto-add peek arrows + fade to every other horizontal scroll row
+function hsEnhance(row){
+  if(!row||row._hsDone||row.closest('.hs-wrap')) return; row._hsDone=1;
+  const w=document.createElement('div'); w.className='hs-wrap';
+  row.parentNode.insertBefore(w,row);
+  const mk=(d)=>{const b=document.createElement('button');b.type='button';b.className='hs-arrow hs-'+(d<0?'left':'right');b.setAttribute('aria-label',d<0?'Scroll left':'Scroll right');b.onclick=()=>hsScroll(b,d);b.innerHTML='<svg viewBox="0 0 24 24"><path d="'+(d<0?'M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z':'M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z')+'"/></svg>';return b;};
+  w.appendChild(mk(-1)); w.appendChild(row); w.appendChild(mk(1));
+  row.classList.add('hs-scroll'); row.style.scrollBehavior='smooth';
+  row.addEventListener('scroll',()=>hsUpdate(w),{passive:true});
+  hsUpdate(w); setTimeout(()=>hsUpdate(w),400);
+}
+const HS_SEL='.sellers-row,#trending-strip,#trending-keywords,#saved-collections-strip';
+function hsScan(){ document.querySelectorAll(HS_SEL).forEach(hsEnhance); document.querySelectorAll('.hs-wrap').forEach(hsUpdate); }
+window.addEventListener('load',()=>{ hsScan(); new MutationObserver(()=>{clearTimeout(window._hsT);window._hsT=setTimeout(hsScan,120);}).observe(document.body,{childList:true,subtree:true}); });
+function _setPanel(which,open){
+  const map={filters:['search-filters-panel','toggle-filters-btn','Filters & Location Scope'],cats:['food-cat-panel','toggle-foodcats-btn','Food Categories']};
+  const [pid,bid,label]=map[which]; const p=el(pid), b=el(bid); if(!p) return;
+  p.classList.toggle('hidden',!open);
+  if(b){ b.textContent=label+' '+(open?'▲':'▼'); b.setAttribute('aria-expanded',open?'true':'false'); }
+}
 function toggleFoodCats(){
-  const panel = el('food-cat-panel'), btn = el('toggle-foodcats-btn');
-  if(!panel) return;
-  const open = panel.classList.contains('hidden');
-  panel.classList.toggle('hidden', !open);
-  if(btn) btn.textContent = 'Food Categories ' + (open ? '▲' : '▼');
+  const open=el('food-cat-panel')?.classList.contains('hidden');
+  _setPanel('filters',false); _setPanel('cats',!!open);
 }
 function syncFeedChrome(){
   const tab = state.activeFeedTab || 'general';
@@ -17415,12 +17477,8 @@ function toggleRiderOnline(isOnline){
 }
 
 function toggleSearchFilters(){
-  const panel=el('search-filters-panel');
-  const btn=el('toggle-filters-btn');
-  if(!panel) return;
-  const hidden=panel.classList.contains('hidden');
-  panel.classList.toggle('hidden',!hidden);
-  if(btn) btn.textContent=hidden?'Filters & Location Scope ▲':'Filters & Location Scope ▼';
+  const open=el('search-filters-panel')?.classList.contains('hidden');
+  _setPanel('cats',false); _setPanel('filters',!!open);
 }
 
 function triggerPWAInstall(){
