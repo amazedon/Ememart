@@ -2,7 +2,7 @@
 // Ememart service worker: offline app shell + push notifications.
 // Rule: only our own static files are cached. API calls, Supabase and Squad are NEVER cached.
 const VERSION = 'ememart-v18';
-const SHELL = ['/', '/index.html', '/app.html', '/backend.js', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
+const SHELL = ['/', '/index.html', '/app.html', '/backend.js', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
@@ -48,7 +48,7 @@ self.addEventListener('push', (e) => {
   let data = { title: 'Ememart', body: 'You have a new update.', tag: 'ememart-push', url: '/' };
   try { data = Object.assign(data, e.data ? e.data.json() : {}); } catch (_) {}
   e.waitUntil(self.registration.showNotification(data.title, {
-    body: data.body, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png',
+    body: data.body, icon: '/icon-192.png', badge: '/icon-192.png',
     tag: data.tag, renotify: true, vibrate: [200, 100, 200], data: { url: data.url || '/' },
   }));
 });
