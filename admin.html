@@ -73,7 +73,7 @@ async function api(method, path, body) {
       headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + (s ? s.access_token : '') } });
   } catch (e) { return { ok: false, error: 'Connection failed' }; }
   var data = {}; try { data = await res.json(); } catch (e) {}
-  data._ok = res.ok; if (!res.ok) data._err = data.error || 'Request failed';
+  data._ok = res.ok; data._status = res.status; if (!res.ok) data._err = data.error || data.message || data.msg || 'Request failed';
   return data;
 }
 function say(msg, bad) { alert(msg); }
@@ -84,7 +84,7 @@ async function boot() {
   if (!s) { $('login').classList.remove('hidden'); $('app').classList.add('hidden'); return; }
   var me = await api('GET', '/me');
   ROLE = me.admin_role || null;
-  if (!ROLE) { await sb.auth.signOut(); $('l-err').textContent = 'This account is not an admin.'; $('login').classList.remove('hidden'); $('app').classList.add('hidden'); return; }
+  if (!ROLE) { await sb.auth.signOut(); $('l-err').textContent = (me && (me._err || me.error)) ? ('Server said: ' + (me._err || me.error) + (me._status ? ' (code ' + me._status + ')' : '')) : 'This account is not an admin.'; $('login').classList.remove('hidden'); $('app').classList.add('hidden'); return; }
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   $('who').textContent = (me.profile && me.profile.full_name || '') + ' (' + ROLE.replace('_', ' ') + ')';
   buildTabs();
