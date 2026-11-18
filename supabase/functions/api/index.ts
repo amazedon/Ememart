@@ -1421,6 +1421,10 @@ partners.get("/disputes", async (c) => {
 });
 
 // ---------- rider delivery ----------
+async function riderBps(): Promise<number> {
+  const { data } = await admin.from("app_settings").select("value").eq("key", "escrow").maybeSingle();
+  return Number(data?.value?.rider_fee_bps ?? 1000);
+}
 function needRider(c: any) {
   if (c.get("profile").role !== "rider") throw new HttpError(403, "Only riders can do this");
 }
@@ -1429,13 +1433,37 @@ partners.get("/rider/jobs", async (c) => {
   needRider(c);
   const { data } = await admin.from("orders").select("id, item_snapshot, delivery_address, delivery_fee_kobo, note, created_at, seller_id")
     .eq("status", "held").is("rider_id", null).not("delivery_address", "is", null).order("created_at", { ascending: false }).limit(50);
-  return c.json({ jobs: data ?? [] });
+  const bps = await riderBps();
+  return c.json({ fee_bps: bps, jobs: (data ?? []).map((j: any) => ({ ...j, earn_kobo: j.delivery_fee_kobo - Math.floor(j.delivery_fee_kobo * bps / 10000) })) });
 });
 partners.get("/rider/mine", async (c) => {
   needRider(c);
   const { data } = await admin.from("orders").select("id, item_snapshot, delivery_address, delivery_fee_kobo, delivery_status, rider_accepted_at, rider_delivered_at, buyer_id, seller_id, status")
     .eq("rider_id", c.get("uid")).order("rider_accepted_at", { ascending: false }).limit(100);
-  return c.json({ jobs: data ?? [] });
+  const bps = await riderBps();
+  return c.json({ fee_bps: bps, jobs: (data ?? []).map((j: any) => ({ ...j, earn_kobo: j.delivery_fee_kobo - Math.floor(j.delivery_fee_kobo * bps / 10000) })) });
+});
+// Rider earnings: paid when the customer confirms (or auto-release), net of EMEMART's rider fee
+partners.get("/rider/earnings", async (c) => {
+  needRider(c);
+  const { data } = await admin.from("ledger_entries").select("amount_kobo, created_at, meta").eq("user_id", c.get("uid")).eq("kind", "escrow_release").order("created_at", { ascending: false }).limit(500);
+  const rows = (data ?? []).filter((r: any) => r.meta?.role === "rider");
+  const day = new Date(); day.setHours(0, 0, 0, 0);
+  const week = Date.now() - 7 * 86400_000;
+  const sum = (f: (r: any) => boolean) => rows.filter(f).reduce((s: number, r: any) => s + Number(r.amount_kobo), 0);
+  const { count: pending } = await admin.from("orders").select("id", { count: "exact", head: true }).eq("rider_id", c.get("uid")).eq("delivery_status", "delivered").neq("status", "released");
+  return c.json({
+    today_kobo: sum((r) => new Date(r.created_at) >= day), week_kobo: sum((r) => new Date(r.created_at).getTime() >= week),
+    total_kobo: sum(() => true), paid_count: rows.length, awaiting_confirmation: pending ?? 0,
+  });
+});
+// Rider changes their mind before pickup: the job goes back to the pool
+partners.post("/rider/jobs/:id/drop", async (c) => {
+  needRider(c);
+  const { data } = await admin.from("orders").update({ rider_id: null, delivery_status: null, rider_accepted_at: null })
+    .eq("id", c.req.param("id")).eq("rider_id", c.get("uid")).eq("delivery_status", "accepted").select("id").maybeSingle();
+  if (!data) throw new HttpError(400, "You can only drop a job before pickup");
+  return c.json({ ok: true });
 });
 partners.post("/rider/jobs/:id/accept", async (c) => {
   needRider(c);
