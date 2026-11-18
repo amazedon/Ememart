@@ -71,10 +71,24 @@
       '<div class="font-black text-white">' + esc(s.title || 'Delivery') + '</div>' +
       '<div class="text-gray-400">From ' + esc(s.seller_name || 'Partner') + '</div>' +
       '<div class="text-gray-400">To: ' + esc(j.delivery_address || 'Customer address') + '</div>' +
-      '<div class="flex items-center justify-between"><span class="text-emerald-400 font-black">Delivery fee ' + naira(j.delivery_fee_kobo) + '</span>' + (actions || '') + '</div></div>';
+      '<div class="flex items-end justify-between gap-2"><div><div class="text-[10px] text-gray-500 font-bold">You earn</div><div class="text-emerald-500 font-black text-base">' + naira(j.earn_kobo != null ? j.earn_kobo : j.delivery_fee_kobo) + '</div>' +
+      '<div class="text-[10px] text-gray-500">Delivery fee ' + naira(j.delivery_fee_kobo) + ' less EMEMART fee</div></div>' + (actions || '') + '</div></div>';
   }
   var NEXT = { accepted: ['picked_up', 'Picked up'], picked_up: ['on_the_way', 'On the way'], on_the_way: ['delivered', 'Delivered'] };
+  async function loadEarnings() {
+    try {
+      var r = await api('GET', '/rider/earnings');
+      function set(id, v) { var e = E(id); if (e) e.textContent = v; }
+      set('rider-today-earn', naira(r.today_kobo)); set('rider-week-earn', naira(r.week_kobo));
+      set('rider-total-deliveries', r.paid_count);
+      if (typeof partnerStats === 'function' && me()) { var s = partnerStats(me().id); set('rider-rating-display', s.count ? s.avg.toFixed(1) + ' ★' : '—'); }
+      var note = E('rider-earn-note');
+      if (!note) { var host = E('rider-today-earn') && E('rider-today-earn').closest('.grid, div'); }
+      if (r.awaiting_confirmation) toast('ℹ️', 'Payment pending', r.awaiting_confirmation + ' delivery payment(s) arrive once the customer confirms.');
+    } catch (e) {}
+  }
   window.refreshAvailableOrders = async function () {
+    loadEarnings();
     var w = E('rider-available-list'); if (!w) return;
     w.innerHTML = '<div class="text-center py-6 text-xs text-gray-500">Loading...</div>';
     try {
@@ -91,7 +105,7 @@
       var act = (r.jobs || []).filter(function (j) { return j.delivery_status && j.delivery_status !== 'delivered'; });
       w.innerHTML = act.map(function (j) {
         var n = NEXT[j.delivery_status];
-        return card(j, n ? '<button class="btn-primary px-4 py-2 text-xs" style="width:auto" onclick="riderStep(\'' + j.id + '\',\'' + n[0] + '\')">' + n[1] + '</button>' : '');
+        return card(j, (j.delivery_status === 'accepted' ? '<button class="text-[11px] font-bold text-gray-500 underline mr-2" onclick="riderDrop(\'' + j.id + '\')">Drop</button>' : '') + (n ? '<button class="btn-primary px-4 py-2 text-xs" style="width:auto" onclick="riderStep(\'' + j.id + '\',\'' + n[0] + '\')">' + n[1] + '</button>' : ''));
       }).join('') || '<div class="text-center py-8 text-xs text-gray-500 italic">No active deliveries.</div>';
     } catch (e) { w.innerHTML = '<div class="text-center py-6 text-xs text-red-400">' + esc(e.message || 'Could not load') + '</div>'; }
   };
@@ -107,6 +121,10 @@
   window.riderAccept = async function (id) {
     try { await api('POST', '/rider/jobs/' + id + '/accept'); toast('✅', 'Job accepted', 'Head to the Partner for pickup.'); switchRiderTab('active'); }
     catch (e) { toast('⚠️', 'Not available', e.message || 'Try another job.'); refreshAvailableOrders(); }
+  };
+  window.riderDrop = async function (id) {
+    if (!confirm('Drop this job? It goes back to other riders.')) return;
+    try { await api('POST', '/rider/jobs/' + id + '/drop'); renderRiderActiveDeliveries(); } catch (e) { toast('⚠️', 'Cannot drop', e.message || ''); }
   };
   window.riderStep = async function (id, status) {
     try { await api('POST', '/rider/jobs/' + id + '/status', { status: status }); renderRiderActiveDeliveries(); if (status === 'delivered') toast('✅', 'Delivered', 'The customer was asked to confirm.'); }
