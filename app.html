@@ -585,7 +585,7 @@ document.addEventListener('click', function askOnce(){
   .bc-close{position:absolute;right:0;top:0;bottom:0;width:34px;border:0;color:inherit;font-size:18px;font-weight:900;cursor:pointer;background:linear-gradient(90deg,transparent,#2a2008 45%)}
   body.light #broadcast-bar{background:#fef9e7 !important;border-color:#f6e8b4 !important;color:#92400e !important}
   body.light .bc-close{background:linear-gradient(90deg,transparent,#fef9e7 45%) !important;color:#92400e !important}
-  @media (prefers-reduced-motion:reduce){.bc-track{animation:none;white-space:normal;padding:9px 40px 9px 16px;display:block}}
+  @media (prefers-reduced-motion:reduce){.bc-track{animation:none;white-space:normal;padding:9px 16px;display:block}}
   #acc-page{position:fixed;inset:0;z-index:190;background:#030712;color:#f3f4f6;overflow-y:auto;overscroll-behavior:contain;transform:translateX(100%);visibility:hidden;transition:transform .22s ease,visibility 0s .22s}
   #acc-page.open{transform:none;visibility:visible;transition:transform .22s ease}
   .acc-page-bar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:#030712;border-bottom:1px solid #1f2937}
@@ -3916,7 +3916,6 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
   </div>
   <div id="broadcast-bar" role="status" aria-live="polite" onclick="this.classList.toggle('paused')">
     <div class="bc-track"><span id="broadcast-text"></span></div>
-    <button type="button" class="bc-close" aria-label="Hide this notice" onclick="event.stopPropagation();dismissBroadcast()">×</button>
   </div>
 </header>
 <!-- ===== MENU DRAWER (top-right hamburger) ===== -->
