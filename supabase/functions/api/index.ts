@@ -43,7 +43,7 @@ export function env(name: string): string {
 export async function notify(
   userId: string, kind: string, title: string, body: string, data: Record<string, unknown> = {},
 ) {
-  await admin.from("notifications").insert({ user_id: userId, kind, title, body, data });
+  await admin.from("notifications").insert({ user_id: userId, kind, title, body, data, pushed_at: new Date().toISOString() });
   await sendPush(userId, title, body, data); // best effort: never blocks or fails the action
 }
 
@@ -1410,7 +1410,7 @@ partners.get("/partners/stats", async (c) => {
 });
 
 partners.get("/partners/:id/reviews", async (c) => {
-  const { data } = await admin.from("reviews").select("id, stars, comment, created_at, customer_id, post_id").eq("partner_id", c.req.param("id")).order("created_at", { ascending: false }).limit(50);
+  const { data } = await admin.from("reviews").select("id, stars, comment, reply, reply_at, created_at, customer_id, post_id").eq("partner_id", c.req.param("id")).order("created_at", { ascending: false }).limit(50);
   const ids = [...new Set((data ?? []).map((r: any) => r.customer_id))];
   const { data: profs } = ids.length ? await admin.from("public_profiles").select("id, full_name").in("id", ids) : { data: [] };
   const name = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
@@ -1423,8 +1423,57 @@ partners.get("/disputes", async (c) => {
   const { data: os } = await admin.from("orders").select("id").or(`buyer_id.eq.${uid},seller_id.eq.${uid}`);
   const ids = (os ?? []).map((o: any) => o.id);
   if (!ids.length) return c.json({ disputes: [] });
-  const { data } = await admin.from("disputes").select("*, dispute_evidence(id, path, note, created_at), orders(item_snapshot, amount_kobo, buyer_id, seller_id, status)").in("order_id", ids).order("created_at", { ascending: false });
-  return c.json({ disputes: data ?? [] });
+  const { data } = await admin.from("disputes").select("*, dispute_evidence(id, path, note, created_at), dispute_messages(id, user_id, body, created_at), orders(item_snapshot, amount_kobo, buyer_id, seller_id, status)").in("order_id", ids).order("created_at", { ascending: false });
+  const out: any[] = [];
+  for (const d of data ?? []) {
+    const ev: any[] = [];
+    for (const e of (d as any).dispute_evidence ?? []) ev.push({ ...e, url: (await admin.storage.from("dispute-evidence").createSignedUrl(e.path, 3600)).data?.signedUrl ?? null });
+    out.push({ ...d, dispute_evidence: ev });
+  }
+  return c.json({ disputes: out });
+});
+
+
+// ---------- dispute thread: messages, evidence links, withdraw ----------
+async function myDispute(id: string, uid: string) {
+  const { data: d } = await admin.from("disputes").select("*").eq("id", id).maybeSingle();
+  if (!d) throw new HttpError(404, "Dispute not found");
+  const { data: o } = await admin.from("orders").select("id, buyer_id, seller_id, status").eq("id", d.order_id).maybeSingle();
+  if (!o || (o.buyer_id !== uid && o.seller_id !== uid)) throw new HttpError(404, "Dispute not found");
+  return { d, o };
+}
+partners.post("/disputes/:id/messages", async (c) => {
+  const uid = c.get("uid");
+  const b = await parseBody(c, z.object({ body: z.string().trim().min(1).max(2000) }));
+  const { d, o } = await myDispute(c.req.param("id"), uid);
+  if (!["open", "under_review"].includes(d.status)) throw new HttpError(400, "This dispute is closed");
+  await admin.from("dispute_messages").insert({ dispute_id: d.id, user_id: uid, body: b.body });
+  await notify(uid === o.buyer_id ? o.seller_id : o.buyer_id, "dispute_message", "New message on a dispute", b.body.slice(0, 120), { dispute: d.id, order: o.id });
+  return c.json({ ok: true }, 201);
+});
+partners.post("/disputes/:id/withdraw", async (c) => {
+  const uid = c.get("uid");
+  const { d, o } = await myDispute(c.req.param("id"), uid);
+  if (d.opened_by !== uid) throw new HttpError(403, "Only the person who opened the dispute can withdraw it");
+  if (d.status !== "open") throw new HttpError(400, "Support is already reviewing this dispute");
+  const hours = ((await getSetting("escrow")).auto_release_hours as number) ?? 48;
+  await admin.from("disputes").update({ status: "closed", resolution_note: "Withdrawn by the customer", resolved_at: new Date().toISOString() }).eq("id", d.id);
+  await admin.from("orders").update({ status: "delivered", auto_release_at: new Date(Date.now() + hours * 3600_000).toISOString() }).eq("id", o.id);
+  await notify(uid === o.buyer_id ? o.seller_id : o.buyer_id, "dispute_withdrawn", "Dispute withdrawn", "The dispute was withdrawn. The order continues as normal.", { dispute: d.id, order: o.id });
+  await audit(uid, "dispute.withdrawn", d.id);
+  return c.json({ ok: true });
+});
+
+// ---------- Partner replies to a review ----------
+partners.post("/reviews/:id/reply", async (c) => {
+  const uid = c.get("uid");
+  const b = await parseBody(c, z.object({ reply: z.string().trim().min(2).max(500) }));
+  const { data: r } = await admin.from("reviews").select("id, partner_id, customer_id, reply").eq("id", c.req.param("id")).maybeSingle();
+  if (!r || r.partner_id !== uid) throw new HttpError(404, "Review not found");
+  if (r.reply) throw new HttpError(400, "You already replied to this review");
+  await admin.from("reviews").update({ reply: b.reply, reply_at: new Date().toISOString() }).eq("id", r.id);
+  await notify(r.customer_id, "review_reply", "A Partner replied to your review", b.reply.slice(0, 120), { review: r.id });
+  return c.json({ ok: true });
 });
 
 // ---------- rider delivery ----------
