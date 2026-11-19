@@ -28,7 +28,7 @@
       _op.apply(this, arguments);
       api('GET', '/partners/' + encodeURIComponent(userId) + '/reviews').then(function (r) {
         window.EMEMART_REMOTE_REVIEWS[userId] = (r.reviews || []).map(function (x) {
-          return { id: x.id, stars: x.stars, text: x.comment || '', ts: new Date(x.created_at).getTime(), buyerId: x.customer_id, buyerName: x.customer_name, foodName: 'order' };
+          return { id: x.id, stars: x.stars, text: x.comment || '', ts: new Date(x.created_at).getTime(), buyerId: x.customer_id, buyerName: x.customer_name, foodName: 'order', reply: x.reply || '', replyTs: x.reply_at ? new Date(x.reply_at).getTime() : 0 };
         });
         if (typeof renderVendorReviews === 'function') renderVendorReviews(userId);
       }).catch(function () {});
@@ -58,11 +58,19 @@
   function mapDispute(d) {
     var o = d.orders || {}, snap = o.item_snapshot || {};
     var created = new Date(d.created_at).getTime(), upd = new Date(d.resolved_at || d.created_at).getTime();
+    var myId = (state.session && state.session.id) || '';
     var msgs = [
-      { from: 'user', text: d.reason, ts: created },
-      { from: 'system', text: 'Your payment is on hold while support reviews this ticket. We aim to reply within 48 hours.', ts: created }
+      { from: d.opened_by === myId ? 'user' : 'other', label: d.opened_by === myId ? '' : 'Other party', text: esc(d.reason), ts: created },
+      { from: 'system', text: 'The payment is on hold while support reviews this ticket. We aim to reply within 48 hours.', ts: created }
     ];
-    if (d.resolution_note) msgs.push({ from: 'agent', text: d.resolution_note, ts: upd });
+    (d.dispute_messages || []).slice().sort(function (a, b) { return new Date(a.created_at) - new Date(b.created_at); }).forEach(function (m) {
+      msgs.push({ from: m.user_id === myId ? 'user' : 'other', label: m.user_id === myId ? '' : 'Other party', text: esc(m.body), ts: new Date(m.created_at).getTime() });
+    });
+    (d.dispute_evidence || []).forEach(function (e) {
+      if (e.url) msgs.push({ from: 'user', text: '<a href="' + esc(e.url) + '" target="_blank" rel="noopener" style="text-decoration:underline">Photo evidence</a>' + (e.note ? ': ' + esc(e.note) : ''), ts: new Date(e.created_at).getTime() });
+    });
+    msgs.sort(function (a, b) { return a.ts - b.ts; });
+    if (d.resolution_note) msgs.push({ from: 'agent', text: esc(d.resolution_note), ts: upd });
     if (d.status === 'resolved_buyer') msgs.push({ from: 'agent', text: 'Decision: refunded to the customer.', ts: upd });
     if (d.status === 'resolved_seller') msgs.push({ from: 'agent', text: 'Decision: payment released to the Partner.', ts: upd });
     return {
@@ -70,7 +78,7 @@
       userId: (state.session && state.session.id) || '', status: DSTATUS[d.status] || 'open',
       foodName: snap.title || snap.foodName || 'Order', vendorName: snap.seller_name || snap.vendorName || 'Partner',
       amount: Math.round(Number(o.amount_kobo || 0) / 100), reason: 'other', resolution: 'full_refund',
-      createdAt: created, updatedAt: upd, escrowFrozen: o.status === 'disputed', messages: msgs
+      openedByMe: d.opened_by === myId, rawStatus: d.status, createdAt: created, updatedAt: upd, escrowFrozen: o.status === 'disputed', messages: msgs
     };
   }
   async function loadDisputes() {
@@ -87,9 +95,41 @@
     _rdm.apply(this, arguments);
     if (t && t.remote) {
       var a = document.getElementById('ddetail-actions');
-      if (a) a.innerHTML = t.status === 'closed' || t.status === 'resolved'
-        ? '<div class="text-center text-xs text-gray-500 italic py-2">This ticket is resolved.</div>'
-        : '<div class="text-center text-xs text-gray-400 py-2">Support will update this ticket here and notify you.</div>';
+      if (!a) return;
+      var live = t.rawStatus === 'open' || t.rawStatus === 'under_review';
+      if (!live) { a.innerHTML = '<div class="text-center text-xs text-gray-500 italic py-2">This ticket is closed.</div>'; return; }
+      a.innerHTML =
+        '<textarea id="dd-msg" rows="2" maxlength="2000" placeholder="Write a message to support and the other party..." class="inp resize-none text-xs"></textarea>' +
+        '<div class="flex gap-2">' +
+        '<button type="button" id="dd-send" class="btn-primary py-2.5 text-xs flex-1">Send message</button>' +
+        '<label class="btn-sm-outline py-2.5 text-xs text-center cursor-pointer flex-1">Add photo<input id="dd-photo" type="file" accept="image/*" class="hidden"></label>' +
+        '</div>' +
+        (t.openedByMe && t.rawStatus === 'open' ? '<button type="button" id="dd-withdraw" class="text-[11px] font-black text-red-400 underline self-center py-1">Withdraw this dispute</button>' : '');
+      document.getElementById('dd-send').onclick = async function () {
+        var box = document.getElementById('dd-msg'), txt = (box.value || '').trim();
+        if (!txt) { toast('✍️', 'Write a message', 'Type your message first.'); return; }
+        this.disabled = true;
+        try { await api('POST', '/disputes/' + t.serverId + '/messages', { body: txt }); box.value = ''; await loadDisputes(); var nt = window.EMEMART_REMOTE_DISPUTES.find(function (x) { return x.serverId === t.serverId; }); if (nt) window.renderDisputeDetailModal(nt); }
+        catch (e) { toast('❌', 'Not sent', (e && e.message) || 'Please try again.'); this.disabled = false; }
+      };
+      document.getElementById('dd-photo').onchange = async function () {
+        var f = this.files && this.files[0]; if (!f) return;
+        if (f.size > 8 * 1024 * 1024) { toast('⚠️', 'Photo too large', 'Please pick a photo under 8 MB.'); return; }
+        try {
+          var path = me().id + '/' + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '.' + (f.type === 'image/png' ? 'png' : f.type === 'image/webp' ? 'webp' : 'jpg');
+          var up = await window.sb.storage.from('dispute-evidence').upload(path, f, { contentType: f.type });
+          if (up.error) throw up.error;
+          await api('POST', '/disputes/' + t.serverId + '/evidence', { path: path });
+          toast('📎', 'Photo added', 'Support can now see it.');
+          await loadDisputes(); var nt = window.EMEMART_REMOTE_DISPUTES.find(function (x) { return x.serverId === t.serverId; }); if (nt) window.renderDisputeDetailModal(nt);
+        } catch (e) { toast('❌', 'Upload failed', (e && e.message) || 'Please try again.'); }
+      };
+      var wd = document.getElementById('dd-withdraw');
+      if (wd) wd.onclick = async function () {
+        if (!confirm('Withdraw this dispute? The order will continue as normal.')) return;
+        try { await api('POST', '/disputes/' + t.serverId + '/withdraw'); toast('✅', 'Dispute withdrawn', 'The order continues as normal.'); await loadDisputes(); var m = document.getElementById('dispute-detail-modal'); if (m) m.classList.add('hidden'); try { if (B.reloadOrders) B.reloadOrders(); } catch (e) {} }
+        catch (e) { toast('❌', 'Could not withdraw', (e && e.message) || 'Please try again.'); }
+      };
     }
   };
   var _sdt = window.switchSafetyTab;
