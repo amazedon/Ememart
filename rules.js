@@ -9,8 +9,8 @@
   'use strict';
 
   var H = 3600000, DAY = 24 * H;
-  var FOOD_HOURS = 8, POST_DAYS = 30;
-  window.FOOD_HOURS = FOOD_HOURS;
+  var FOOD_HOURS = 8, FOOD_REMOVE_HOURS = 24, POST_DAYS = 30;
+  window.FOOD_HOURS = FOOD_HOURS; window.FOOD_REMOVE_HOURS = FOOD_REMOVE_HOURS;
 
   function $(id) { return document.getElementById(id); }
   function naira(n) { return '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 }); }
@@ -106,7 +106,7 @@
       post.retention = 'open'; post.expiresAt = null;
       post.openSince = now; post.reminderStage = 0; post.nextReminderAt = now + 6 * H;
     } else {
-      post.retention = 'delete_24h'; post.expiresAt = now + FOOD_HOURS * H;
+      post.retention = 'delete_24h'; post.expiresAt = now + FOOD_HOURS * H; post.removeAt = now + FOOD_REMOVE_HOURS * H;
     }
   };
 
@@ -149,7 +149,7 @@
     var now = Date.now(), before = state.posts.length;
     state.posts = state.posts.filter(function (p) {
       if (p.deleteAt && now > p.deleteAt) return false;                                        // 30-day rule
-      if (p.isFood && !p.isBooking && p.retention !== 'open' && p.expiresAt && now > p.expiresAt) return false; // 8-hour food rule
+      if (p.isFood && !p.isBooking && p.retention !== 'open' && p.expiresAt && now > (p.removeAt || (p.expiresAt + (FOOD_REMOVE_HOURS - FOOD_HOURS) * H))) return false; // closes at 8h, removed at 24h
       return true;
     });
     var changed = remindersAndWarnings() || state.posts.length !== before;
