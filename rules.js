@@ -1,6 +1,6 @@
 // rules.js  (save in the SAME folder as app.html)
 // Ememart posting rules, blue tick, freshness reminders and pre-order bookings.
-//  - Food posts disappear after 24 hours. Verified vendors may choose "leave open".
+//  - Food posts disappear after 8 hours. Verified vendors may choose "leave open".
 //  - Open food posts get freshness reminders at 6h, 8h, then every 8h.
 //  - Every post is deleted after 30 days, with warnings 3 days and 1 day before.
 //  - Pre-order bookings: customers book a date ahead and pay a deposit or in full into escrow.
@@ -9,7 +9,7 @@
   'use strict';
 
   var H = 3600000, DAY = 24 * H;
-  var FOOD_HOURS = 24, POST_DAYS = 30;
+  var FOOD_HOURS = 8, POST_DAYS = 30;
   window.FOOD_HOURS = FOOD_HOURS;
 
   function $(id) { return document.getElementById(id); }
@@ -47,7 +47,7 @@
     w.innerHTML =
       '<div id="food-retention-part" class="flex flex-col gap-2">' +
         '<label class="label-sm">How long should this post stay up?</label>' +
-        '<label class="flex items-center gap-2 text-xs text-gray-200 cursor-pointer"><input type="radio" name="food-retention" value="delete_24h" checked class="accent-emerald-500"> Delete after 24 hours</label>' +
+        '<label class="flex items-center gap-2 text-xs text-gray-200 cursor-pointer"><input type="radio" name="food-retention" value="delete_24h" checked class="accent-emerald-500"> Delete after 8 hours</label>' +
         '<label id="food-ret-open-label" class="flex items-center gap-2 text-xs text-gray-200 cursor-pointer"><input type="radio" name="food-retention" value="open" id="food-ret-open" class="accent-emerald-500"> Leave open</label>' +
         '<p id="food-retention-note" class="text-[10px] leading-relaxed text-gray-400"></p>' +
       '</div>' +
@@ -78,7 +78,7 @@
     label.classList.toggle('opacity-50', !verified);
     if (!verified) {
       if (open.checked) document.querySelector('input[name="food-retention"][value="delete_24h"]').checked = true;
-      note.textContent = 'Food posts disappear after 24 hours. Get verified with your NIN or CAC to leave posts open.';
+      note.textContent = 'Food posts disappear after 8 hours. Get verified with your NIN or CAC to leave posts open.';
     } else {
       note.textContent = 'Open posts have no timer. We remind you to check freshness after 6 hours, at 8 hours, and every 8 hours after. Only keep food up if it is safe to eat. Bad complaints can lead to account suspension.';
     }
@@ -149,7 +149,7 @@
     var now = Date.now(), before = state.posts.length;
     state.posts = state.posts.filter(function (p) {
       if (p.deleteAt && now > p.deleteAt) return false;                                        // 30-day rule
-      if (p.isFood && !p.isBooking && p.retention !== 'open' && p.expiresAt && now > p.expiresAt) return false; // 24-hour food rule
+      if (p.isFood && !p.isBooking && p.retention !== 'open' && p.expiresAt && now > p.expiresAt) return false; // 8-hour food rule
       return true;
     });
     var changed = remindersAndWarnings() || state.posts.length !== before;
