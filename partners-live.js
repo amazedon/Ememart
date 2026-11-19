@@ -37,9 +37,10 @@
   // submit a rating to the server (one per completed order, checked there)
   window.submitReview = async function () {
     if (!_reviewState || !_reviewState.stars) { toast('⚠️', 'No rating', 'Please choose 1 to 5 stars.'); return; }
+    if (((E('review-text').value) || '').trim().length < 5) { toast('✍️', 'Add a comment', 'Please write a short comment about your experience.'); return; }
     var btn = E('submit-review-btn'); if (btn) btn.disabled = true;
     try {
-      await api('POST', '/orders/' + encodeURIComponent(_reviewState.orderId) + '/review', { stars: _reviewState.stars, comment: (E('review-text').value || '').trim() || undefined });
+      await api('POST', '/orders/' + encodeURIComponent(_reviewState.orderId) + '/review', { stars: _reviewState.stars, comment: (E('review-text').value || '').trim() });
       _reviewState.done = true;
       try { var r = JSON.parse(localStorage.getItem('ememart_rated_orders') || '[]'); r.push(String(_reviewState.orderId)); localStorage.setItem('ememart_rated_orders', JSON.stringify(r)); } catch (e) {}
       E('review-modal').classList.add('hidden');
@@ -50,6 +51,49 @@
       if (btn) btn.disabled = false;
     }
   };
+
+  // ---- 1b. my disputes: show the real server tickets (read-only mirror) ------------------------
+  window.EMEMART_REMOTE_DISPUTES = null;
+  var DSTATUS = { open: 'open', under_review: 'acknowledged', resolved_buyer: 'resolved', resolved_seller: 'resolved', closed: 'closed' };
+  function mapDispute(d) {
+    var o = d.orders || {}, snap = o.item_snapshot || {};
+    var created = new Date(d.created_at).getTime(), upd = new Date(d.resolved_at || d.created_at).getTime();
+    var msgs = [
+      { from: 'user', text: d.reason, ts: created },
+      { from: 'system', text: 'Your payment is on hold while support reviews this ticket. We aim to reply within 48 hours.', ts: created }
+    ];
+    if (d.resolution_note) msgs.push({ from: 'agent', text: d.resolution_note, ts: upd });
+    if (d.status === 'resolved_buyer') msgs.push({ from: 'agent', text: 'Decision: refunded to the customer.', ts: upd });
+    if (d.status === 'resolved_seller') msgs.push({ from: 'agent', text: 'Decision: payment released to the Partner.', ts: upd });
+    return {
+      id: 'DSP-' + String(d.id).slice(0, 6).toUpperCase(), serverId: d.id, remote: true,
+      userId: (state.session && state.session.id) || '', status: DSTATUS[d.status] || 'open',
+      foodName: snap.title || snap.foodName || 'Order', vendorName: snap.seller_name || snap.vendorName || 'Partner',
+      amount: Math.round(Number(o.amount_kobo || 0) / 100), reason: 'other', resolution: 'full_refund',
+      createdAt: created, updatedAt: upd, escrowFrozen: o.status === 'disputed', messages: msgs
+    };
+  }
+  async function loadDisputes() {
+    try {
+      var r = await api('GET', '/disputes');
+      window.EMEMART_REMOTE_DISPUTES = (r.disputes || []).map(mapDispute);
+      if (typeof renderDisputeTickets === 'function') renderDisputeTickets();
+    } catch (e) {}
+  }
+  var _gd = window.getDisputes;
+  window.getDisputes = function () { return window.EMEMART_REMOTE_DISPUTES ? window.EMEMART_REMOTE_DISPUTES : (_gd ? _gd() : []); };
+  var _rdm = window.renderDisputeDetailModal;
+  if (typeof _rdm === 'function') window.renderDisputeDetailModal = function (t) {
+    _rdm.apply(this, arguments);
+    if (t && t.remote) {
+      var a = document.getElementById('ddetail-actions');
+      if (a) a.innerHTML = t.status === 'closed' || t.status === 'resolved'
+        ? '<div class="text-center text-xs text-gray-500 italic py-2">This ticket is resolved.</div>'
+        : '<div class="text-center text-xs text-gray-400 py-2">Support will update this ticket here and notify you.</div>';
+    }
+  };
+  var _sdt = window.switchSafetyTab;
+  if (typeof _sdt === 'function') window.switchSafetyTab = function (tab) { _sdt.apply(this, arguments); if (tab === 'disputes') loadDisputes(); };
   // orders delivered but not rated yet -> one reminder
   async function remindUnrated() {
     try {
@@ -149,7 +193,7 @@
     } catch (e) {}
   }
 
-  function start() { loadStats(); remindUnrated(); setTimeout(enablePush, 4000); }
+  function start() { loadStats(); loadDisputes(); remindUnrated(); setTimeout(enablePush, 4000); }
   var tries = 0, t = setInterval(function () { if (me() || ++tries > 40) { clearInterval(t); if (me()) start(); } }, 500);
   window.addEventListener('ememart:signed-in', start);
 })();
