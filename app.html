@@ -275,6 +275,16 @@ document.addEventListener('click', function askOnce(){
   .cd-low svg{animation:cdp 1s steps(2) infinite}
   @keyframes cdp{50%{opacity:.35}}
   @media(prefers-reduced-motion:reduce){.cd-low svg{animation:none}}
+  .pd-rv-head{display:flex;align-items:center;gap:8px;margin:2px 0 10px;font-size:13px;color:#64748b}
+  .pd-rv-head b{font-size:26px;color:#0f172a;line-height:1}
+  .pd-rv-stars{display:inline-flex;gap:1px;color:#f59e0b}
+  .pd-rv{border-top:1px solid #e2e8f0;padding:10px 0}
+  .pd-rv-top{display:flex;align-items:center;gap:8px;font-size:12px}
+  .pd-rv-top b{color:#0f172a}
+  .pd-rv-date{margin-left:auto;color:#94a3b8;font-size:10px}
+  .pd-rv p{margin:4px 0 0;font-size:13px;line-height:1.5;color:#334155}
+  .pd-rv-empty{font-size:12px;color:#64748b;margin:4px 0}
+  .pd-rv-all{margin-top:6px;border:1px solid #a7f3d0;background:#ecfdf5;color:#047857;font-weight:800;font-size:12px;border-radius:999px;padding:8px 14px;cursor:pointer}
   .fc-row{display:flex;gap:8px}
   .fc-btn{flex:1;font-size:11px;font-weight:800;color:#6b7280;background:#111827;border:1px solid #1f2937;border-radius:12px;padding:9px 10px;white-space:nowrap}
   body.light .fc-btn{background:#fff;border-color:#e2e8f0;color:#334155}
@@ -6943,7 +6953,7 @@ function relistPost(postId){
   post.expiresAt = Date.now() + (FOOD_HOURS * 3600000);
   post.ts = Date.now();
   renderFeed();
-  showPopupNotif('🔄', 'Listing Relisted!', `"${post.foodName}" is now live again for 24 hours.`);
+  showPopupNotif('🔄', 'Listing Relisted!', `"${post.foodName}" is now live again for ${FOOD_HOURS} hours.`);
 }
 
 
@@ -7427,6 +7437,56 @@ function matchesFoodCat(p, cat){
   const hay = ((p.foodName||'') + ' ' + (p.text||'')).toLowerCase();
   return cat === 'suya' ? /suya/.test(hay) : false;
 }
+// ===== SMART SEARCH: typo tolerant, Nigerian food and service words, scored by relevance =====
+const SEARCH_SYNONYMS = {
+  jollof:['rice','party rice'], ofada:['rice'], fried:['rice'], 'fried rice':['rice'], coconut:['rice'], rice:['jollof','ofada'],
+  amala:['swallow','ewedu','gbegiri'], eba:['swallow','garri'], garri:['eba'], fufu:['swallow'], semo:['swallow'], pounded:['swallow','pounded yam'], iyan:['pounded yam','swallow'], poundo:['swallow','pounded yam'],
+  egusi:['soup','swallow'], efo:['soup','vegetable'], okro:['soup'], ogbono:['soup'], banga:['soup'], afang:['soup'], edikang:['soup'], oha:['soup'], ewedu:['soup','amala'], pepper:['soup','peppersoup'], peppersoup:['soup','pepper soup'],
+  suya:['grills','grill','asun'], asun:['grills','suya'], kilishi:['suya','snacks'], bbq:['grills','suya'], barbecue:['grills','suya'], grill:['grills'], grilled:['grills'], fish:['grills','catfish'],
+  puffpuff:['snacks','puff puff'], 'puff puff':['snacks'], chinchin:['snacks','chin chin'], 'chin chin':['snacks'], meatpie:['snacks','pie'], 'meat pie':['snacks'], akara:['snacks','beans'], moinmoin:['beans','moin moin'], 'moin moin':['beans'],
+  zobo:['drinks','drink'], kunu:['drinks'], 'chapman':['drinks'], juice:['drinks'], smoothie:['drinks'], water:['drinks'], 
+  okada:['rider','bike','dispatch'], bike:['rider','dispatch','okada'], motorcycle:['rider','dispatch'], dispatch:['rider','delivery'], delivery:['rider','dispatch'], courier:['rider','dispatch'], keke:['rider','tricycle'],
+  tailor:['artisan','fashion','sewing'], seamstress:['tailor','fashion'], fashion:['tailor'], plumber:['artisan','plumbing'], plumbing:['plumber'], electrician:['artisan','electrical'], electrical:['electrician'],
+  carpenter:['artisan','furniture'], mechanic:['artisan','car'], painter:['artisan','painting'], barber:['artisan','haircut','grooming'], hairdresser:['artisan','hair','braids'], braids:['hair','hairdresser'], makeup:['beauty','artisan'], cleaner:['cleaning'], cleaning:['cleaner'], welder:['artisan','welding'], tiler:['artisan','tiling'], ac:['air conditioner','technician'], technician:['artisan','repair'], repair:['technician','artisan']
+};
+const SEARCH_REV = {};
+Object.keys(SEARCH_SYNONYMS).forEach(k => SEARCH_SYNONYMS[k].forEach(s => { const n=String(s).toLowerCase(); (SEARCH_REV[n]=SEARCH_REV[n]||[]).push(k); }));
+function searchNorm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim(); }
+function editDist(a,b,max){
+  if(Math.abs(a.length-b.length)>max) return max+1;
+  const m=a.length,n=b.length; let prev=Array.from({length:n+1},(_,i)=>i);
+  for(let i=1;i<=m;i++){ const cur=[i]; let rowMin=i;
+    for(let j=1;j<=n;j++){ cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1)); if(cur[j]<rowMin) rowMin=cur[j]; }
+    if(rowMin>max) return max+1; prev=cur; }
+  return prev[n];
+}
+function searchPostText(p){
+  const parts=[p.foodName,p.bizServiceName,p.authorName,p.text,p.location,p.town,p.lga,p.state,p.foodCategory,p.category,p.subCategory,p.bizType,p.businessCategory,p.ingredients,p.deliveryMethod];
+  if(Array.isArray(p.tags)) parts.push(p.tags.join(' '));
+  return searchNorm(parts.filter(Boolean).join(' '));
+}
+function searchTokenMatch(tok, words, hay){
+  if(hay.includes(tok)) return 3;                                       // direct hit
+  const max = tok.length>=7 ? 2 : tok.length>=4 ? 1 : 0;
+  if(max){ for(const w of words){ if(w.length>=3 && editDist(tok,w,max)<=max) return 2; } }  // typo
+  const syn = (SEARCH_SYNONYMS[tok]||[]).concat(SEARCH_REV[tok]||[]);
+  for(const s of syn){ if(hay.includes(searchNorm(s))) return 1; }                  // related word
+  return 0;
+}
+function smartSearchScore(p, query){
+  const q=searchNorm(query); if(!q) return 1;
+  const hay=searchPostText(p), words=hay.split(' ');
+  const title=searchNorm((p.foodName||'')+' '+(p.bizServiceName||''));
+  let total=0;
+  for(const tok of q.split(' ')){
+    const s=searchTokenMatch(tok,words,hay);
+    if(!s) return 0;                       // every word must match something
+    total+=s; if(title.includes(tok)) total+=2;
+  }
+  if(hay.includes(q)) total+=3;
+  return total;
+}
+window.smartSearchScore = smartSearchScore;
 function applyFeedFilters(posts){
   const f = _feedFilter, s = state.session || {};
   const low = x => String(x||'').toLowerCase();
@@ -7667,19 +7727,15 @@ function renderFeed(){
   posts = applyFeedFilters(posts);
 
   // Search filter
+  const _scores = new Map();
   if(search){
-    posts = posts.filter(p =>
-      (p.foodName||'').toLowerCase().includes(search) ||
-      (p.text||'').toLowerCase().includes(search) ||
-      (p.authorName||'').toLowerCase().includes(search) ||
-      (p.location||'').toLowerCase().includes(search) ||
-      (p.bizServiceName||'').toLowerCase().includes(search)
-    );
+    posts = posts.filter(p => { const s = smartSearchScore(p, search); if(s>0) _scores.set(p.id, s); return s>0; });
   }
 
   // Sort: newest first, boost boosted posts
   const keepOrder = tab === 'nearby';
   posts = posts.slice().sort((a, b) => {
+    if(search){ const ds = (_scores.get(b.id)||0) - (_scores.get(a.id)||0); if(ds) return ds; }
     if(keepOrder){ const d = closenessOf(a) - closenessOf(b); if(d) return d; }
     const aBoost = a.boostedUntil && a.boostedUntil > Date.now() ? 1 : 0;
     const bBoost = b.boostedUntil && b.boostedUntil > Date.now() ? 1 : 0;
@@ -7882,12 +7938,21 @@ function changeQty(delta){
   updateOrderTotal();
 }
 
+function postDeliveryFee(post){
+  // Partner-set fee (naira). Pickup-only posts have no delivery fee. Fallback ₦200 when the Partner left it blank.
+  if(!post) return 200;
+  if(/pickup only|i come to you/i.test(post.deliveryMethod||'')) return 0;
+  const f=Number(post.deliveryFee);
+  return (post.deliveryFee!==undefined && post.deliveryFee!=='' && isFinite(f) && f>=0) ? Math.round(f) : 200;
+}
+window.postDeliveryFee=postDeliveryFee;
 function updateOrderTotal(){
   const post = state.posts.find(p => p.id === _activeOrderPostId);
   if(!post || !state.session) return;
   const unitPrice = post.flashSale ? post.flashPrice : post.price;
-  const delivery = 200;
+  const delivery = postDeliveryFee(post);
   const total = (unitPrice * _activeOrderQty) + delivery;
+  const _df=el('ot-delivery'); if(_df) _df.textContent = delivery>0 ? '₦'+fmt(delivery) : 'Free';
   const balanceAfter = (state.session.balance || 0) - total;
   el('ot-unit').textContent = `₦${fmt(unitPrice)}`;
   el('ot-qty').textContent = _activeOrderQty;
@@ -7911,7 +7976,7 @@ function confirmPlaceOrder(){
   el('order-address').classList.remove('error');
 
   const unitPrice = post.flashSale ? post.flashPrice : post.price;
-  const delivery = 200;
+  const delivery = postDeliveryFee(post);
   const total = (unitPrice * _activeOrderQty) + delivery;
   const useEscrow = el('order-escrow-toggle').checked;
   const note = el('order-note').value.trim();
@@ -9594,8 +9659,8 @@ function openReviewModal(postId, orderId){
   // Reset stars
   selectStar(0);
   el('review-text').value = '';
-  el('submit-review-btn').disabled = true;
-  el('submit-review-btn').textContent = 'Select a star rating to continue';
+  el('review-text').placeholder = 'Tell others what you thought about this order...';
+  reviewUpdateBtn();
 
   // Reset tags
   document.querySelectorAll('#review-tags button').forEach(b => b.classList.remove('active'));
@@ -9610,23 +9675,31 @@ function selectStar(n){
   const stars = document.querySelectorAll('#star-selector .star-tap');
   stars.forEach((s, i) => { s.textContent = i < n ? '★' : '☆'; s.style.color = i < n ? '#fbbf24' : '#6b7280'; });
   el('star-label').textContent = n ? labels[n] : '';
-  const btn = el('submit-review-btn');
-  if(n > 0){
-    btn.disabled = false;
-    btn.textContent = `⭐ Submit ${n}-Star Review`;
-  } else {
-    btn.disabled = true;
-    btn.textContent = 'Select a star rating to continue';
-  }
+  const ph = {1:'What went wrong? Tell the Partner and other customers.',2:'What could have been better?',3:'What was okay and what could improve?',4:'What did you like most?',5:'What made it excellent? Tell others.'};
+  if(n>0) el('review-text').placeholder = ph[n];
+  reviewUpdateBtn();
 }
+const REVIEW_MIN_CHARS = 5;
+function reviewUpdateBtn(){
+  const btn = el('submit-review-btn'); if(!btn) return;
+  const n = _reviewState.stars||0, len = (el('review-text').value||'').trim().length;
+  if(!n){ btn.disabled = true; btn.textContent = 'Choose a star rating'; }
+  else if(len < REVIEW_MIN_CHARS){ btn.disabled = true; btn.textContent = 'Write a short comment to continue'; }
+  else { btn.disabled = false; btn.textContent = `Submit ${n}-star review`; }
+}
+window.reviewUpdateBtn = reviewUpdateBtn;
 
 function toggleReviewTag(btn, tag){
   btn.classList.toggle('active');
+  const ta = el('review-text');
   if(btn.classList.contains('active')){
     _reviewState.tags.push(tag);
+    // add the phrase to the comment so quick taps still produce a written comment
+    if(ta && !ta.value.toLowerCase().includes(tag.toLowerCase())) ta.value = (ta.value.trim() ? ta.value.trim()+'. ' : '') + tag + '.';
   } else {
     _reviewState.tags = _reviewState.tags.filter(t => t !== tag);
   }
+  reviewUpdateBtn();
 }
 
 function allRatedOrderIds(){
@@ -9665,6 +9738,7 @@ setInterval(checkReviewReminders, 600000);
 
 function submitReview(){
   if(!_reviewState.stars){ showPopupNotif('⚠️','No Rating','Please select a star rating before submitting.'); return; }
+  if((el('review-text').value||'').trim().length < REVIEW_MIN_CHARS){ showPopupNotif('✍️','Add a comment','Please write a short comment about your experience.'); el('review-text').focus(); return; }
   const post = state.posts.find(p => p.id === _reviewState.postId);
   if(!post) return;
   if(allRatedOrderIds().has(String(_reviewState.orderId))){ showPopupNotif('✅','Already rated','This order has already been rated.'); return; }
@@ -10631,6 +10705,31 @@ function buildPostDetailSections(post, ctx){
   return S;
 }
 
+function renderPdReviews(post){
+  const box = el('pd-reviews'); if(!box || !post) return;
+  const uid = post.authorId;
+  const list = state.posts.filter(p => p.authorId === uid).flatMap(p => (p.reviews||[]).map(r => ({...r})))
+    .concat((window.EMEMART_REMOTE_REVIEWS && window.EMEMART_REMOTE_REVIEWS[uid]) || [])
+    .filter(r => r.text && String(r.text).trim()).sort((a,b) => b.ts - a.ts);
+  const ps = partnerStats(uid);
+  if(!ps.count && !list.length){ box.classList.remove('hidden'); box.innerHTML = '<div class="pd-sec-title">What customers say</div><p class="pd-rv-empty">No comments yet. Customers who complete an order can rate and comment.</p>'; return; }
+  const top = list.slice(0,3);
+  box.classList.remove('hidden');
+  box.innerHTML = `<div class="pd-sec-title">What customers say</div>` +
+    (ps.count ? `<div class="pd-rv-head"><b>${ps.avg.toFixed(1)}</b><span class="pd-rv-stars">${renderStarsMini(Math.round(ps.avg))}</span><span>${ps.count} rating${ps.count!==1?'s':''}</span></div>` : '') +
+    (top.length ? top.map(r => `<div class="pd-rv"><div class="pd-rv-top"><b data-noicon>${pdEsc(r.buyerName||'Customer')}</b><span class="pd-rv-stars">${renderStarsMini(r.stars)}</span><span class="pd-rv-date">${new Date(r.ts).toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric'})}</span></div><p data-noicon>${pdEsc(r.text)}</p></div>`).join('')
+      : '<p class="pd-rv-empty">Ratings so far have no written comments.</p>') +
+    `<button type="button" class="pd-rv-all" onclick="openVendorProfile('${uid}')">See all reviews</button>`;
+  // live mode: fetch comments once, then redraw
+  if(window.callApi && !(window.EMEMART_REMOTE_REVIEWS||{})[uid] && !box._fetching){
+    box._fetching = true;
+    window.callApi('GET','/partners/'+encodeURIComponent(uid)+'/reviews').then(r => {
+      window.EMEMART_REMOTE_REVIEWS = window.EMEMART_REMOTE_REVIEWS || {};
+      window.EMEMART_REMOTE_REVIEWS[uid] = (r.reviews||[]).map(x => ({id:x.id,stars:x.stars,text:x.comment||'',ts:new Date(x.created_at).getTime(),buyerId:x.customer_id,buyerName:x.customer_name}));
+      box._fetching = false; renderPdReviews(post);
+    }).catch(()=>{ box._fetching=false; });
+  }
+}
 function renderPostDetailExtras(post, ctx){
   const { isFood, isRider, isArtisan, isMine, expired, soldOut, isOpen } = ctx;
 
@@ -10695,6 +10794,8 @@ function renderPostDetailExtras(post, ctx){
     .map(x => `<div><span>${x[0]}</span><b>${pdEsc(x[1])}</b></div>`).join('');
   el('pd-seller-rating').textContent = stats.count ? `${stats.avg.toFixed(1)} ★ (${stats.count} ratings)` : '';
 
+  try{ renderPdReviews(post); }catch(e){ console.warn(e); }
+
   // secure transaction notice
   el('pd-secure').innerHTML = `
     <svg class="ico" viewBox="0 0 24 24"><path d="M1 21h22L12 2zm12-3h-2v-2h2zm0-4h-2v-4h2z"/></svg>
@@ -10732,6 +10833,22 @@ function renderPostDetailExtras(post, ctx){
   });
 }
 
+async function openWithdrawHistory(){
+  const box = el('withdraw-history-list'); el('withdraw-history-modal').classList.remove('hidden');
+  box.innerHTML = '<p class="text-xs text-gray-400 py-6 text-center">Loading...</p>';
+  let list = [];
+  try{
+    if(window.callApi){ const r = await window.callApi('GET','/wallet/withdrawals'); list = r.withdrawals || []; }
+  }catch(e){ box.innerHTML = '<p class="text-xs text-red-400 py-6 text-center">Could not load your withdrawals. Check your connection and try again.</p>'; return; }
+  if(!list.length){ box.innerHTML = '<p class="text-xs text-gray-400 py-6 text-center">No withdrawals yet. When you withdraw to your bank, it appears here.</p>'; return; }
+  const meta = { pending:['Processing','text-amber-400 bg-amber-950/30 border-amber-900/50'], success:['Paid','text-emerald-400 bg-emerald-950/30 border-emerald-900/50'], failed:['Failed, money returned','text-red-400 bg-red-950/30 border-red-900/50'] };
+  box.innerHTML = list.map(w => { const m = meta[w.status] || meta.pending;
+    return `<div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex items-center justify-between gap-3">
+      <div class="min-w-0"><div class="text-xs font-black text-white" data-noicon>${pdEsc(w.bank_name)} ${pdEsc(w.account_number)}</div>
+      <div class="text-[10px] text-gray-500">${new Date(w.created_at).toLocaleString('en-NG',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
+      <div class="text-right flex-shrink-0"><div class="text-sm font-black text-white mono">₦${Math.round(w.amount_kobo/100).toLocaleString('en-NG')}</div>
+      <span class="text-[9px] font-black px-1.5 py-0.5 rounded-lg border ${m[1]}">${m[0]}</span></div></div>`; }).join('');
+}
 function openPostDetail(postId){
   const post = state.posts.find(p => p.id === postId);
   if(!post) return;
@@ -14066,7 +14183,7 @@ function applyBalanceVisibility(){
     <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex flex-col gap-2">
       <div class="receipt-row"><span class="text-gray-400">Unit price</span><span id="ot-unit" class="text-white font-bold mono">₦0</span></div>
       <div class="receipt-row"><span class="text-gray-400">Quantity</span><span id="ot-qty" class="text-white font-bold">1</span></div>
-      <div class="receipt-row"><span class="text-gray-400">Delivery fee</span><span class="text-amber-400 font-bold mono">₦200</span></div>
+      <div class="receipt-row"><span class="text-gray-400">Delivery fee</span><span id="ot-delivery" class="text-amber-400 font-bold mono">₦200</span></div>
       <div class="receipt-row border-t border-gray-700 pt-2 mt-1">
         <span class="text-white font-black">Total</span>
         <span id="ot-total" class="text-emerald-400 font-black text-base mono">₦0</span>
@@ -14221,7 +14338,7 @@ function applyBalanceVisibility(){
     <div class="flex justify-between items-start">
       <div>
         <h3 id="review-title" class="text-base font-black text-white">How was your experience?</h3>
-        <p class="text-[11px] text-gray-400 mt-0.5">Pick 1 to 5 stars. A comment is optional.</p>
+        <p class="text-[11px] text-gray-400 mt-0.5">Pick 1 to 5 stars and add a short comment.</p>
       </div>
       <button onclick="skipReview()" class="text-gray-400 hover:text-white text-lg">✕</button>
     </div>
@@ -14251,7 +14368,7 @@ function applyBalanceVisibility(){
 
     <!-- Tags (quick feedback) -->
     <div>
-      <p class="text-[10px] text-gray-500 uppercase font-black tracking-wider mb-2">What stood out? (optional)</p>
+      <p class="text-[10px] text-gray-500 uppercase font-black tracking-wider mb-2">Tap to add to your comment</p>
       <div id="review-tags" class="flex flex-wrap gap-2">
         <button onclick="toggleReviewTag(this,'Delicious')" class="filter-pill">😋 Delicious</button>
         <button onclick="toggleReviewTag(this,'Fast delivery')" class="filter-pill">⚡ Fast delivery</button>
@@ -14266,11 +14383,11 @@ function applyBalanceVisibility(){
 
     <!-- Written review -->
     <div class="flex flex-col gap-1">
-      <label class="label-sm">Written Review (optional)</label>
-      <textarea id="review-text" rows="3" placeholder="Tell others what you thought about this order..." class="inp resize-none text-xs"></textarea>
+      <label class="label-sm" for="review-text">Your comment <span class="text-red-400">*</span></label>
+      <textarea id="review-text" rows="3" maxlength="500" oninput="reviewUpdateBtn()" placeholder="Tell others what you thought about this order..." class="inp resize-none text-xs"></textarea>
     </div>
 
-    <button id="submit-review-btn" onclick="submitReview()" class="btn-primary py-3 text-sm" disabled>Select a star rating to continue</button>
+    <button id="submit-review-btn" onclick="submitReview()" class="btn-primary py-3 text-sm" disabled>Choose a star rating</button>
   </div>
 </div>
 <!-- OTP CHANNEL MODAL -->
@@ -14427,12 +14544,22 @@ function applyBalanceVisibility(){
 </div>
 
 <!-- WITHDRAW MODAL -->
+<div id="withdraw-history-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal-sheet flex flex-col gap-3">
+    <div class="flex justify-between items-center">
+      <h3 class="text-base font-black text-white">Withdrawal history</h3>
+      <button onclick="document.getElementById('withdraw-history-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black" aria-label="Close">✕</button>
+    </div>
+    <div id="withdraw-history-list" class="flex flex-col gap-2 max-h-[60vh] overflow-y-auto"></div>
+  </div>
+</div>
 <div id="withdraw-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal-sheet flex flex-col gap-4">
     <div class="flex justify-between items-center">
       <div><h3 class="text-base font-black text-white">🏦 Withdraw to Bank</h3><p class="text-[10px] text-gray-400">Free withdrawal to your bank account</p></div>
       <button onclick="document.getElementById('withdraw-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black">✕</button>
     </div>
+    <button type="button" onclick="openWithdrawHistory()" class="self-start text-[11px] font-black text-emerald-400 underline">View withdrawal history</button>
     <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex justify-between"><span class="text-xs text-gray-400">Balance</span><span id="withdraw-balance-display" class="text-sm font-black text-emerald-400 mono">₦0.00</span></div>
     <div class="flex flex-col gap-1">
       <label class="label-sm">Bank Name</label>
@@ -16244,7 +16371,7 @@ function renderOrderTrackingModal(orderId){
     riderCard.classList.toggle('hidden', !showRider);
     if(showRider){
       const rnEl = el('ot-rider-name');    if(rnEl) rnEl.textContent = record.riderName;
-      const rrEl = el('ot-rider-rating');  if(rrEl) rrEl.textContent = `⭐ ${record.riderRating} rating`;
+      const rrEl = el('ot-rider-rating');  if(rrEl) rrEl.textContent = record.riderRating ? `⭐ ${record.riderRating} rating` : '';
       // Progress bar
       const progressMap = { picked_up:15, on_the_way:60, delivered:100 };
       const pct = progressMap[record.currentStep] || 0;
@@ -17793,6 +17920,7 @@ function verifyPinPress(digit){
     </div>
 
     <!-- 5. Secure transaction notice -->
+    <div id="pd-reviews" class="pd-card mx-3 mt-3 hidden"></div>
     <div id="pd-secure" class="pd-secure mx-3 mt-3"></div>
 
     <!-- 6. Partner card -->
@@ -18463,6 +18591,6 @@ function requirePin(action, callback){
 <script src="rules.js?v=20261116c"></script>
 <script src="backend.js?v=20261117a"></script>
 <script src="posts-live.js?v=20261117a"></script>
-<script src="orders-live.js?v=20261116c"></script>
-<script src="partners-live.js?v=20261117a"></script>
+<script src="orders-live.js?v=20261118a"></script>
+<script src="partners-live.js?v=20261118a"></script>
 <script src="notifications-live.js?v=20261116d"></script>
