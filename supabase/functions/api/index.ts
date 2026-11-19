@@ -941,6 +941,7 @@ async function placeFor(buyer: string, post: any, qty: number, amountKobo: numbe
 async function visiblePost(id: string) {
   const { data } = await admin.from("posts").select("*").eq("id", id).maybeSingle();
   if (!data || (data.expires_at && new Date(data.expires_at) <= new Date())) throw new HttpError(404, "Post not found or expired");
+  if (data.closes_at && new Date(data.closes_at) <= new Date()) throw new HttpError(400, "This food post is closed. Message the Partner to ask for a new meal.");
   if (!data.price_kobo) throw new HttpError(400, "This post has no price");
   return data;
 }
@@ -1250,7 +1251,7 @@ adminRoutes.post("/admin/users/:id/revoke-verification", async (c) => {
   await admin.from("profiles").update({ verified: false, verified_kind: null, verified_at: null }).eq("id", id);
   await admin.from("verification_requests").update({ status: "revoked" }).eq("user_id", id).eq("status", "approved");
   // open food posts lose their "leave open" privilege: 8h countdown from now
-  await admin.from("posts").update({ retention: "delete_24h", next_reminder_at: null, expires_at: new Date(Date.now() + 8 * 3600_000).toISOString() })
+  await admin.from("posts").update({ retention: "delete_24h", next_reminder_at: null, closes_at: new Date(Date.now() + 8 * 3600_000).toISOString(), expires_at: new Date(Date.now() + 24 * 3600_000).toISOString(), warn4_sent: false, warn6_sent: false })
     .eq("author_id", id).eq("type", "food").eq("retention", "open");
   await notify(id, "verification_revoked", "Verification removed", reason, {});
   await audit(c.get("uid"), "verification.revoked", id, { reason });
