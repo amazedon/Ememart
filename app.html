@@ -270,6 +270,7 @@ document.addEventListener('click', function askOnce(){
   .cd-chip svg{width:11px;height:11px;fill:currentColor}
   .cd-chip b{font-weight:800}
   .cd-ok{background:#ecfdf5;color:#047857}
+  .cd-warn{background:#fffbeb;color:#b45309}
   .cd-low{background:#fef2f2;color:#b91c1c}
   .cd-end{background:#f1f5f9;color:#64748b}
   .cd-low svg{animation:cdp 1s steps(2) infinite}
@@ -4609,13 +4610,13 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
         <button type="button" onclick="addCustomDetailRow()" class="btn-sm-outline text-[11px]">+ Add a detail</button>
       </section>
 
-      <label class="pf-escrow">
-        <input type="checkbox" id="post-escrow" class="accent-indigo-500">
+      <div class="pf-escrow">
+        <input type="checkbox" id="post-escrow" checked hidden aria-hidden="true">
         <div>
-          <span class="block text-[12px] font-black text-indigo-300">Protect this listing with escrow</span>
-          <span class="block text-[10px] text-gray-500 font-normal">Payment is held safely until the buyer confirms they got what they paid for.</span>
+          <span class="block text-[12px] font-black text-indigo-300">Every order is protected by Ememart escrow</span>
+          <span class="block text-[10px] text-gray-500 font-normal">Payment is held safely until the customer confirms delivery, then paid to you. This is always on and builds customer trust.</span>
         </div>
-      </label>
+      </div>
     </div>
 
     <!-- Description + photos -->
@@ -6940,6 +6941,13 @@ function renderOpenBadge(post){
   return `<span class="open-badge ${status}">${labels[status]}</span>`;
 }
 
+function askNewMeal(postId){
+  const post = state.posts.find(p => p.id === postId); if(!post) return;
+  if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in to message the Partner.'); navTo('auth'); return; }
+  startChat(post.authorId);
+  const msg = `Hello, I saw "${post.foodName||'your food post'}" but it has closed. Can you make a new batch?`;
+  setTimeout(() => { const i = el('chat-input') || document.querySelector('#chat-view-panel input[type="text"], #chat-view-panel textarea'); if(i){ i.value = msg; i.focus(); } }, 400);
+}
 function relistPost(postId){
   const post = state.posts.find(p => p.id === postId);
   if(!post) return;
@@ -6951,6 +6959,7 @@ function relistPost(postId){
   post.expired = false;
   post.nearExpiry = false;
   post.expiresAt = Date.now() + (FOOD_HOURS * 3600000);
+  post.removeAt = Date.now() + ((window.FOOD_REMOVE_HOURS||24) * 3600000);
   post.ts = Date.now();
   renderFeed();
   showPopupNotif('🔄', 'Listing Relisted!', `"${post.foodName}" is now live again for ${FOOD_HOURS} hours.`);
@@ -7073,10 +7082,20 @@ function fmtCountdown(ms){
 function postTimeHtml(post){
   if(post && post.isFood && post.expiresAt){
     const left=post.expiresAt-Date.now();
-    const cls=left<=0?'cd-end':left<3600000?'cd-low':'cd-ok';
+    const cls=left<=0?'cd-end':left<2*3600000?'cd-low':left<4*3600000?'cd-warn':'cd-ok';
     return `<span class="cd-chip ${cls}" data-exp="${post.expiresAt}" data-pid="${post.id}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 1H9v2h6zm-4 13h2V8h-2zm8.03-6.61 1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.96 8.96 0 0 0 12 4a9 9 0 1 0 9 9c0-2.12-.74-4.07-1.97-5.61M12 20a7 7 0 1 1 0-14 7 7 0 0 1 0 14"/></svg><b>${fmtCountdown(left)}</b>${left>0?' left':''}</span>`;
   }
   return timeAgo(post && post.ts);
+}
+function ownerClosingWarning(pid,left){
+  try{
+    const me = state.session && state.session.id; if(!me || !pid) return;
+    const post = state.posts.find(p => String(p.id)===String(pid)); if(!post || post.authorId!==me || left<=0) return;
+    const stage = left<2*3600000 ? 6 : left<4*3600000 ? 4 : 0; if(!stage) return;
+    const key = 'ememart_cdwarn_'+pid+'_'+stage;
+    if(localStorage.getItem(key)) return; localStorage.setItem(key,'1');
+    showPopupNotif(stage===6?'🔴':'🟠', stage===6 ? 'Closes in 2 hours' : 'Closes in 4 hours', `"${post.foodName||'Your food post'}" will close for orders soon. Post a fresh meal if you still have food to sell.`);
+  }catch(e){}
 }
 let _cdTimer=null;
 function tickCountdowns(){
@@ -7086,8 +7105,10 @@ function tickCountdowns(){
     const b=n.querySelector('b');
     if(b) b.textContent=fmtCountdown(left);
     n.classList.toggle('cd-end',left<=0);
-    n.classList.toggle('cd-low',left>0&&left<3600000);
-    n.classList.toggle('cd-ok',left>=3600000);
+    n.classList.toggle('cd-low',left>0&&left<2*3600000);
+    n.classList.toggle('cd-warn',left>=2*3600000&&left<4*3600000);
+    n.classList.toggle('cd-ok',left>=4*3600000);
+    ownerClosingWarning(n.dataset.pid,left);
     if(left<=0 && !n.dataset.done){ n.querySelector('b') && (n.innerHTML='<b>Closed</b>'); n.dataset.done='1'; clearTimeout(window._cdRe); window._cdRe=setTimeout(()=>{try{renderFeed()}catch(e){}},300); }
   });
   document.querySelectorAll('[data-st-exp]').forEach(n=>{
@@ -7102,7 +7123,7 @@ function tickCountdowns(){
     const exp=+n.dataset.barExp, ts=+n.dataset.barTs||now, left=exp-now, total=exp-ts;
     const pct=total>0?Math.max(0,Math.min(100,left/total*100)):0;
     n.style.width=pct+'%';
-    n.className=n.className.replace(/bg-(emerald|amber|red)-500/,'')+' '+(pct>50?'bg-emerald-500':pct>25?'bg-amber-500':'bg-red-500');
+    n.className=n.className.replace(/bg-(emerald|amber|red)-500/,'')+' '+(left>4*3600000?'bg-emerald-500':left>2*3600000?'bg-amber-500':'bg-red-500');
   });
   document.querySelectorAll('[data-label-exp]').forEach(n=>{
     const left=(+n.dataset.labelExp)-now;
@@ -7202,7 +7223,7 @@ function buildPostCard(post){
     let timerPct = totalDuration > 0 ? Math.max(0, Math.min(100, (remaining / totalDuration) * 100)) : 0;
     if(expired) timerPct = 0;
 
-    const barColor = timerPct > 50 ? 'bg-emerald-500' : timerPct > 25 ? 'bg-amber-500' : 'bg-red-500';
+    const barColor = remaining > 4*3600000 ? 'bg-emerald-500' : remaining > 2*3600000 ? 'bg-amber-500' : 'bg-red-500';
     let timeLeftStr = '';
     if(remaining > 0){
       const remMins = Math.floor(remaining / 60000);
@@ -7215,12 +7236,16 @@ function buildPostCard(post){
         <span class="text-[10px] mono font-black ${expired?'text-red-400':'text-gray-400'}" ${expired?'':`data-label-exp="${post.expiresAt}"`}>${expired?'Closed':timeLeftStr+' left'}</span>
       </div>`;
 
+    if(expired && !isMine){
+      expiryHtml += `
+        <button type="button" onclick="event.stopPropagation();askNewMeal('${post.id}')" class="w-full text-[11px] font-black text-emerald-300 border border-emerald-800 bg-emerald-950/30 rounded-xl py-2 mt-1">Closed. Ask for a new meal</button>`;
+    }
     if(expired && isMine){
       expiryHtml += `
         <div class="bg-red-950/40 border border-red-900/60 p-2.5 rounded-xl flex items-center justify-between gap-2">
           <div>
-            <div class="text-[11px] font-black text-red-300">This listing has expired</div>
-            <div class="text-[9px] text-gray-500 mt-0.5">Buyers can no longer see or order this item</div>
+            <div class="text-[11px] font-black text-red-300">This listing is closed</div>
+            <div class="text-[9px] text-gray-500 mt-0.5">Customers can still message you to ask for a new meal. It is removed 24 hours after posting.</div>
           </div>
           <button onclick="relistPost('${post.id}')" class="btn-sm-primary bg-amber-500 hover:bg-amber-400 text-gray-900 whitespace-nowrap text-[9px]">🔄 Relist</button>
         </div>`;
@@ -7340,7 +7365,7 @@ function buildPostCard(post){
             <svg width="13" height="13" viewBox="0 0 24 24" fill="${isSaved?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
             <span>${isSaved ? 'Saved' : 'Save'}</span>
           </button>
-          ${(isFood && post.escrow) ? `
+          ${(isFood) ? `
           <!-- Divider -->
           <span class="text-gray-800 select-none">|</span>
           <!-- Escrow Protection -->
@@ -7978,7 +8003,7 @@ function confirmPlaceOrder(){
   const unitPrice = post.flashSale ? post.flashPrice : post.price;
   const delivery = postDeliveryFee(post);
   const total = (unitPrice * _activeOrderQty) + delivery;
-  const useEscrow = el('order-escrow-toggle').checked;
+  const useEscrow = true;
   const note = el('order-note').value.trim();
 
   if(state.session.balance < total){
@@ -10607,7 +10632,8 @@ function resetPostExtras(){
   ['pf-price-type','pf-subcat','pf-condition','pf-tags','pf-avail-status','pf-delivery-method','pf-delivery-time','pf-delivery-fee','pf-stock','pf-service-loc','pf-duration','pf-experience','pf-materials','pf-vehicle','pf-route','food-extras','food-qty','biz-price','biz-avail','post-flash-price'].forEach(id => { const e = el(id); if(e) e.value = ''; });
   document.querySelectorAll('#pf-svcloc button').forEach(b => b.classList.remove('on'));
   const rows = el('pf-custom-rows'); if(rows) rows.innerHTML = '';
-  ['post-escrow','post-flash-sale'].forEach(id => { const e = el(id); if(e) e.checked = false; });
+  ['post-flash-sale'].forEach(id => { const e = el(id); if(e) e.checked = false; });
+  { const e = el('post-escrow'); if(e) e.checked = true; }
   el('flash-price-wrapper')?.classList.add('hidden');
 }
 
@@ -10689,7 +10715,7 @@ function buildPostDetailSections(post, ctx){
   add('delivery','Stock left', post.stockNote);
   if(isFood && post.expiresAt) add('delivery', expired ? 'Ended' : 'Offer ends', pdDate(post.expiresAt));
   if(post.flashSale && post.flashPrice) add('delivery','Flash sale', pdMoney(post.flashPrice) + ' (was ' + pdMoney(post.price) + ')');
-  if(post.escrow) add('delivery','Payment', 'Protected by escrow');
+  add('delivery','Payment', 'Protected by escrow');
   if(post.isBooking) add('delivery','Order type', 'Pre-order / booking');
 
   // More details
@@ -10918,7 +10944,7 @@ function openPostDetail(postId){
   // 3. Post content
   el('pd-role-badge').className = `text-[8px] font-black px-1.5 py-0.5 rounded-full border ${roleColors[roleKey]}`;
   el('pd-role-badge').textContent = isBiz ? roleLabels[roleKey] : '';
-  el('pd-escrow-badge').classList.toggle('hidden', !post.escrow);
+  el('pd-escrow-badge').classList.toggle('hidden', false);
   el('pd-flash-badge').classList.toggle('hidden', !post.flashSale);
   el('pd-title').textContent = post.foodName || post.bizServiceName || post.authorName;
   el('pd-time').innerHTML = postTimeHtml(post);
@@ -12603,7 +12629,7 @@ function buildPreviewPost(){
     image       : state.postImageBase64 || null,
     type        : state.postType,
     businessCategory: state.postType === 'business' ? state.businessCategory : null,
-    escrow      : el('post-escrow')?.checked || false,
+    escrow      : true,
     isFood,
     likes       : [],
     comments    : [],
@@ -14170,11 +14196,11 @@ function applyBalanceVisibility(){
     <!-- Escrow toggle -->
     <div class="bg-emerald-950/30 border border-emerald-900/50 rounded-xl p-3 flex items-center justify-between gap-3">
       <div>
-        <div class="text-xs font-black text-emerald-300">🔐 Pay with Escrow</div>
-        <div class="text-[10px] text-gray-400 mt-0.5">Your money is held safely — released only after delivery is confirmed</div>
+        <div class="text-xs font-black text-emerald-300">🔐 Protected by Ememart escrow</div>
+        <div class="text-[10px] text-gray-400 mt-0.5">Your money is held safely and released only after you confirm delivery</div>
       </div>
-      <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
-        <input type="checkbox" id="order-escrow-toggle" class="sr-only peer" checked>
+      <label class="relative inline-flex items-center flex-shrink-0 pointer-events-none">
+        <input type="checkbox" id="order-escrow-toggle" class="sr-only peer" checked disabled>
         <div class="w-10 h-6 bg-gray-700 peer-focus:ring-2 peer-focus:ring-emerald-500 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
       </label>
     </div>
@@ -16916,7 +16942,7 @@ function buildPreviewPostObject(){
     image       : state.postImageBase64 || null,
     type        : state.postType,
     businessCategory: state.postType === 'business' ? state.businessCategory : null,
-    escrow      : el('post-escrow')?.checked || false,
+    escrow      : true,
     isFood,
     likes       : [],
     comments    : [],
