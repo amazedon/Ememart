@@ -46,7 +46,8 @@
     });
     p.reactions = p.reactions || {};
     p.retention = row.retention === 'open' ? 'open' : (row.type === 'booking' ? 'booking' : 'delete_24h');
-    p.expiresAt = row.expires_at ? new Date(row.expires_at).getTime() : null;
+    p.expiresAt = row.closes_at ? new Date(row.closes_at).getTime() : (row.expires_at ? new Date(row.expires_at).getTime() : null);   // closes to orders
+    p.removeAt = row.expires_at ? new Date(row.expires_at).getTime() : null;                                                        // removed from the app
     p.deleteAt = new Date(row.delete_at).getTime();
     if (row.type === 'booking') { p.isBooking = true; p.bookingMeta = row.booking_meta || p.bookingMeta; }
     if (row.promoted_until) p.boostedUntil = new Date(row.promoted_until).getTime();
