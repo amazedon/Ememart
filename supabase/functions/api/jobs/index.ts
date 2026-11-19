@@ -25,8 +25,6 @@ export function json(data: unknown, status = 200): Response {
   });
 }
 
-
-
 // Service-role client: bypasses RLS. Only ever used on the server, after we have checked who the caller is.
 export const admin = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -43,14 +41,12 @@ export function env(name: string): string {
 export async function notify(
   userId: string, kind: string, title: string, body: string, data: Record<string, unknown> = {},
 ) {
-  await admin.from("notifications").insert({ user_id: userId, kind, title, body, data });
+  await admin.from("notifications").insert({ user_id: userId, kind, title, body, data, pushed_at: new Date().toISOString() });
 }
 
 export async function audit(actor: string | null, action: string, target: string, detail: unknown = {}) {
   await admin.from("audit_log").insert({ actor_id: actor, action, target, detail });
 }
-
-
 
 const enc = new TextEncoder();
 const b64 = (u: Uint8Array) => btoa(String.fromCharCode(...u));
@@ -103,8 +99,6 @@ export async function hmacSha512Hex(secret: string, message: string): Promise<st
   const sig = new Uint8Array(await crypto.subtle.sign("HMAC", k, enc.encode(message)));
   return [...sig].map((x) => x.toString(16).padStart(2, "0")).join("");
 }
-
-
 
 // Sandbox by default. For live set the secret SQUAD_BASE_URL=https://api-d.squadco.com
 const base = () => Deno.env.get("SQUAD_BASE_URL") ?? "https://sandbox-api-d.squadco.com";
@@ -175,7 +169,6 @@ export async function validWebhookSignature(rawBody: string, header: string | nu
   } catch { return false; }
 }
 
-
 // Housekeeping that SQL alone cannot do. Called every 5 minutes by pg_cron (see DEPLOY.md).
 //   supabase functions deploy jobs --no-verify-jwt     (protected by the x-cron-secret header instead)
 
@@ -228,6 +221,37 @@ async function expireTiers() {
   return data?.length ?? 0;
 }
 
+// Web push. Needs secrets VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (a mailto: address). Skipped when not set.
+async function sendPush(userId: string, title: string, body: string, data: Record<string, unknown>) {
+  try {
+    const pub = Deno.env.get("VAPID_PUBLIC_KEY"), priv = Deno.env.get("VAPID_PRIVATE_KEY");
+    if (!pub || !priv) return;
+    const { data: subs } = await admin.from("push_subscriptions").select("endpoint, p256dh, auth").eq("user_id", userId);
+    if (!subs?.length) return;
+    const webpush = (await import("npm:web-push@3.6.7")).default;
+    webpush.setVapidDetails(Deno.env.get("VAPID_SUBJECT") ?? "mailto:support@ememart.com", pub, priv);
+    const payload = JSON.stringify({ title, body, data });
+    await Promise.all(subs.map(async (s: any) => {
+      try {
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
+      } catch (e: any) {
+        if (e?.statusCode === 404 || e?.statusCode === 410) await admin.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+      }
+    }));
+  } catch (e) { console.error("push failed", e); }
+}
+
+// Notifications created by the database (food closing warnings, post deletion warnings, freshness reminders)
+// have no push yet (pushed_at is null). Send them here, then mark them done.
+async function pushPending() {
+  const { data } = await admin.from("notifications").select("id, user_id, title, body, data").is("pushed_at", null)
+    .gte("created_at", new Date(Date.now() - 6 * 3600_000).toISOString()).order("created_at").limit(200);
+  if (!data?.length) return 0;
+  await admin.from("notifications").update({ pushed_at: new Date().toISOString() }).in("id", data.map((n: any) => n.id));
+  for (const n of data) await sendPush(n.user_id, n.title, n.body ?? "", n.data ?? {});
+  return data.length;
+}
+
 Deno.serve(async (req) => {
   const given = req.headers.get("x-cron-secret") ?? "";
   if (!timingSafeEqual(given, env("CRON_SECRET"))) return new Response("Forbidden", { status: 403 });
@@ -235,6 +259,7 @@ Deno.serve(async (req) => {
     storage_removed: await drainStorageQueue(),
     withdrawals_settled: await reconcileWithdrawals(),
     tiers_expired: await expireTiers(),
+    pushes_sent: await pushPending(),
   };
   return new Response(JSON.stringify(result), { headers: { "Content-Type": "application/json" } });
 });
