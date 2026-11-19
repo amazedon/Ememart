@@ -24,7 +24,10 @@
   }
 
   // ---- 2. orders from the server  ->  the order lists the app already draws -------------------
-  var STATUS = { held: 'ready', delivered: 'delivered', released: 'completed', disputed: 'delivered' };
+  var STATUS = { held: 'pending', delivered: 'delivered', released: 'completed', disputed: 'delivered' };
+  // while the money is held, the seller's progress steps decide what both sides see
+  var PREP_TO_LOCAL = { placed: 'pending', accepted: 'accepted', preparing: 'preparing', ready: 'ready', on_the_way: 'ready' };
+  function localStatus(o) { return o.status === 'held' ? (PREP_TO_LOCAL[o.prep_status || 'placed'] || 'pending') : STATUS[o.status]; }
   B.orders = [];
   function attachOrders() {
     if (!me() || typeof state === 'undefined') return;
@@ -38,7 +41,7 @@
       post.orders.push({
         id: o.id, buyerId: o.buyer_id, buyerName: esc(o.buyer_name || 'Buyer'), buyerLocation: esc(o.delivery_address || ''),
         qty: o.quantity || 1, amount: o.amount_kobo / 100, deliveryFee: (o.delivery_fee_kobo || 0) / 100, total: total,
-        note: esc(o.note || ''), escrow: true, status: STATUS[o.status], escrowFrozen: o.status === 'disputed',
+        note: esc(o.note || ''), escrow: true, status: localStatus(o), prepStatus: o.prep_status || 'placed', hasRider: !!o.rider_id, escrowFrozen: o.status === 'disputed',
         ts: new Date(o.created_at).getTime(), postId: post.id, foodName: esc(snap.title || post.foodName || ''),
         vendorId: o.seller_id, vendorName: esc(o.seller_name || ''), serverStatus: o.status,
       });
@@ -89,7 +92,7 @@
     var btn = E('place-order-btn'); var label = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Placing order...'; }
     var r = await api('POST', '/orders', {
-      post_id: post.id, quantity: _activeOrderQty, pin: pin, delivery_fee_kobo: 20000,
+      post_id: post.id, quantity: _activeOrderQty, pin: pin, delivery_fee_kobo: Math.round((window.postDeliveryFee ? window.postDeliveryFee(post) : 200) * 100),
       address: address, note: E('order-note').value.trim() || undefined,
     });
     if (btn) { btn.disabled = false; btn.textContent = label; }
@@ -138,11 +141,54 @@
 
   // the seller's buttons
   window.advanceOrderStatus = async function (postId, orderId) {
-    var r = await api('POST', '/orders/' + orderId + '/deliver');
-    if (!r.success) { toast('❌', 'Not updated', r.message || 'Please try again.'); return; }
-    toast('🏍️', 'Marked delivered', 'The buyer has been asked to confirm. Payment auto-releases in 48 hours.');
+    var o = B.orders.find(function (x) { return x.id === orderId; });
+    if (!o) return;
+    var cur = o.prep_status || 'placed';
+    var next = { placed: 'accepted', accepted: 'preparing', preparing: 'ready', ready: 'on_the_way' }[cur];
+    var msg = { accepted: 'Order accepted', preparing: 'Preparing the order', ready: 'Order is ready', on_the_way: 'On the way to the customer' };
+    try {
+      if (cur === 'on_the_way' || (cur === 'ready' && o.rider_id && o.delivery_status === 'delivered')) next = null;
+      if (!next) {
+        var d = await api('POST', '/orders/' + orderId + '/deliver');
+        if (d && d.success === false) { toast('❌', 'Not updated', d.message || 'Please try again.'); return; }
+        toast('🏍️', 'Marked delivered', 'The buyer has been asked to confirm. Payment auto-releases in 48 hours.');
+      } else if (cur === 'ready' && o.rider_id) {
+        toast('ℹ️', 'Waiting for the rider', 'A rider is assigned and will collect this order.'); return;
+      } else {
+        var r = await api('POST', '/orders/' + orderId + '/progress', { step: next });
+        if (r && r.success === false) { toast('❌', 'Not updated', r.message || 'Please try again.'); return; }
+        toast('✅', msg[next], 'The customer was notified.');
+      }
+    } catch (e) { toast('❌', 'Not updated', (e && e.message) || 'Please try again.'); return; }
     loadOrders();
   };
+
+  // ---- tracking timeline built from the real order ----------------------------------------
+  var _gtr = window.getTrackingRecord;
+  window.getTrackingRecord = function (orderId) {
+    var o = (B.orders || []).find(function (x) { return x.id === orderId; });
+    if (!o) return _gtr ? _gtr(orderId) : null;
+    var snap = o.item_snapshot || {};
+    var cur = 'placed';
+    if (o.status === 'delivered' || o.status === 'released' || o.delivery_status === 'delivered') cur = 'delivered';
+    else if (o.delivery_status === 'on_the_way' || o.prep_status === 'on_the_way') cur = 'on_the_way';
+    else if (o.delivery_status === 'picked_up') cur = 'picked_up';
+    else cur = o.prep_status || 'placed';
+    var tl = [{ step: 'placed', ts: new Date(o.created_at).getTime(), note: '' }];
+    (Array.isArray(o.prep_log) ? o.prep_log : []).forEach(function (l) { tl.push({ step: l.step, ts: new Date(l.ts).getTime(), note: '' }); });
+    if (o.rider_delivered_at) tl.push({ step: 'delivered', ts: new Date(o.rider_delivered_at).getTime(), note: '' });
+    else if (o.delivered_at) tl.push({ step: 'delivered', ts: new Date(o.delivered_at).getTime(), note: '' });
+    return {
+      orderId: o.id, currentStep: cur, timeline: tl, etaTime: cur === 'on_the_way' ? 'Arriving soon' : 'Updating live',
+      riderName: o.rider_id ? 'Your rider' : (o.seller_name || 'Partner'), riderRating: '', distanceKm: '',
+      foodName: snap.title || 'Order', vendorName: o.seller_name || '', deliveryAddr: o.delivery_address || '', amount: (o.amount_kobo || 0) / 100
+    };
+  };
+  // keep an open tracking window fresh
+  setInterval(function () {
+    var m = E('order-tracking-modal');
+    if (m && !m.classList.contains('hidden')) { loadOrders().then(function () { try { renderOrderTrackingModal(window._trackingOrderId || _trackingOrderId); } catch (e) {} }); }
+  }, 15000);
   window.releaseEscrow = function (postId, orderId) {
     toast('ℹ️', 'Waiting for the buyer', 'The buyer confirms delivery to release payment, or it releases automatically 48 hours after you mark it delivered.');
   };
