@@ -851,6 +851,12 @@ wallet.post("/wallet/fund", async (c) => {
 });
 
 wallet.get("/wallet/banks", (c) => c.json({ banks: BANKS }));
+wallet.get("/wallet/withdrawals", async (c) => {
+  const p = c.get("profile");
+  const { data } = await admin.from("withdrawals").select("id, amount_kobo, bank_code, account_number, account_name, status, created_at").eq("user_id", p.id).order("created_at", { ascending: false }).limit(50);
+  const bank = new Map(BANKS.map((b: any) => [b.code, b.name]));
+  return c.json({ withdrawals: (data ?? []).map((w: any) => ({ ...w, bank_name: bank.get(w.bank_code) ?? "Bank", account_number: "******" + String(w.account_number).slice(-4) })) });
+});
 
 wallet.post("/wallet/lookup", async (c) => {
   const b = await parseBody(c, z.object({ bank_code: z.string().regex(/^\d{6}$/), account_number: z.string().regex(/^\d{10}$/) }));
@@ -1243,8 +1249,8 @@ adminRoutes.post("/admin/users/:id/revoke-verification", async (c) => {
   const id = c.req.param("id");
   await admin.from("profiles").update({ verified: false, verified_kind: null, verified_at: null }).eq("id", id);
   await admin.from("verification_requests").update({ status: "revoked" }).eq("user_id", id).eq("status", "approved");
-  // open food posts lose their "leave open" privilege: 24h countdown from now
-  await admin.from("posts").update({ retention: "delete_24h", next_reminder_at: null, expires_at: new Date(Date.now() + 24 * 3600_000).toISOString() })
+  // open food posts lose their "leave open" privilege: 8h countdown from now
+  await admin.from("posts").update({ retention: "delete_24h", next_reminder_at: null, expires_at: new Date(Date.now() + 8 * 3600_000).toISOString() })
     .eq("author_id", id).eq("type", "food").eq("retention", "open");
   await notify(id, "verification_revoked", "Verification removed", reason, {});
   await audit(c.get("uid"), "verification.revoked", id, { reason });
@@ -1369,7 +1375,7 @@ export const partners = newRouter();
 // Only the customer of a delivered/released order can rate, once per order, never themselves.
 partners.post("/orders/:id/review", async (c) => {
   const uid = c.get("uid");
-  const b = await parseBody(c, z.object({ stars: z.number().int().min(1).max(5), comment: z.string().trim().max(500).optional() }));
+  const b = await parseBody(c, z.object({ stars: z.number().int().min(1).max(5), comment: z.string().trim().min(3, "Please write a short comment").max(500) }));
   const { data: o } = await admin.from("orders").select("id, buyer_id, seller_id, post_id, status").eq("id", c.req.param("id")).maybeSingle();
   if (!o || o.buyer_id !== uid) throw new HttpError(404, "Order not found");
   if (!["delivered", "released"].includes(o.status)) throw new HttpError(400, "You can rate after the order is delivered");
@@ -1416,7 +1422,7 @@ partners.get("/disputes", async (c) => {
   const { data: os } = await admin.from("orders").select("id").or(`buyer_id.eq.${uid},seller_id.eq.${uid}`);
   const ids = (os ?? []).map((o: any) => o.id);
   if (!ids.length) return c.json({ disputes: [] });
-  const { data } = await admin.from("disputes").select("*, dispute_evidence(id, path, note, created_at)").in("order_id", ids).order("created_at", { ascending: false });
+  const { data } = await admin.from("disputes").select("*, dispute_evidence(id, path, note, created_at), orders(item_snapshot, amount_kobo, buyer_id, seller_id, status)").in("order_id", ids).order("created_at", { ascending: false });
   return c.json({ disputes: data ?? [] });
 });
 
@@ -1488,6 +1494,33 @@ partners.post("/rider/jobs/:id/status", async (c) => {
   await notify(o.buyer_id, "delivery_" + b.status, "Delivery update", text, { order: o.id });
   await audit(c.get("uid"), "rider." + b.status, o.id);
   return c.json({ ok: true });
+});
+
+
+// ---------- order tracking: seller moves the order along ----------
+const PREP_STEPS = ["placed", "accepted", "preparing", "ready", "on_the_way"];
+partners.post("/orders/:id/progress", async (c) => {
+  const uid = c.get("uid");
+  const b = await parseBody(c, z.object({ step: z.enum(["accepted", "preparing", "ready", "on_the_way"]) }));
+  const { data: o } = await admin.from("orders").select("id, buyer_id, seller_id, rider_id, status, prep_status, prep_log").eq("id", c.req.param("id")).maybeSingle();
+  if (!o || o.seller_id !== uid) throw new HttpError(404, "Order not found");
+  if (o.status !== "held") throw new HttpError(400, `Order is ${o.status}`);
+  const cur = PREP_STEPS.indexOf(o.prep_status ?? "placed"), next = PREP_STEPS.indexOf(b.step);
+  if (next <= cur) throw new HttpError(400, "That step is already done");
+  if (next > cur + 1) throw new HttpError(400, "Please follow the steps in order");
+  if (b.step === "on_the_way" && o.rider_id) throw new HttpError(400, "A rider is assigned and will collect this order");
+  const log = Array.isArray(o.prep_log) ? o.prep_log : [];
+  log.push({ step: b.step, ts: new Date().toISOString() });
+  const patch: Record<string, unknown> = { prep_status: b.step, prep_log: log };
+  if (b.step === "on_the_way") patch.delivery_status = "on_the_way";
+  await admin.from("orders").update(patch).eq("id", o.id);
+  const text: Record<string, string> = {
+    accepted: "The Partner accepted your order.", preparing: "Your order is being prepared.",
+    ready: "Your order is ready.", on_the_way: "Your order is on the way.",
+  };
+  await notify(o.buyer_id, "order_" + b.step, "Order update", text[b.step], { order: o.id });
+  await audit(uid, "order." + b.step, o.id);
+  return c.json({ ok: true, step: b.step });
 });
 
 // ---------- push subscriptions ----------
