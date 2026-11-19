@@ -286,6 +286,12 @@ document.addEventListener('click', function askOnce(){
   .pd-rv p{margin:4px 0 0;font-size:13px;line-height:1.5;color:#334155}
   .pd-rv-empty{font-size:12px;color:#64748b;margin:4px 0}
   .pd-rv-all{margin-top:6px;border:1px solid #a7f3d0;background:#ecfdf5;color:#047857;font-weight:800;font-size:12px;border-radius:999px;padding:8px 14px;cursor:pointer}
+  .rv-reply{margin-top:8px;border-left:3px solid #10b981;background:#ecfdf5;border-radius:0 12px 12px 0;padding:8px 12px}
+  .rv-reply-h{font-size:10px;font-weight:800;color:#047857;margin-bottom:2px}
+  .rv-reply-t{margin:0;font-size:12px;line-height:1.5;color:#064e3b}
+  .rv-reply-btn{margin-top:6px;border:1px solid #a7f3d0;background:#ecfdf5;color:#047857;font-weight:800;font-size:11px;border-radius:999px;padding:5px 14px;cursor:pointer}
+  .post-closed .post-photo{filter:grayscale(.85);opacity:.7}
+  .post-closed{opacity:.92}
   .fc-row{display:flex;gap:8px}
   .fc-btn{flex:1;font-size:11px;font-weight:800;color:#6b7280;background:#111827;border:1px solid #1f2937;border-radius:12px;padding:9px 10px;white-space:nowrap}
   body.light .fc-btn{background:#fff;border-color:#e2e8f0;color:#334155}
@@ -4914,6 +4920,14 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
       </div>
     </div>
 
+    <!-- Legal links -->
+    <div data-acc="📄|Legal" style="order:10" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-2">
+      <div class="text-sm font-black text-white mb-1">Legal</div>
+      <a href="privacy.html" target="_blank" rel="noopener" class="flex items-center justify-between bg-gray-950 border border-gray-800 rounded-xl p-3 text-xs font-bold text-white no-underline">Privacy Policy <span class="text-gray-500">›</span></a>
+      <a href="terms.html" target="_blank" rel="noopener" class="flex items-center justify-between bg-gray-950 border border-gray-800 rounded-xl p-3 text-xs font-bold text-white no-underline">Terms and Conditions <span class="text-gray-500">›</span></a>
+      <a href="privacy.html#s10" target="_blank" rel="noopener" class="flex items-center justify-between bg-gray-950 border border-gray-800 rounded-xl p-3 text-xs font-bold text-red-400 no-underline">Delete my account <span class="text-gray-500">›</span></a>
+    </div>
+
     <!-- Security / Transaction PIN -->
     <div data-acc="🔒|Security" style="order:9" class="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2 mb-1">
@@ -5645,48 +5659,6 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
       <div class="flex justify-between text-xs py-1 border-b border-gray-800"><span class="text-gray-400">Acknowledge dispute</span><span class="text-white font-black">Within 24 hours</span></div>
       <div class="flex justify-between text-xs py-1 border-b border-gray-800"><span class="text-gray-400">Final resolution</span><span class="text-white font-black">Within 48 hours</span></div>
       <div class="flex justify-between text-xs py-1"><span class="text-gray-400">Auto-release (no dispute)</span><span class="text-white font-black">After 48 hours</span></div>
-    </div>
-  </div>
-</div>
-
-<!-- TERMS & PRIVACY MODAL -->
-<div id="terms-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
-  <div class="modal-sheet flex flex-col gap-3">
-    <div class="flex justify-between items-center">
-      <h3 class="text-base font-black text-white" id="terms-modal-title">📋 Terms of Service</h3>
-      <button onclick="document.getElementById('terms-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black">✕</button>
-    </div>
-    <div class="flex gap-2 p-1 bg-gray-950 rounded-xl border border-gray-800">
-      <button onclick="switchTermsTab('terms')" id="tt-terms" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg bg-emerald-500 text-gray-900 transition">Terms</button>
-      <button onclick="switchTermsTab('privacy')" id="tt-privacy" class="flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg bg-transparent text-gray-400 transition">Privacy</button>
-    </div>
-    <div id="terms-content" class="max-h-[55vh] overflow-y-auto flex flex-col gap-3 text-[11px] text-gray-300 leading-relaxed">
-      <div class="text-xs font-black text-white">1. Acceptance of Terms</div>
-      <p>By using Ememart, you agree to these terms. You must be 18+ years old to use this platform, especially for financial features services.</p>
-      <div class="text-xs font-black text-white">2. User Roles & Conduct</div>
-      <p>Users must be honest in their listings. Vendors must deliver what they advertise. Fraudulent listings will result in permanent bans and penalties.</p>
-      <div class="text-xs font-black text-white">3. Escrow & Payments</div>
-      <p>Ememart holds escrow funds impartially. Fees are deducted at rates set by the admin. Disputes are resolved within 48 hours per our SLA.</p>
-      <div class="text-xs font-black text-white">4. KYC Requirements</div>
-      <p>Financial features require KYC verification. A ₦100 fee applies to cover API costs. Manual review takes 24-48 hours. False documents will result in permanent bans.</p>
-      <div class="text-xs font-black text-white">6. Refunds & Disputes</div>
-      <p>See our Buyer Protection Guarantee for full refund policies. Admin decisions on disputes are final.</p>
-      <div class="text-xs font-black text-white">7. Changes</div>
-      <p>Ememart may update these terms at any time. Continued use means acceptance of new terms.</p>
-    </div>
-    <div id="privacy-content" class="hidden max-h-[55vh] overflow-y-auto flex flex-col gap-3 text-[11px] text-gray-300 leading-relaxed">
-      <div class="text-xs font-black text-white">1. Data We Collect</div>
-      <p>We collect name, email, phone number, location (town, LGA, state), and BVN/NIN for KYC-verified users. We also collect transaction history and post content.</p>
-      <div class="text-xs font-black text-white">2. How We Use Your Data</div>
-      <p>Your data is used to operate the platform, process payments, verify identity, and show relevant local content. We never sell your data to advertisers.</p>
-      <div class="text-xs font-black text-white">3. Data Sharing</div>
-      <p>We share necessary data with payment processors (Squad), KYC verification providers, and SMS/push notification services. We share nothing else without your consent.</p>
-      <div class="text-xs font-black text-white">4. Location Data</div>
-      <p>Your town/LGA/state is displayed on your public profile to enable hyperlocal search. You can update this anytime in Settings.</p>
-      <div class="text-xs font-black text-white">5. Security</div>
-      <p>All passwords are hashed. Transaction PINs are encrypted. Financial data is handled by PCI-compliant processors.</p>
-      <div class="text-xs font-black text-white">6. Your Rights</div>
-      <p>You may request deletion of your account and data at any time by contacting support@ememart.ng. KYC data is retained for legal compliance for 7 years.</p>
     </div>
   </div>
 </div>
@@ -7258,7 +7230,7 @@ function buildPostCard(post){
   }
 
   const card = document.createElement('div');
-  card.className = 'bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden fade-up';
+  card.className = 'bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden fade-up' + (expired ? ' post-closed' : '');
   card.dataset.postId = post.id;
 
   card.innerHTML = `
@@ -7512,6 +7484,7 @@ function smartSearchScore(p, query){
   return total;
 }
 window.smartSearchScore = smartSearchScore;
+function isPostClosedNow(p){ return !!(p && p.isFood && !p.isBooking && p.retention !== 'open' && p.expiresAt && Date.now() > p.expiresAt); }
 function applyFeedFilters(posts){
   const f = _feedFilter, s = state.session || {};
   const low = x => String(x||'').toLowerCase();
@@ -7761,6 +7734,7 @@ function renderFeed(){
   const keepOrder = tab === 'nearby';
   posts = posts.slice().sort((a, b) => {
     if(search){ const ds = (_scores.get(b.id)||0) - (_scores.get(a.id)||0); if(ds) return ds; }
+    { const ca = isPostClosedNow(a), cb = isPostClosedNow(b); if(ca !== cb) return ca ? 1 : -1; }   // closed food posts sit below open ones
     if(keepOrder){ const d = closenessOf(a) - closenessOf(b); if(d) return d; }
     const aBoost = a.boostedUntil && a.boostedUntil > Date.now() ? 1 : 0;
     const bBoost = b.boostedUntil && b.boostedUntil > Date.now() ? 1 : 0;
@@ -9178,7 +9152,7 @@ function renderDisputeDetailModal(t){
       div.className = `flex flex-col gap-0.5 ${isUser?'items-end':'items-start'}`;
       div.innerHTML = `
         <div class="text-[8px] font-black ${isSystem?'text-amber-400':isUser?'text-emerald-400':'text-sky-400'} uppercase tracking-wider px-1">
-          ${isSystem?'🔔 System':isUser?'👤 You':'🛡️ Ememart Support'}
+          ${isSystem?'🔔 System':isUser?'👤 You':(m.label?'👥 '+m.label:'🛡️ Ememart Support')}
         </div>
         <div class="max-w-[85%] ${isSystem?'bg-amber-950/30 border border-amber-900/40 text-amber-200':isUser?'bg-emerald-950/40 border border-emerald-900/50 text-white':'bg-gray-800 border border-gray-700 text-gray-200'} rounded-2xl px-3 py-2 text-[11px] leading-relaxed">
           ${m.text}
@@ -9802,6 +9776,38 @@ function submitReview(){
 }
 
 // ===== VENDOR PROFILE — REVIEWS =====
+// ---- Partner replies to reviews ----
+function renderReviewReply(slot, userId, r){
+  if(!slot) return;
+  const isOwner = state.session && state.session.id === userId;
+  if(r.reply){
+    slot.innerHTML = '<div class="rv-reply"><div class="rv-reply-h">Reply from the Partner</div><p data-noicon class="rv-reply-t"></p></div>';
+    slot.querySelector('.rv-reply-t').textContent = r.reply;
+  } else if(isOwner && r.text){
+    slot.innerHTML = '<button type="button" class="rv-reply-btn">Reply</button>';
+    slot.querySelector('button').onclick = () => {
+      slot.innerHTML = '<textarea class="inp resize-none text-xs rv-reply-ta" rows="2" maxlength="500" placeholder="Thank the customer or respond politely..."></textarea><div class="flex gap-2 mt-1"><button type="button" class="btn-primary py-2 text-xs flex-1 rv-send">Post reply</button><button type="button" class="btn-sm-outline py-2 text-xs rv-cancel">Cancel</button></div>';
+      slot.querySelector('.rv-cancel').onclick = () => renderReviewReply(slot, userId, r);
+      slot.querySelector('.rv-send').onclick = () => submitReviewReply(userId, r, slot.querySelector('.rv-reply-ta').value);
+    };
+  } else { slot.innerHTML = ''; }
+}
+async function submitReviewReply(userId, r, text){
+  text = (text||'').trim();
+  if(text.length < 2){ showPopupNotif('✍️','Write a reply','Type a short reply first.'); return; }
+  try{
+    if(window.callApi && window.EMEMART_BACKEND && window.EMEMART_BACKEND.mode === 'live' && r.id){
+      await window.callApi('POST','/reviews/'+r.id+'/reply',{reply:text});
+    }
+    r.reply = text; r.replyTs = Date.now();
+    // keep the original review object in sync (local posts or the remote cache)
+    state.posts.forEach(p => (p.reviews||[]).forEach(x => { if((r.id && x.id===r.id) || (!r.id && x.ts===r.ts && x.buyerId===r.buyerId)){ x.reply = text; x.replyTs = r.replyTs; } }));
+    const rem = (window.EMEMART_REMOTE_REVIEWS||{})[userId]; if(rem) rem.forEach(x => { if(x.id===r.id){ x.reply = text; x.replyTs = r.replyTs; } });
+    try{ localStorage.setItem('ememart_posts', JSON.stringify(state.posts.filter(p=>!p.demo))); }catch(e){}
+    showPopupNotif('✅','Reply posted','The customer was notified.');
+    renderVendorReviews(userId);
+  }catch(e){ showPopupNotif('❌','Reply not sent',(e && e.message) || 'Please try again.'); }
+}
 function renderVendorReviews(userId){
   const vendorPosts = state.posts.filter(p => p.authorId === userId);
   const allReviews = vendorPosts.flatMap(p =>
@@ -9853,8 +9859,10 @@ function renderVendorReviews(userId){
         <div class="flex items-center gap-0.5 flex-shrink-0">${renderStarsMini(r.stars)}<span class="text-[10px] text-amber-400 font-black ml-1">${r.stars}.0</span></div>
       </div>
       <div class="text-[10px] text-gray-500 font-bold">on <span class="text-gray-400 rv-on" data-noicon></span></div>
-      ${r.text ? `<p data-noicon class="text-xs text-gray-300 leading-relaxed rv-text"></p>` : ''}`;
+      ${r.text ? `<p data-noicon class="text-xs text-gray-300 leading-relaxed rv-text"></p>` : ''}
+      <div class="rv-reply-slot"></div>`;
     card.querySelector('.rv-name').textContent = r.buyerName || 'Customer';
+    renderReviewReply(card.querySelector('.rv-reply-slot'), userId, r);
     card.querySelector('.rv-on').textContent = r.foodName;
     const t = card.querySelector('.rv-text'); if(t) t.textContent = r.text;
     listEl.appendChild(card);
@@ -10743,7 +10751,7 @@ function renderPdReviews(post){
   box.classList.remove('hidden');
   box.innerHTML = `<div class="pd-sec-title">What customers say</div>` +
     (ps.count ? `<div class="pd-rv-head"><b>${ps.avg.toFixed(1)}</b><span class="pd-rv-stars">${renderStarsMini(Math.round(ps.avg))}</span><span>${ps.count} rating${ps.count!==1?'s':''}</span></div>` : '') +
-    (top.length ? top.map(r => `<div class="pd-rv"><div class="pd-rv-top"><b data-noicon>${pdEsc(r.buyerName||'Customer')}</b><span class="pd-rv-stars">${renderStarsMini(r.stars)}</span><span class="pd-rv-date">${new Date(r.ts).toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric'})}</span></div><p data-noicon>${pdEsc(r.text)}</p></div>`).join('')
+    (top.length ? top.map(r => `<div class="pd-rv"><div class="pd-rv-top"><b data-noicon>${pdEsc(r.buyerName||'Customer')}</b><span class="pd-rv-stars">${renderStarsMini(r.stars)}</span><span class="pd-rv-date">${new Date(r.ts).toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric'})}</span></div><p data-noicon>${pdEsc(r.text)}</p>${r.reply?`<div class="rv-reply"><div class="rv-reply-h">Reply from the Partner</div><p data-noicon class="rv-reply-t">${pdEsc(r.reply)}</p></div>`:''}</div>`).join('')
       : '<p class="pd-rv-empty">Ratings so far have no written comments.</p>') +
     `<button type="button" class="pd-rv-all" onclick="openVendorProfile('${uid}')">See all reviews</button>`;
   // live mode: fetch comments once, then redraw
@@ -10751,7 +10759,7 @@ function renderPdReviews(post){
     box._fetching = true;
     window.callApi('GET','/partners/'+encodeURIComponent(uid)+'/reviews').then(r => {
       window.EMEMART_REMOTE_REVIEWS = window.EMEMART_REMOTE_REVIEWS || {};
-      window.EMEMART_REMOTE_REVIEWS[uid] = (r.reviews||[]).map(x => ({id:x.id,stars:x.stars,text:x.comment||'',ts:new Date(x.created_at).getTime(),buyerId:x.customer_id,buyerName:x.customer_name}));
+      window.EMEMART_REMOTE_REVIEWS[uid] = (r.reviews||[]).map(x => ({id:x.id,stars:x.stars,text:x.comment||'',ts:new Date(x.created_at).getTime(),buyerId:x.customer_id,buyerName:x.customer_name,reply:x.reply||'',replyTs:x.reply_at?new Date(x.reply_at).getTime():0}));
       box._fetching = false; renderPdReviews(post);
     }).catch(()=>{ box._fetching=false; });
   }
@@ -11988,7 +11996,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(signupFields&&!signupFields.querySelector('.terms-note')){
     const note=document.createElement('p');
     note.className='terms-note text-[9px] text-gray-500 text-center mt-1';
-    note.innerHTML='By registering you agree to our <button type="button" onclick="openTermsModal(\'terms\')" class="text-emerald-400 font-black hover:underline">Terms</button> and <button type="button" onclick="openTermsModal(\'privacy\')" class="text-emerald-400 font-black hover:underline">Privacy Policy</button>.';
+    note.innerHTML='By registering you agree to our <a href="terms.html" target="_blank" rel="noopener" class="text-emerald-400 font-black hover:underline">Terms</a> and <a href="privacy.html" target="_blank" rel="noopener" class="text-emerald-400 font-black hover:underline">Privacy Policy</a>.';
     signupFields.appendChild(note);
   }
 });
@@ -17336,8 +17344,8 @@ function openRiderDeliveryConfirm(assignmentId){
 }
 
 function openTermsModal(tab){
-  el('terms-modal')?.classList.remove('hidden');
-  switchTermsTab(tab||'terms');
+  // One official version: the Terms and Privacy Policy pages on the website
+  window.open(tab === 'privacy' ? 'privacy.html' : 'terms.html', '_blank', 'noopener');
 }
 
 
