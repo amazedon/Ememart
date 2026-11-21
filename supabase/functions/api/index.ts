@@ -1594,6 +1594,110 @@ adminRoutes.delete("/admin/reviews/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+// ---------- live chat with support ----------
+export const support = newRouter();
+
+async function needSupportAgent(c: any) {
+  const { data } = await admin.from("admin_users").select("role").eq("user_id", c.get("uid")).maybeSingle();
+  if (!data || !["super_admin", "support"].includes(data.role)) throw new HttpError(403, "Not allowed");
+}
+
+// The customer's current chat: the open ticket and its messages
+support.get("/support/chat", async (c) => {
+  const uid = c.get("uid");
+  const { data: t } = await admin.from("support_tickets").select("*").eq("user_id", uid).eq("status", "open")
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (!t) return c.json({ ticket: null, messages: [] });
+  const { data: m } = await admin.from("support_messages").select("id, sender_role, body, created_at")
+    .eq("ticket_id", t.id).order("created_at").limit(300);
+  return c.json({ ticket: t, messages: m ?? [] });
+});
+
+// Send a message. Starts a new chat when there is no open one.
+support.post("/support/chat", async (c) => {
+  const uid = c.get("uid");
+  const b = await parseBody(c, z.object({ body: z.string().trim().min(1).max(2000) }));
+  const since = new Date(Date.now() - 60_000).toISOString();
+  const { count } = await admin.from("support_messages").select("id", { count: "exact", head: true })
+    .eq("sender_id", uid).eq("sender_role", "user").gte("created_at", since);
+  if ((count ?? 0) >= 12) throw new HttpError(429, "You are sending messages too fast. Wait a moment.");
+  let { data: t } = await admin.from("support_tickets").select("id").eq("user_id", uid).eq("status", "open")
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (!t) {
+    const r = await admin.from("support_tickets").insert({ user_id: uid, subject: b.body.slice(0, 80) }).select("id").single();
+    if (r.error) throw new HttpError(400, r.error.message);
+    t = r.data;
+  }
+  const { data: m, error } = await admin.from("support_messages")
+    .insert({ ticket_id: t!.id, sender_id: uid, sender_role: "user", body: b.body })
+    .select("id, sender_role, body, created_at").single();
+  if (error) throw new HttpError(400, error.message);
+  await admin.from("support_tickets").update({ last_message_at: m.created_at, last_sender: "user", needs_reply: true }).eq("id", t!.id);
+  return c.json({ ticket_id: t!.id, message: m }, 201);
+});
+
+support.post("/support/chat/close", async (c) => {
+  await admin.from("support_tickets").update({ status: "closed", closed_at: new Date().toISOString() })
+    .eq("user_id", c.get("uid")).eq("status", "open");
+  return c.json({ ok: true });
+});
+
+// ----- support team inbox -----
+support.get("/admin/support", async (c) => {
+  await needSupportAgent(c);
+  const status = c.req.query("status") === "closed" ? "closed" : "open";
+  const { data: tickets } = await admin.from("support_tickets")
+    .select("id, status, subject, last_message_at, last_sender, needs_reply, created_at, user_id, profiles(full_name, phone, email, role)")
+    .eq("status", status).order("last_message_at", { ascending: false }).limit(100);
+  return c.json({ tickets: tickets ?? [] });
+});
+support.get("/admin/support/:id", async (c) => {
+  await needSupportAgent(c);
+  const { data: t } = await admin.from("support_tickets")
+    .select("id, status, subject, user_id, created_at, profiles(full_name, phone, email, role)").eq("id", c.req.param("id")).maybeSingle();
+  if (!t) throw new HttpError(404, "Chat not found");
+  const { data: m } = await admin.from("support_messages").select("id, sender_role, body, created_at")
+    .eq("ticket_id", t.id).order("created_at").limit(500);
+  return c.json({ ticket: t, messages: m ?? [] });
+});
+support.post("/admin/support/:id/reply", async (c) => {
+  await needSupportAgent(c);
+  const b = await parseBody(c, z.object({ body: z.string().trim().min(1).max(2000) }));
+  const { data: t } = await admin.from("support_tickets").select("id, user_id, status").eq("id", c.req.param("id")).maybeSingle();
+  if (!t) throw new HttpError(404, "Chat not found");
+  if (t.status !== "open") throw new HttpError(400, "This chat is closed");
+  const { data: m, error } = await admin.from("support_messages")
+    .insert({ ticket_id: t.id, sender_id: c.get("uid"), sender_role: "agent", body: b.body })
+    .select("id, sender_role, body, created_at").single();
+  if (error) throw new HttpError(400, error.message);
+  await admin.from("support_tickets").update({ last_message_at: m.created_at, last_sender: "agent", needs_reply: false }).eq("id", t.id);
+  await notify(t.user_id, "support_reply", "Ememart Support replied", b.body.slice(0, 120), { ticket: t.id });
+  return c.json({ message: m }, 201);
+});
+// Contact details shown in the app's Help Center (WhatsApp number, email, reply note)
+support.put("/admin/support-contact", async (c) => {
+  await needSupportAgent(c);
+  const b = await parseBody(c, z.object({
+    whatsapp: z.string().trim().regex(/^\d{0,15}$/, "WhatsApp number: digits only with the country code, no + or spaces").default(""),
+    email: z.string().trim().email().max(120),
+    reply_note: z.string().trim().max(120).default(""),
+  }));
+  if (b.whatsapp && b.whatsapp.length < 8) throw new HttpError(400, "WhatsApp number is too short");
+  const { error } = await admin.from("app_settings").upsert({ key: "support_contact", value: b, updated_at: new Date().toISOString() });
+  if (error) throw new HttpError(400, error.message);
+  await audit(c.get("uid"), "support.contact_updated", "support_contact", b);
+  return c.json({ ok: true, contact: b });
+});
+
+support.post("/admin/support/:id/close", async (c) => {
+  await needSupportAgent(c);
+  const { data: t } = await admin.from("support_tickets").select("id, user_id").eq("id", c.req.param("id")).maybeSingle();
+  if (!t) throw new HttpError(404, "Chat not found");
+  await admin.from("support_tickets").update({ status: "closed", closed_at: new Date().toISOString(), needs_reply: false }).eq("id", t.id);
+  await audit(c.get("uid"), "support.closed", t.id, {});
+  return c.json({ ok: true });
+});
+
 const app = new Hono<AppEnv>().basePath("/api");
 
 app.use("*", async (c, next) => {
@@ -1626,6 +1730,7 @@ app.route("/", orders);
 app.route("/", market);
 app.route("/", partners);
 app.route("/", adminRoutes);
+app.route("/", support);
 
 app.onError((err, c) => {
   if (err instanceof HttpError) return c.json({ error: err.message }, err.status as 400);
