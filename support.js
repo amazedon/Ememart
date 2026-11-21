@@ -1,5 +1,5 @@
 // support.js  (save in the SAME folder as app.html)
-// Help Center: live chat with the Ememart team, searchable FAQ, email and WhatsApp.
+// Help Center: quick FAQ chips and live chat with the Ememart team in one window, plus email and WhatsApp.
 // Live chat works when backend.js is in live mode. The FAQ and contact options always work.
 (function () {
   'use strict';
@@ -96,74 +96,71 @@
     ];
   }
 
-  var activeCat = 'All';
-  function buildFaq() {
-    var box = $('help-faq'); if (!box) return;
-    var q = (($('help-faq-q') || {}).value || '').trim().toLowerCase();
-    var data = faqData();
-    var pills = $('help-faq-cats');
-    if (pills) {
-      pills.innerHTML = ['All'].concat(data.map(function (d) { return d.cat; })).map(function (c) {
-        return '<button type="button" data-cat="' + esc(c) + '" class="filter-pill text-[10px] py-1 whitespace-nowrap' + (c === activeCat ? ' active' : '') + '">' + esc(c) + '</button>';
-      }).join('');
-    }
-    var html = '', shown = 0;
-    data.forEach(function (d) {
-      if (activeCat !== 'All' && d.cat !== activeCat) return;
-      var rows = d.items.filter(function (it) { return !q || (it[0] + ' ' + it[1]).toLowerCase().indexOf(q) >= 0; });
-      if (!rows.length) return;
-      html += '<div class="text-[10px] font-black text-gray-500 uppercase tracking-wider mt-3 mb-1">' + esc(d.cat) + '</div>';
-      rows.forEach(function (it) {
-        shown++;
-        html += '<details class="help-q border-b border-gray-800 py-1"><summary class="cursor-pointer py-2 text-xs font-black text-white flex justify-between gap-2" style="list-style:none"><span>' + esc(it[0]) + '</span><span class="text-gray-500">+</span></summary><p class="pb-2 text-xs leading-relaxed text-gray-400">' + esc(it[1]) + '</p></details>';
+  // ---- screen ------------------------------------------------------------------------------------
+  var QUICK = [
+    ['How escrow works', 'How does escrow work?'],
+    ['Get a refund', 'Where does my refund go?'],
+    ['Withdraw funds', 'How do I withdraw money?'],
+    ['Verification', 'How do I get verified?'],
+    ['Order not arrived', 'My order never arrived. What do I do?'],
+    ['Fees', 'What fees do I pay?'],
+    ['Food hours', 'How long does a food post stay open?'],
+    ['Become a Partner', 'How do I become a Store, Artisan or Rider?']
+  ];
+  var showAll = false;
+  function findAnswer(q) {
+    var out = null;
+    faqData().forEach(function (d) { d.items.forEach(function (it) { if (it[0] === q) out = it[1]; }); });
+    return out;
+  }
+  function buildChips() {
+    var box = $('help-chips'); if (!box) return;
+    var chip = function (label, q) { return '<button type="button" data-q="' + esc(q) + '" class="filter-pill text-[10px] py-1.5 px-3 text-left">' + esc(label) + '</button>'; };
+    var html = QUICK.map(function (x) { return chip(x[0], x[1]); }).join('');
+    html += '<button type="button" id="help-more" class="filter-pill text-[10px] py-1.5 px-3 font-black" style="color:#059669">' + (showAll ? 'Fewer questions' : 'More questions') + '</button>';
+    if (showAll) {
+      var quick = QUICK.map(function (x) { return x[1]; });
+      faqData().forEach(function (d) {
+        var rest = d.items.filter(function (it) { return quick.indexOf(it[0]) < 0; });
+        if (!rest.length) return;
+        html += '<div class="w-full text-[10px] font-black text-gray-500 uppercase tracking-wider mt-2">' + esc(d.cat) + '</div>' +
+          rest.map(function (it) { return chip(it[0], it[0]); }).join('');
       });
-    });
-    if (!shown) html = '<p class="text-xs text-gray-400 py-4 text-center">No answer found. Start a live chat and our team will help.</p>';
+    }
     box.innerHTML = html;
   }
+  function buildFaq() { buildChips(); render(); } // called again when live numbers arrive
 
-  // ---- screen ------------------------------------------------------------------------------------
-  var chatIco = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>';
-  var mailIco = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5z"/></svg>';
-  var waIco = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.2 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.100-1.5-1.100-2.800s.7-2 1-2.300c.2-.3.5-.3.700-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .6l-.4.600c-.1.2-.3.300-.1.600.2.300.8 1.300 1.700 2.100 1.100 1 2.100 1.300 2.400 1.500.3.1.5.1.7-.1l.9-1.100c.2-.3.4-.2.700-.1l1.900.9c.3.100.5.2.6.3.1.1.1.6-.1 1.200z"/></svg>';
+  var mailIco = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5z"/></svg>';
+  var waIco = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/></svg>';
 
   function buildScreen() {
     var host = $('ssub-support'); if (!host || host.dataset.helpReady) return;
     host.dataset.helpReady = '1';
     host.className = 'hidden flex-col gap-3 fade-up';
     host.innerHTML =
-      '<div id="help-home" class="flex flex-col gap-3">' +
-        '<div id="help-grid" class="grid grid-cols-2 gap-2">' +
-          '<button type="button" id="help-chat-open" class="rounded-2xl p-3 flex flex-col items-center gap-1 text-[11px] font-black" style="background:#059669;color:#fff">' + chatIco + 'Live chat</button>' +
-          '<a id="help-mail" href="#" class="bg-gray-900 border border-gray-800 rounded-2xl p-3 flex flex-col items-center gap-1 text-[11px] font-black text-white" style="text-decoration:none">' + mailIco + 'Email us</a>' +
-          '<button type="button" id="help-wa" class="hidden bg-gray-900 border border-gray-800 rounded-2xl p-3 flex flex-col items-center gap-1 text-[11px] font-black text-white">' + waIco + 'WhatsApp</button>' +
+      '<div class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">' +
+        '<div class="p-3">' +
+          '<div class="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-2">Quick FAQ</div>' +
+          '<div id="help-chips" class="flex flex-wrap gap-1.5" style="max-height:190px;overflow-y:auto"></div>' +
         '</div>' +
-        '<p id="help-note" class="text-[11px] text-gray-400 leading-relaxed"></p>' +
-        '<div class="bg-gray-900 border border-gray-800 rounded-2xl p-3">' +
-          '<div class="text-xs font-black text-white mb-2">Frequently asked questions</div>' +
-          '<input id="help-faq-q" type="search" placeholder="Search answers" class="inp text-xs py-2 w-full" autocomplete="off">' +
-          '<div id="help-faq-cats" class="flex gap-1.5 overflow-x-auto py-2" style="scrollbar-width:none"></div>' +
-          '<div id="help-faq"></div>' +
-        '</div>' +
-      '</div>' +
-      '<div id="help-chat" class="hidden flex-col bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">' +
-        '<div class="flex items-center justify-between p-3 border-b border-gray-800">' +
-          '<button type="button" id="help-chat-back" class="text-xs font-black text-gray-300">&lsaquo; Back</button>' +
-          '<div class="text-xs font-black text-white">Ememart Support</div>' +
-          '<button type="button" id="help-chat-end" class="text-[11px] font-black text-red-400">End chat</button>' +
-        '</div>' +
-        '<div id="help-msgs" class="p-3 flex flex-col gap-2 overflow-y-auto" style="height:min(55vh,420px)"></div>' +
+        '<div class="border-t border-gray-800"></div>' +
+        '<div id="help-msgs" class="p-3 flex flex-col gap-2 overflow-y-auto" style="height:min(48vh,380px)"></div>' +
         '<div class="p-2 border-t border-gray-800 flex gap-2">' +
-          '<input id="help-inp" type="text" maxlength="2000" placeholder="Type your message" class="inp flex-1 py-2 text-xs" autocomplete="off">' +
+          '<input id="help-inp" type="text" maxlength="2000" placeholder="Message Ememart Support" class="inp flex-1 py-2 text-xs" autocomplete="off">' +
           '<button type="button" id="help-send" class="btn-sm-primary px-4">Send</button>' +
         '</div>' +
+        '<div class="px-3 pb-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] font-black" style="color:#059669">' +
+          '<a id="help-mail" href="#" style="text-decoration:none;color:inherit;display:inline-flex;align-items:center;gap:4px">' + mailIco + 'Email us</a>' +
+          '<button type="button" id="help-wa" class="hidden" style="color:inherit;align-items:center;gap:4px">' + waIco + 'WhatsApp</button>' +
+          '<button type="button" id="help-chat-end" class="hidden text-red-400">End chat</button>' +
+        '</div>' +
       '</div>';
-    $('help-faq-q').addEventListener('input', buildFaq);
-    $('help-faq-cats').addEventListener('click', function (e) {
-      var b = e.target.closest('[data-cat]'); if (!b) return; activeCat = b.dataset.cat; buildFaq();
+    $('help-chips').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.id === 'help-more') { showAll = !showAll; buildChips(); return; }
+      if (b.dataset.q) askFaq(b.dataset.q);
     });
-    $('help-chat-open').onclick = openChat;
-    $('help-chat-back').onclick = closeChatView;
     $('help-chat-end').onclick = endChat;
     $('help-send').onclick = sendMsg;
     $('help-inp').addEventListener('keydown', function (e) { if (e.key === 'Enter') sendMsg(); });
@@ -172,44 +169,63 @@
       window.open('https://wa.me/' + C.whatsapp + '?text=' + encodeURIComponent('Hello Ememart Support. My name is ' + (u ? u.name || '' : '') + '.'), '_blank');
     };
     applyContact();
-    buildFaq();
+    buildChips(); render();
   }
 
   function applyContact() {
-    var wa = $('help-wa'), g = $('help-grid'); if (!wa || !g) return;
+    var wa = $('help-wa'); if (!wa) return;
     var has = C.whatsapp.length >= 8;
-    wa.classList.toggle('hidden', !has); wa.classList.toggle('flex', has);
-    g.className = 'grid ' + (has ? 'grid-cols-3' : 'grid-cols-2') + ' gap-2';
+    wa.classList.toggle('hidden', !has); wa.style.display = has ? 'inline-flex' : '';
     $('help-mail').href = 'mailto:' + C.email;
-    $('help-note').innerHTML = esc(C.reply_note || '') + ' Chat with our team in the app and you get a notification when we reply. You can also write to <strong>' + esc(C.email) + '</strong>.';
+    render();
   }
 
   // ---- chat --------------------------------------------------------------------------------------
   var ticketId = null, msgs = [], chan = null, timer = null, chatOpen = false;
-  function greeting() { return 'Hi! Tell us what you need help with. A member of the Ememart team will reply here. ' + (C.reply_note || '') + ' You will get a notification when we do.'; }
+  function greeting() { return 'Hello! Welcome to Ememart Support. Tap a question above for a quick answer, or type your message below to chat with our team. ' + (C.reply_note || '') + ' You will get a notification when we reply.'; }
 
   function bubble(m) {
     var mine = m.sender_role === 'user';
+    var bot = m.sender_role === 'bot';
     var d = document.createElement('div');
     d.className = 'flex flex-col ' + (mine ? 'items-end' : 'items-start');
+    if (!mine) {
+      var who = document.createElement('div');
+      who.style.cssText = 'font-size:9px;font-weight:800;color:#6b7280;margin:0 0 2px 4px';
+      who.textContent = bot ? 'Ememart Help' : 'Ememart Support';
+      d.appendChild(who);
+    }
     var b = document.createElement('div');
     b.setAttribute('data-noicon', '');
-    b.style.cssText = 'max-width:82%;padding:8px 12px;border-radius:14px;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word;' +
-      (mine ? 'background:#059669;color:#fff;border-bottom-right-radius:4px' : 'background:#eef2f7;color:#111827;border-bottom-left-radius:4px');
+    b.style.cssText = 'max-width:86%;padding:8px 12px;border-radius:14px;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-word;' +
+      (mine ? 'background:#059669;color:#fff;border-bottom-right-radius:4px'
+        : bot ? 'background:#dbeafe;color:#1e3a8a;border:1px solid #bfdbfe;border-bottom-left-radius:4px'
+          : 'background:#eef2f7;color:#111827;border-bottom-left-radius:4px');
     if (m.failed) b.style.opacity = '.55';
     b.textContent = m.body;
-    var t = document.createElement('div');
-    t.style.cssText = 'font-size:9px;color:#9ca3af;margin-top:2px';
-    t.textContent = m.failed ? 'Not sent. Tap send to try again.' : (m.pending ? 'Sending' : new Date(m.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }));
-    d.appendChild(b); d.appendChild(t);
+    d.appendChild(b);
+    if (!bot || m.stamp) {
+      var t = document.createElement('div');
+      t.style.cssText = 'font-size:9px;color:#9ca3af;margin-top:2px';
+      t.textContent = m.failed ? 'Not sent. Tap send to try again.' : (m.pending ? 'Sending' : new Date(m.created_at).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' }));
+      d.appendChild(t);
+    }
     return d;
   }
   function render() {
     var box = $('help-msgs'); if (!box) return;
     box.innerHTML = '';
-    box.appendChild(bubble({ sender_role: 'agent', body: greeting(), created_at: new Date().toISOString() }));
+    box.appendChild(bubble({ sender_role: 'bot', body: greeting(), created_at: new Date().toISOString() }));
     msgs.forEach(function (m) { box.appendChild(bubble(m)); });
     box.scrollTop = box.scrollHeight;
+    var end = $('help-chat-end'); if (end) end.classList.toggle('hidden', !ticketId);
+  }
+  function askFaq(q) {
+    var a = findAnswer(q); if (!a) return;
+    var now = Date.now();
+    msgs.push({ sender_role: 'user', body: q, local: true, created_at: new Date(now).toISOString(), stamp: true });
+    msgs.push({ sender_role: 'bot', body: a + '\n\nStill need help? Type your message below and our team will reply.', local: true, created_at: new Date(now + 1).toISOString() });
+    render();
   }
   function merge(list) {
     var have = {}; msgs.forEach(function (m) { if (m.id) have[m.id] = 1; });
@@ -224,9 +240,10 @@
       var d = r && (r.data || r);
       if (!d || d._ok === false) return;
       if (d.ticket) { ticketId = d.ticket.id; subscribe(); }
-      else if (ticketId) { ticketId = null; msgs = []; }
-      var keep = msgs.filter(function (m) { return m.pending || m.failed; });
+      else if (ticketId) { ticketId = null; }
+      var keep = msgs.filter(function (m) { return m.pending || m.failed || m.local; });
       msgs = (d.messages || []).concat(keep);
+      msgs.sort(function (a, b) { return new Date(a.created_at) - new Date(b.created_at); });
       render();
     } catch (e) {}
   }
@@ -241,28 +258,23 @@
   }
   function unsubscribe() { try { if (chan && window.sb) window.sb.removeChannel(chan); } catch (e) {} chan = null; }
 
-  async function openChat() {
-    if (!user()) { toast('', 'Sign in first', 'Sign in to chat with our team.'); try { navTo('auth'); } catch (e) {} return; }
-    $('help-home').classList.add('hidden');
-    var c = $('help-chat'); c.classList.remove('hidden'); c.classList.add('flex');
+  // start/stop live updates when the Help Center tab is shown or hidden
+  function startChat() {
     chatOpen = true; render();
-    await pull();
+    if (!user()) return;
+    pull();
     clearInterval(timer); timer = setInterval(function () { if (chatOpen && !document.hidden) pull(); }, 6000);
-    setTimeout(function () { var i = $('help-inp'); if (i) i.focus(); }, 100);
   }
-  function closeChatView() {
-    chatOpen = false; clearInterval(timer);
-    var c = $('help-chat'); if (c) { c.classList.add('hidden'); c.classList.remove('flex'); }
-    var h = $('help-home'); if (h) h.classList.remove('hidden');
-  }
+  function stopChat() { chatOpen = false; clearInterval(timer); }
   async function endChat() {
     if (live() && ticketId) { try { await window.callApi('POST', '/support/chat/close', {}); } catch (e) {} }
-    unsubscribe(); ticketId = null; msgs = []; closeChatView();
+    unsubscribe(); ticketId = null; msgs = []; render();
     toast('', 'Chat ended', 'You can start a new chat any time.');
   }
   async function sendMsg() {
     var inp = $('help-inp'); if (!inp) return;
     var text = inp.value.trim(); if (!text) return;
+    if (!user()) { toast('', 'Sign in first', 'Sign in to chat with our team.'); try { navTo('auth'); } catch (e) {} return; }
     inp.value = '';
     var local = { sender_role: 'user', body: text, created_at: new Date().toISOString(), pending: true };
     msgs = msgs.filter(function (m) { return !m.failed; });
@@ -286,10 +298,21 @@
     }
   }
 
+  // hook the tab switch so live updates run only while the Help Center is open
+  function hook() {
+    if (window._supHooked || typeof window.switchSafetyTab !== 'function') return;
+    window._supHooked = true;
+    var orig = window.switchSafetyTab;
+    window.switchSafetyTab = function (tab) {
+      var r = orig.apply(this, arguments);
+      try { if (tab === 'support') startChat(); else stopChat(); } catch (e) {}
+      return r;
+    };
+  }
   // open straight on the chat when someone taps a support notification
-  window.openSupportChat = function () { try { showPanel('safety'); switchSafetyTab('support'); } catch (e) {} setTimeout(openChat, 50); };
+  window.openSupportChat = function () { try { showPanel('safety'); switchSafetyTab('support'); } catch (e) {} };
 
-  function init() { buildScreen(); loadSettings(); }
+  function init() { buildScreen(); hook(); loadSettings(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   window.addEventListener('load', function () { setTimeout(loadSettings, 1200); });
 })();
