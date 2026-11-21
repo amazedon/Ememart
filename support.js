@@ -18,7 +18,7 @@
   // ---- live numbers from the app settings (fees, limits, prices) --------------------------------
   var S = {
     support_contact: C,
-    escrow: { fee_buyer: 4500, fee_seller: 9000, auto_release_hours: 48, first_order_discount: 50000 },
+    escrow: { fee_buyer: 4500, fee_seller: 9000, auto_release_hours: 24, auto_release_hours_food: 24, accept_minutes: 30, deliver_hours_food: 3, dispute_reply_hours: 24, first_order_discount: 50000 },
     wallet_limits: {
       unverified: { max_balance: 10000000, daily_funding: 5000000, daily_withdrawal: 2000000 },
       verified: { max_balance: 100000000, daily_funding: 50000000, daily_withdrawal: 30000000 }
@@ -52,8 +52,8 @@
       ] },
       { cat: 'Escrow and payments', items: [
         ['How does escrow work?', 'When you pay, Ememart holds your money safely. The Partner is paid only after you confirm the order. Escrow is always on for every order, so Partners cannot turn it off.'],
-        ['When is the money released to the Partner?', 'When you tap Confirm. If the Partner marks the order as delivered and you do nothing, the money is released automatically after ' + e.auto_release_hours + ' hours. If there is a problem, open a dispute before then.'],
-        ['What fees do I pay?', 'Customers pay ' + naira(e.fee_buyer) + ' per escrow order. Partners pay ' + naira(e.fee_seller) + ' per order on the Free plan. Premium Partners pay no escrow fee. The delivery fee is set by the Partner and shown on the post.'],
+        ['When is the money released to the Partner?', 'When you tap Confirm. If the Partner marks the order as delivered and you do nothing, the money is released automatically after ' + e.auto_release_hours + ' hours. We remind you shortly before that. If there is a problem, open a dispute before then.'],
+        ['What fees do I pay?', 'Customers pay ' + naira(e.fee_buyer) + ' per escrow order. Partners pay ' + naira(e.fee_seller) + ' per order. Every plan pays the escrow fee. The delivery fee is set by the Partner and shown on the post.'],
         ['Is there a discount on my first order?', 'Yes. Your first order gets ' + naira(e.first_order_discount) + ' off.'],
         ['How do I add money to my wallet?', 'Go to Account, then Wallet, and tap Fund wallet. You pay securely through Squad and the money appears in your wallet when the payment is confirmed.']
       ] },
@@ -61,12 +61,12 @@
         ['How long does a food post stay open?', 'Food posts close to new orders 8 hours after they are posted and show a Closed label. They disappear 24 hours after posting. The time left is counting down on each post.'],
         ['How do I track my order?', 'Open the order in Account, then My Orders. You see each step as the Partner updates it: accepted, preparing, ready and on the way.'],
         ['Who sets the delivery fee?', 'The Partner sets it on each post. Pickup-only posts have no delivery fee.'],
-        ['My order never arrived. What do I do?', 'Message the Partner first. If you cannot sort it out, go to Safety, then Escrow Disputes, and open a dispute on that order. Your money stays in escrow until the dispute is decided.'],
-        ['Can I cancel an order?', 'Only the Partner can cancel an order. If the Partner cancels, your money returns to your wallet. If you want out of an order, message the Partner or open a dispute.']
+        ['My order never arrived. What do I do?', 'First check the order status in My Orders. If the Partner has not accepted within ' + e.accept_minutes + ' minutes, you are refunded automatically. Once accepted, an order that is late shows a notice, and you can message the Partner or open a dispute from Safety, then Escrow Disputes. Your money stays in escrow until the dispute is decided.'],
+        ['Can I cancel an order?', 'A Partner must accept your order within ' + e.accept_minutes + ' minutes. If they decline, or do not respond in time, your full payment returns to your wallet automatically. After a Partner accepts, only the Partner can cancel. If you want out of an order, message the Partner or open a dispute.']
       ] },
       { cat: 'Refunds and disputes', items: [
         ['How do I open a dispute?', 'Go to Safety, then Escrow Disputes, then open a new dispute. Choose the order, give the reason and add photos as evidence.'],
-        ['What happens after I open a dispute?', 'The money stays held in escrow. You and the Partner can both send messages and photos in the dispute. Our support team reads everything and decides. You get a notification and an email with the decision.'],
+        ['What happens after I open a dispute?', 'The money stays held in escrow. The other side has ' + e.dispute_reply_hours + ' hours to reply, and you can both send messages and photos. Our support team reads everything and decides. The decision can favour the Customer, favour the Partner, or share the money between you. You get a notification and an email with the decision.'],
         ['Can I withdraw a dispute?', 'Yes, if you opened it and support has not started reviewing it. Open the dispute and tap Withdraw. The order then continues as normal.'],
         ['Where does my refund go?', 'Approved refunds go back to your Ememart wallet. You can use the money on your next order or withdraw it to your bank.']
       ] },
@@ -83,7 +83,7 @@
       ] },
       { cat: 'Posting, boosts and plans', items: [
         ['What can I post?', 'Photos and written details only. Videos are not allowed. Every post is removed automatically after 30 days. You get a warning 3 days and 1 day before.'],
-        ['What are the plans?', 'Free: up to 5 active posts. Pro (' + naira(vt.pro) + ' a month): unlimited posts, advanced analytics and 50% off boosts. Premium (' + naira(vt.premium) + ' a month): everything in Pro with no escrow fee and priority placement.'],
+        ['What are the plans?', 'Free: up to 5 active posts. Pro (' + naira(vt.pro) + ' a month): unlimited posts, advanced analytics and 50% off boosts. Premium (' + naira(vt.premium) + ' a month): everything in Pro plus reports, priority support and priority placement.'],
         ['How does boosting work?', 'A boost puts your post higher in the feed for a set time. ' + [['6', '6 hours'], ['12', '12 hours'], ['24', '24 hours'], ['72', '3 days']].filter(function (x) { return bp[x[0]]; }).map(function (x) { return x[1] + ': ' + naira(bp[x[0]]); }).join(', ') + '. You pay from your wallet.'],
         ['Can customers rate me?', 'Yes. After a completed order the customer leaves a star rating and a written comment. You can reply once to each review.']
       ] },
