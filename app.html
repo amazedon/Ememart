@@ -255,6 +255,8 @@ document.addEventListener('click', function askOnce(){
   body.light .pf-seg button{border-color:#e2e8f0;color:#64748b}
   .hs-wrap{position:relative}
   .hs-scroll{scroll-behavior:smooth;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+  .feed-tabs-fit{display:grid;grid-template-columns:repeat(6,minmax(0,1fr))}
+  .feed-tabs-fit .feed-tab-btn{flex:none;min-width:0;padding:11px 1px;font-size:clamp(8px,2.45vw,10px);letter-spacing:0;text-align:center;overflow:hidden;text-overflow:clip}
   .tabs-wrap .feed-tab-btn{flex:0 0 auto;padding:10px 16px;scroll-snap-align:start}
   .hs-arrow{position:absolute;top:0;bottom:0;width:44px;z-index:3;border:0;display:none;align-items:center;cursor:pointer;padding:0}
   .hs-arrow svg{width:22px;height:22px;fill:#10b981;background:#fff;border-radius:999px;box-shadow:0 1px 6px rgba(0,0,0,.25);padding:2px}
@@ -4277,17 +4279,13 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
 
   <div id="feed-view-panel" class="flex flex-col gap-3">
     <div id="community-section" class="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-      <div class="hs-wrap tabs-wrap border-b border-gray-800">
-      <button type="button" class="hs-arrow hs-left" aria-label="Scroll tabs left" onclick="hsScroll(this,-1)"><svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></button>
-      <div class="hs-scroll flex overflow-x-auto" style="scrollbar-width:none;">
+      <div class="feed-tabs-fit border-b border-gray-800">
         <button class="feed-tab-btn active" id="ftab-general" onclick="switchFeedTab('general')">All</button>
         <button class="feed-tab-btn" id="ftab-vendor" onclick="switchFeedTab('vendor')">Food</button>
         <button class="feed-tab-btn" id="ftab-rider" onclick="switchFeedTab('rider')">Riders</button>
         <button class="feed-tab-btn" id="ftab-artisan" onclick="switchFeedTab('artisan')">Artisans</button>
         <button class="feed-tab-btn" id="ftab-following" onclick="switchFeedTab('following')">Follows</button>
         <button class="feed-tab-btn" id="ftab-nearby" onclick="switchFeedTab('nearby')">Nearby</button>
-      </div>
-      <button type="button" class="hs-arrow hs-right" aria-label="Scroll tabs right" onclick="hsScroll(this,1)"><svg viewBox="0 0 24 24"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></button>
       </div>
       <div id="flash-sale-bar" class="hidden bg-gradient-to-r from-red-950 to-orange-950 border-b border-red-900 p-2 flex items-center gap-2">
         <span class="flash-badge">⚡ Flash Sale</span>
