@@ -917,9 +917,15 @@ wallet.post("/wallet/withdraw", async (c) => {
 
 export const orders = newRouter();
 
+async function releaseHoursFor(o: any): Promise<number> {
+  const s = await getSetting("escrow");
+  const food = o?.item_snapshot?.type === "food";
+  return Number((food ? s.auto_release_hours_food : s.auto_release_hours) ?? s.auto_release_hours ?? 24);
+}
+
 async function placeFor(buyer: string, post: any, qty: number, amountKobo: number, extraSnapshot: Record<string, unknown> = {}, extra: { delivery_fee_kobo?: number; address?: string; note?: string } = {}) {
   if (post.author_id === buyer) throw new HttpError(400, "You cannot buy your own item");
-  const { count } = await admin.from("orders").select("id", { count: "exact", head: true }).eq("buyer_id", buyer);
+  const { count } = await admin.from("orders").select("id", { count: "exact", head: true }).eq("buyer_id", buyer).not("status", "in", "(refunded,cancelled)");
   const { data: seller } = await admin.from("profiles").select("full_name, status").eq("id", post.author_id).single();
   if (seller?.status !== "active") throw new HttpError(400, "This seller is unavailable");
   const snapshot = {
@@ -931,8 +937,12 @@ async function placeFor(buyer: string, post: any, qty: number, amountKobo: numbe
     p_amount: amountKobo, p_first_order: (count ?? 0) === 0,
   });
   if (error) throw new HttpError(400, error.message.includes("check") ? "Insufficient wallet balance" : error.message);
+  const escSet = await getSetting("escrow");
+  const isBooking = extraSnapshot.booking === true;   // bookings have their own accept step, so no 30-minute timer
   await admin.from("orders").update({
     quantity: qty, delivery_fee_kobo: extra.delivery_fee_kobo ?? 0, delivery_address: extra.address ?? null, note: extra.note ?? null,
+    accept_by: isBooking ? null : new Date(Date.now() + Number(escSet.accept_minutes ?? 30) * 60_000).toISOString(),
+    accepted_at: isBooking ? new Date().toISOString() : null,
   }).eq("id", data as string);
   if (post.extra && post.extra.qty !== undefined) await admin.rpc("decrement_post_qty", { p_post: post.id, p_n: qty });
   return data as string;
@@ -961,7 +971,8 @@ orders.post("/orders", async (c) => {
   const id = await placeFor(p.id, post, b.quantity, unit * b.quantity + b.delivery_fee_kobo, { delivery_fee_kobo: b.delivery_fee_kobo },
     { delivery_fee_kobo: b.delivery_fee_kobo, address: b.address, note: b.note });
   const { data: bal } = await admin.from("wallets").select("balance_kobo").eq("user_id", p.id).single();
-  await notify(post.author_id, "new_order", "New order", `${p.full_name || "A buyer"} ordered "${post.title}".`, { order: id });
+  const accMin = Number((await getSetting("escrow")).accept_minutes ?? 30);
+  await notify(post.author_id, "new_order", "New order", `${p.full_name || "A buyer"} ordered "${post.title}". Accept or decline within ${accMin} minutes, or the customer is refunded.`, { order: id });
   return c.json({ id, balance_kobo: bal?.balance_kobo ?? 0 }, 201);
 });
 
@@ -986,7 +997,8 @@ orders.post("/orders/:id/deliver", async (c) => {
   const o = await myOrder(c.req.param("id"), c.get("uid"));
   if (o.seller_id !== c.get("uid")) throw new HttpError(403, "Only the seller can mark delivery");
   if (o.status !== "held") throw new HttpError(400, `Order is ${o.status}`);
-  const hours = (await getSetting("escrow")).auto_release_hours as number;
+  if (!o.accepted_at) throw new HttpError(400, "Accept the order first");
+  const hours = await releaseHoursFor(o);
   await admin.from("orders").update({
     status: "delivered", delivered_at: new Date().toISOString(),
     auto_release_at: new Date(Date.now() + hours * 3600_000).toISOString(),
@@ -1016,15 +1028,29 @@ orders.post("/orders/:id/cancel", async (c) => {
   return c.json({ ok: true });
 });
 
+// Partner declines a new order: the customer is refunded straight away
+orders.post("/orders/:id/decline", async (c) => {
+  const o = await myOrder(c.req.param("id"), c.get("uid"));
+  if (o.seller_id !== c.get("uid")) throw new HttpError(403, "Only the seller can decline");
+  if (o.status !== "held" || o.accepted_at) throw new HttpError(400, "This order can no longer be declined");
+  const { error } = await admin.rpc("refund_order", { p_order: o.id });
+  if (error) throw new HttpError(500, error.message);
+  await notify(o.buyer_id, "order_declined", "Order declined", "The Partner could not take your order. Your money is back in your wallet.", { order: o.id });
+  await audit(c.get("uid"), "order.declined", o.id);
+  return c.json({ ok: true });
+});
+
 orders.post("/orders/:id/dispute", async (c) => {
   const uid = c.get("uid");
   const o = await myOrder(c.req.param("id"), uid);
   const b = await parseBody(c, z.object({ reason: z.string().min(10).max(2000) }));
   if (!["held", "delivered"].includes(o.status)) throw new HttpError(400, `Order is ${o.status}`);
-  const { data, error } = await admin.from("disputes").insert({ order_id: o.id, opened_by: uid, reason: b.reason }).select("id").single();
+  if (!o.accepted_at) throw new HttpError(400, "The Partner has not accepted yet. If they do not accept in time, you are refunded automatically.");
+  const replyHours = Number((await getSetting("escrow")).dispute_reply_hours ?? 24);
+  const { data, error } = await admin.from("disputes").insert({ order_id: o.id, opened_by: uid, reason: b.reason, reply_by: new Date(Date.now() + replyHours * 3600_000).toISOString() }).select("id").single();
   if (error) throw new HttpError(400, error.message);
   await admin.from("orders").update({ status: "disputed", auto_release_at: null }).eq("id", o.id);
-  await notify(uid === o.buyer_id ? o.seller_id : o.buyer_id, "dispute_opened", "A dispute was opened", "Support will review. You can add evidence.", { dispute: data.id, order: o.id });
+  await notify(uid === o.buyer_id ? o.seller_id : o.buyer_id, "dispute_opened", "A dispute was opened", `Please reply with your side and any evidence within ${replyHours} hours. Support will review.`, { dispute: data.id, order: o.id });
   await audit(uid, "dispute.opened", data.id);
   return c.json({ id: data.id }, 201);
 });
@@ -1175,6 +1201,26 @@ function need(c: any, area: keyof typeof PERMS) {
   return role;
 }
 
+const naira = (kobo: number) => "\u20A6" + Math.round(kobo / 100).toLocaleString("en-NG");
+
+// ----- order timing and fees (editable in the admin Settings tab) -----
+adminRoutes.put("/admin/settings/escrow", async (c) => {
+  need(c, "finance");
+  const n = (min: number, max: number) => z.number().int().min(min).max(max).optional();
+  const b = await parseBody(c, z.object({
+    fee_buyer: n(0, 100_000), fee_seller: n(0, 500_000), first_order_discount: n(0, 500_000), rider_fee_bps: n(0, 5000),
+    accept_minutes: n(5, 240), accept_reminder_minutes: n(1, 239), auto_release_hours: n(1, 168), auto_release_hours_food: n(1, 168),
+    deliver_hours_food: n(1, 72), deliver_hours_other: n(1, 336), dispute_reply_hours: n(1, 168), release_reminder_hours: n(0, 48),
+  }));
+  const cur = await getSetting("escrow");
+  const next = { ...cur, ...Object.fromEntries(Object.entries(b).filter(([, v]) => v !== undefined)) } as Record<string, number>;
+  if (next.accept_reminder_minutes >= next.accept_minutes) throw new HttpError(400, "The reminder must come before the accept time runs out");
+  const { error } = await admin.from("app_settings").upsert({ key: "escrow", value: next, updated_at: new Date().toISOString() });
+  if (error) throw new HttpError(400, error.message);
+  await audit(c.get("uid"), "settings.escrow_updated", "escrow", { before: cur, after: next });
+  return c.json({ ok: true, settings: next });
+});
+
 // ----- broadcasts (scrolling notice shown to everyone in the app) -----
 adminRoutes.get("/admin/broadcasts", async (c) => {
   need(c, "broadcast");
@@ -1293,20 +1339,26 @@ adminRoutes.get("/admin/disputes", async (c) => {
 
 adminRoutes.post("/admin/disputes/:id/resolve", async (c) => {
   need(c, "disputes");
-  const b = await parseBody(c, z.object({ outcome: z.enum(["buyer", "seller"]), note: z.string().min(3).max(2000) }));
+  const b = await parseBody(c, z.object({ outcome: z.enum(["buyer", "seller", "split"]), note: z.string().min(3).max(2000), refund_kobo: z.number().int().positive().optional() }));
   const { data: d } = await admin.from("disputes").select("*, orders(*)").eq("id", c.req.param("id")).maybeSingle();
   if (!d || !["open", "under_review"].includes(d.status)) throw new HttpError(404, "No open dispute");
-  const rpc = b.outcome === "buyer" ? "refund_order" : "release_order";
-  // release_order only accepts held/delivered, so put the order back before releasing
-  if (b.outcome === "seller") await admin.from("orders").update({ status: "delivered" }).eq("id", d.order_id);
-  const { error } = await admin.rpc(rpc, { p_order: d.order_id });
+  let error: any = null;
+  if (b.outcome === "split") {
+    if (!b.refund_kobo) throw new HttpError(400, "Enter how much to refund the customer");
+    ({ error } = await admin.rpc("resolve_split", { p_order: d.order_id, p_refund: b.refund_kobo }));
+  } else {
+    const rpc = b.outcome === "buyer" ? "refund_order" : "release_order";
+    // release_order only accepts held/delivered, so put the order back before releasing
+    if (b.outcome === "seller") await admin.from("orders").update({ status: "delivered" }).eq("id", d.order_id);
+    ({ error } = await admin.rpc(rpc, { p_order: d.order_id }));
+  }
   if (error) throw new HttpError(500, error.message);
   await admin.from("disputes").update({
-    status: b.outcome === "buyer" ? "resolved_buyer" : "resolved_seller", resolver_id: c.get("uid"),
+    status: b.outcome === "buyer" ? "resolved_buyer" : b.outcome === "seller" ? "resolved_seller" : "resolved_split", resolver_id: c.get("uid"),
     resolution_note: b.note, resolved_at: new Date().toISOString(),
   }).eq("id", d.id);
   for (const u of [d.orders.buyer_id, d.orders.seller_id]) {
-    await notify(u, "dispute_resolved", "Dispute resolved", `Decision in favour of the ${b.outcome}. ${b.note}`, { dispute: d.id });
+    await notify(u, "dispute_resolved", "Dispute resolved", b.outcome === "split" ? `Decision: the money was shared. ${naira(b.refund_kobo ?? 0)} went back to the customer. ${b.note}` : `Decision in favour of the ${b.outcome}. ${b.note}`, { dispute: d.id });
   }
   await audit(c.get("uid"), "dispute.resolved", d.id, { outcome: b.outcome });
   return c.json({ ok: true });
@@ -1456,7 +1508,7 @@ partners.post("/disputes/:id/withdraw", async (c) => {
   const { d, o } = await myDispute(c.req.param("id"), uid);
   if (d.opened_by !== uid) throw new HttpError(403, "Only the person who opened the dispute can withdraw it");
   if (d.status !== "open") throw new HttpError(400, "Support is already reviewing this dispute");
-  const hours = ((await getSetting("escrow")).auto_release_hours as number) ?? 48;
+  const hours = await releaseHoursFor(o);
   await admin.from("disputes").update({ status: "closed", resolution_note: "Withdrawn by the customer", resolved_at: new Date().toISOString() }).eq("id", d.id);
   await admin.from("orders").update({ status: "delivered", auto_release_at: new Date(Date.now() + hours * 3600_000).toISOString() }).eq("id", o.id);
   await notify(uid === o.buyer_id ? o.seller_id : o.buyer_id, "dispute_withdrawn", "Dispute withdrawn", "The dispute was withdrawn. The order continues as normal.", { dispute: d.id, order: o.id });
@@ -1552,7 +1604,7 @@ const PREP_STEPS = ["placed", "accepted", "preparing", "ready", "on_the_way"];
 partners.post("/orders/:id/progress", async (c) => {
   const uid = c.get("uid");
   const b = await parseBody(c, z.object({ step: z.enum(["accepted", "preparing", "ready", "on_the_way"]) }));
-  const { data: o } = await admin.from("orders").select("id, buyer_id, seller_id, rider_id, status, prep_status, prep_log").eq("id", c.req.param("id")).maybeSingle();
+  const { data: o } = await admin.from("orders").select("id, buyer_id, seller_id, rider_id, status, prep_status, prep_log, item_snapshot, accepted_at").eq("id", c.req.param("id")).maybeSingle();
   if (!o || o.seller_id !== uid) throw new HttpError(404, "Order not found");
   if (o.status !== "held") throw new HttpError(400, `Order is ${o.status}`);
   const cur = PREP_STEPS.indexOf(o.prep_status ?? "placed"), next = PREP_STEPS.indexOf(b.step);
@@ -1563,6 +1615,12 @@ partners.post("/orders/:id/progress", async (c) => {
   log.push({ step: b.step, ts: new Date().toISOString() });
   const patch: Record<string, unknown> = { prep_status: b.step, prep_log: log };
   if (b.step === "on_the_way") patch.delivery_status = "on_the_way";
+  if (b.step === "accepted" && !o.accepted_at) {
+    const es = await getSetting("escrow");
+    const hrs = Number((o.item_snapshot?.type === "food" ? es.deliver_hours_food : es.deliver_hours_other) ?? 48);
+    patch.accepted_at = new Date().toISOString();
+    patch.deliver_by = new Date(Date.now() + hrs * 3600_000).toISOString();
+  }
   await admin.from("orders").update(patch).eq("id", o.id);
   const text: Record<string, string> = {
     accepted: "The Partner accepted your order.", preparing: "Your order is being prepared.",
