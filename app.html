@@ -5660,7 +5660,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
       <div class="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">Dispute Resolution SLA</div>
       <div class="flex justify-between text-xs py-1 border-b border-gray-800"><span class="text-gray-400">Acknowledge dispute</span><span class="text-white font-black">Within 24 hours</span></div>
       <div class="flex justify-between text-xs py-1 border-b border-gray-800"><span class="text-gray-400">Final resolution</span><span class="text-white font-black">Within 48 hours</span></div>
-      <div class="flex justify-between text-xs py-1"><span class="text-gray-400">Auto-release (no dispute)</span><span class="text-white font-black">After 48 hours</span></div>
+      <div class="flex justify-between text-xs py-1"><span class="text-gray-400">Auto-release (no dispute)</span><span class="text-white font-black">After <span data-esc="release_hours">24</span> hours</span></div>
     </div>
   </div>
 </div>
@@ -9558,7 +9558,10 @@ function renderVendorPortalOrders(){
       </div>
       <!-- Actions -->
       <div class="px-3 pb-3 flex gap-2 flex-wrap">
+        ${o.acceptBy && o.status==='pending' ? `<div class="w-full text-[10px] font-black text-amber-400">Accept or decline within <span class="mono" data-accept-by="${o.acceptBy}">--:--</span>, or the customer is refunded.</div>` : ''}
+        ${o.deliverBy && ['accepted','preparing','ready'].includes(o.status) ? `<div class="w-full text-[10px] font-black text-gray-400">Deliver by ${new Date(o.deliverBy).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>` : ''}
         ${canAdvance ? `<button onclick="advanceOrderStatus('${o.postId}','${o.id}')" class="btn-primary flex-1 py-2 text-[10px]">${nextAction[o.status||'pending']}</button>` : ''}
+        ${o.acceptBy && o.status==='pending' ? `<button onclick="declineOrderAsSeller('${o.id}')" class="btn-sm-outline flex-1 py-2 text-[10px] text-red-400">Decline</button>` : ''}
         <button onclick="msgVendor('${o.buyerId}','${o.buyerName}')" class="btn-sm-outline flex-1 py-2 text-[10px]">💬 Message</button>
         ${o.status==='delivered' && o.escrow ? `<button onclick="releaseEscrow('${o.postId}','${o.id}')" class="btn-primary flex-1 py-2 text-[10px] bg-amber-500 hover:bg-amber-400 text-gray-900">💰 Release Escrow</button>` : ''}
       </div>
@@ -12892,6 +12895,8 @@ function renderBuyerOrders(){
           <button onclick="showOrderReceipt('${o.id}')" class="text-[8px] font-black text-gray-400 border border-gray-700 px-2 py-1 rounded-lg hover:bg-gray-800 transition">📄</button>
         </div>
       </div>
+      ${o.acceptBy && o.status==='pending' ? `<div class="text-[10px] font-black text-amber-400">Waiting for the Partner to accept: <span class="mono" data-accept-by="${o.acceptBy}">--:--</span>. If they do not accept, you are refunded automatically.</div>` : ''}
+      ${o.autoReleaseAt && o.status==='delivered' ? `<div class="text-[10px] font-black text-emerald-400">Payment releases to the Partner in <span class="mono" data-release-at="${o.autoReleaseAt}">--:--:--</span>. Confirm now, or open a dispute if something is wrong.</div>` : ''}
       ${isActive ? `<div class="h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-sky-500 to-emerald-500 rounded-full transition-all duration-700" style="width:${{'pending':10,'accepted':30,'picked_up':60,'on_the_way':85,'delivered':100}[o.status]||10}%"></div></div>` : ''}`;
     w.appendChild(div);
   });
@@ -13045,8 +13050,8 @@ const VENDOR_TIERS = {
   premium: {
     id:'premium', icon:'👑', name:'Premium', color:'text-amber-400', border:'border-amber-700',
     price:15000, label:'₦15,000/month',
-    activePosts:Infinity, analytics:'advanced', boostDiscount:50, escrowFee:0,
-    features:{ posts:'Unlimited', analytics:'Advanced + Reports', boost:'50% off', escrow:'FREE (0%)', support:'Priority + Phone', featured:true, priority:true }
+    activePosts:Infinity, analytics:'advanced', boostDiscount:50, escrowFee:90,
+    features:{ posts:'Unlimited', analytics:'Advanced + Reports', boost:'50% off', escrow:'₦90/order', support:'Priority + Phone', featured:true, priority:true }
   }
 };
 
@@ -13127,7 +13132,7 @@ function renderVendorTierInfo(){
   if(boostDisc) boostDisc.textContent = tier.boostDiscount > 0 ? `${tier.boostDiscount}% off all boosts` : 'No discount';
 
   const escrowRate = el('vendor-escrow-rate');
-  if(escrowRate) escrowRate.textContent = tier.escrowFee === 0 ? '✅ FREE (Premium benefit)' : `₦${tier.escrowFee} per order`;
+  if(escrowRate) escrowRate.textContent = `₦${tier.escrowFee} per order`;
 
   // Advanced analytics
   const advEl  = el('vendor-advanced-analytics');
@@ -14281,7 +14286,7 @@ function applyBalanceVisibility(){
       <!-- Escrow fee breakdown -->
       <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex flex-col gap-1.5">
         <div class="flex justify-between text-[10px]"><span class="text-gray-400">Amount in escrow</span><span id="escrow-held-amount" class="text-purple-300 font-black mono">₦0</span></div>
-        <div class="flex justify-between text-[10px]"><span class="text-gray-400">Buyer escrow fee</span><span class="text-amber-400 font-black mono">₦45</span></div>
+        <div class="flex justify-between text-[10px]"><span class="text-gray-400">Buyer escrow fee</span><span class="text-amber-400 font-black mono" data-esc="fee_buyer">₦45</span></div>
         <div class="flex justify-between text-[10px] border-t border-gray-800 pt-1.5"><span class="text-gray-300 font-black">Vendor receives on release</span><span id="escrow-vendor-receives" class="text-emerald-400 font-black mono">₦0</span></div>
       </div>
 
@@ -15224,8 +15229,8 @@ function applyBalanceVisibility(){
         <div class="text-[10px] font-black text-purple-300">🔐 Escrow Enabled</div>
         <div class="text-[10px] text-gray-400">Buyers will pay via escrow. Ememart holds funds until delivery confirmed.</div>
         <div class="flex gap-3 mt-1 text-[10px]">
-          <span class="text-gray-400">Seller fee: <strong class="text-white">₦90</strong></span>
-          <span class="text-gray-400">Buyer fee: <strong class="text-white">₦45</strong></span>
+          <span class="text-gray-400">Seller fee: <strong class="text-white" data-esc="fee_seller">₦90</strong></span>
+          <span class="text-gray-400">Buyer fee: <strong class="text-white" data-esc="fee_buyer">₦45</strong></span>
         </div>
       </div>
 
@@ -16288,7 +16293,7 @@ function renderVendorTierUI(){
   if(boostDisc) boostDisc.textContent = tier.boostDiscount > 0 ? `${tier.boostDiscount}% off all boosts` : 'No discount';
 
   const escrowRate = el('vendor-escrow-rate');
-  if(escrowRate) escrowRate.textContent = tier.escrowFee === 0 ? '✅ FREE (Premium benefit)' : `₦${tier.escrowFee} per order`;
+  if(escrowRate) escrowRate.textContent = `₦${tier.escrowFee} per order`;
 
   // Advanced analytics
   const advEl  = el('vendor-advanced-analytics');
@@ -18631,7 +18636,7 @@ function requirePin(action, callback){
 <script src="rules.js?v=20261116c"></script>
 <script src="backend.js?v=20261117a"></script>
 <script src="posts-live.js?v=20261117a"></script>
-<script src="orders-live.js?v=20261118a"></script>
+<script src="orders-live.js?v=20261122a"></script>
 <script src="partners-live.js?v=20261118a"></script>
 <script src="notifications-live.js?v=20261116d"></script>
-<script src="support.js?v=20261121a"></script>
+<script src="support.js?v=20261122a"></script>
