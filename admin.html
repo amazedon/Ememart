@@ -101,6 +101,7 @@ $('out').onclick = async function () { await sb.auth.signOut(); location.reload(
 var TABS = [
   ['verifications', 'Verification', ['super_admin', 'verification_reviewer']],
   ['roles', 'Rider / artisan requests', ['super_admin', 'verification_reviewer']],
+  ['support', 'Live chat', ['super_admin', 'support']],
   ['disputes', 'Disputes', ['super_admin', 'support']],
   ['users', 'Users', ['super_admin', 'support', 'verification_reviewer']],
   ['broadcasts', 'Broadcasts', ['super_admin', 'support']],
@@ -118,6 +119,7 @@ function buildTabs() {
   });
 }
 function open(k) {
+  try { supStop(); } catch (e) {}
   Array.prototype.forEach.call($('tabs').children, function (b) { b.classList.toggle('on', b.dataset.k === k); });
   $('view').innerHTML = '<p class="mute">Loading…</p>'; VIEWS[k]();
 }
@@ -290,6 +292,73 @@ VIEWS.broadcasts = async function () {
     };
   });
 };
+
+// ---- live chat inbox -------------------------------------------------------------------------
+var SUP = { status: 'open', id: null, timer: null };
+function supStop() { if (SUP.timer) { clearInterval(SUP.timer); SUP.timer = null; } }
+VIEWS.support = async function () {
+  supStop(); SUP.id = null;
+  var r = await api('GET', '/admin/support?status=' + SUP.status);
+  if (!r._ok) return view('<p class="bad">' + esc(r._err) + '</p>');
+  var list = r.tickets || [];
+  var cc = {}; try { var cr = await sb.from('app_settings').select('value').eq('key', 'support_contact').maybeSingle(); cc = (cr.data && cr.data.value) || {}; } catch (e) {}
+  view('<div class="card"><h3>Contact details shown in the app</h3>' +
+    '<div class="row" style="margin-bottom:8px"><label class="grow">WhatsApp number (digits only, with country code, e.g. 2348012345678. Leave empty to hide the button)<br><input id="sc-wa" value="' + esc(cc.whatsapp || '') + '" style="width:100%" inputmode="numeric"></label></div>' +
+    '<div class="row" style="margin-bottom:8px"><label class="grow">Support email<br><input id="sc-mail" value="' + esc(cc.email || 'help@ememart.com') + '" style="width:100%"></label></div>' +
+    '<div class="row" style="margin-bottom:8px"><label class="grow">Reply time note<br><input id="sc-note" maxlength="120" value="' + esc(cc.reply_note != null ? cc.reply_note : 'We reply within minutes.') + '" style="width:100%"></label></div>' +
+    '<button class="btn ok" id="sc-save">Save contact details</button></div>' +
+    '<div class="row" style="margin-bottom:10px"><button class="btn' + (SUP.status === 'open' ? ' ok' : '') + '" id="sp-open">Open chats</button>' +
+    '<button class="btn' + (SUP.status === 'closed' ? ' ok' : '') + '" id="sp-closed">Closed chats</button></div>' +
+    (list.length ? '' : '<p class="mute">No ' + SUP.status + ' chats.</p>') +
+    list.map(function (t) {
+      var p = t.profiles || {};
+      return '<div class="card" style="cursor:pointer" data-t="' + esc(t.id) + '"><div class="row"><b class="grow">' + esc(p.full_name || 'Customer') + ' <span class="mute">(' + esc(p.role || '') + ')</span></b>' +
+        (t.needs_reply && t.status === 'open' ? '<span class="warn"><b>Needs reply</b></span>' : '') + '<span class="mute">' + esc(when(t.last_message_at)) + '</span></div>' +
+        '<div class="mute" style="margin-top:4px">' + esc(t.subject || '') + '</div></div>';
+    }).join(''));
+  $('sc-save').onclick = async function () {
+    var x = await api('PUT', '/admin/support-contact', { whatsapp: $('sc-wa').value.replace(/\D/g, ''), email: $('sc-mail').value.trim(), reply_note: $('sc-note').value.trim() });
+    alert(x._ok ? 'Saved. The app shows the new details right away.' : x._err);
+  };
+  $('sp-open').onclick = function () { SUP.status = 'open'; VIEWS.support(); };
+  $('sp-closed').onclick = function () { SUP.status = 'closed'; VIEWS.support(); };
+  Array.prototype.forEach.call(document.querySelectorAll('[data-t]'), function (c) { c.onclick = function () { supOpen(c.dataset.t); }; });
+  if (SUP.status === 'open') SUP.timer = setInterval(function () { if (!SUP.id && !document.hidden && document.querySelector('[data-t],#sp-open')) VIEWS.support(); }, 10000);
+};
+async function supOpen(id) {
+  supStop(); SUP.id = id;
+  async function draw(keepInput) {
+    var r = await api('GET', '/admin/support/' + id);
+    if (!r._ok) return view('<p class="bad">' + esc(r._err) + '</p>');
+    var t = r.ticket, p = t.profiles || {}, typed = keepInput && $('sp-text') ? $('sp-text').value : '';
+    var box = $('sp-msgs'), atEnd = !box || box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+    view('<div class="row" style="margin-bottom:8px"><button class="btn" id="sp-back">Back</button><b class="grow">' + esc(p.full_name || 'Customer') + '</b>' +
+      '<span class="mute">' + esc(p.phone || '') + ' ' + esc(p.email || '') + '</span>' +
+      (t.status === 'open' ? '<button class="btn bad" id="sp-close">Close chat</button>' : '<span class="mute">Closed</span>') + '</div>' +
+      '<div class="card" id="sp-msgs" style="height:48vh;overflow-y:auto">' + (r.messages || []).map(function (m) {
+        var agent = m.sender_role === 'agent';
+        return '<div style="display:flex;justify-content:' + (agent ? 'flex-end' : 'flex-start') + ';margin:6px 0"><div style="max-width:75%;padding:8px 12px;border-radius:12px;white-space:pre-wrap;word-break:break-word;background:' + (agent ? 'var(--ok)' : 'var(--line)') + ';color:' + (agent ? '#06201a' : 'var(--text)') + '">' + esc(m.body) +
+          '<div style="font-size:11px;opacity:.7;margin-top:3px">' + esc(when(m.created_at)) + '</div></div></div>';
+      }).join('') + '</div>' +
+      (t.status === 'open' ? '<div class="row"><textarea id="sp-text" rows="2" maxlength="2000" placeholder="Write a reply" style="flex:1"></textarea><button class="btn ok" id="sp-send">Send reply</button></div>' : ''));
+    if ($('sp-text')) $('sp-text').value = typed;
+    $('sp-back').onclick = function () { VIEWS.support(); };
+    if ($('sp-close')) $('sp-close').onclick = async function () {
+      if (!confirm('Close this chat? The customer can start a new one.')) return;
+      var x = await api('POST', '/admin/support/' + id + '/close', {}); if (!x._ok) return alert(x._err); VIEWS.support();
+    };
+    if ($('sp-send')) $('sp-send').onclick = async function () {
+      var v = $('sp-text').value.trim(); if (!v) return;
+      $('sp-send').disabled = true;
+      var x = await api('POST', '/admin/support/' + id + '/reply', { body: v });
+      if (!x._ok) { $('sp-send').disabled = false; return alert(x._err); }
+      $('sp-text').value = ''; draw(false);
+    };
+    var b2 = $('sp-msgs'); if (b2 && (atEnd || !keepInput)) b2.scrollTop = b2.scrollHeight;
+  }
+  await draw(false);
+  SUP.timer = setInterval(function () { if (SUP.id === id && !document.hidden) draw(true); }, 6000);
+}
 
 // ---- activity log ----------------------------------------------------------------------------
 VIEWS.audit = async function () {
