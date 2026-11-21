@@ -105,6 +105,7 @@ var TABS = [
   ['disputes', 'Disputes', ['super_admin', 'support']],
   ['users', 'Users', ['super_admin', 'support', 'verification_reviewer']],
   ['broadcasts', 'Broadcasts', ['super_admin', 'support']],
+  ['settings', 'Settings', ['super_admin', 'finance']],
   ['finance', 'Finance', ['super_admin', 'finance']],
   ['team', 'Admin team', ['super_admin']],
   ['audit', 'Activity log', ['super_admin']],
@@ -184,12 +185,21 @@ VIEWS.disputes = async function () {
         '<p>' + esc(d.reason) + '</p>' +
         '<div class="mute">Evidence: ' + ((d.dispute_evidence || []).map(function (e) { return safeUrl(e.url) ? '<a target="_blank" rel="noopener" href="' + esc(e.url) + '">file</a>' : ''; }).join(' ') || 'none') + '</div>' +
         '<div class="row" style="margin-top:10px"><button class="btn ok" data-w="buyer" data-id="' + esc(d.id) + '">Refund buyer</button>' +
-        '<button class="btn" data-w="seller" data-id="' + esc(d.id) + '">Pay seller</button></div></div>';
+        '<button class="btn" data-w="seller" data-id="' + esc(d.id) + '">Pay seller</button>' +
+        '<button class="btn" data-w="split" data-id="' + esc(d.id) + '" data-max="' + esc(o.amount_kobo) + '">Split the money</button></div>' +
+        '<div class="mute" style="margin-top:6px">' + (d.reply_by ? 'Reply deadline: ' + esc(when(d.reply_by)) + ' · ' : '') + 'Status: ' + esc(d.status) + '</div></div>';
     }).join(''));
   $('view').onclick = async function (e) {
     var b = e.target.closest('button[data-w]'); if (!b) return;
+    var refund;
+    if (b.dataset.w === 'split') {
+      var amt = ask('How much in naira goes BACK to the customer? (The Partner gets the rest of the item amount, minus the Partner fee.) Item amount: ' + naira(b.dataset.max));
+      if (!amt) return;
+      refund = Math.round(Number(String(amt).replace(/[^\d.]/g, '')) * 100);
+      if (!(refund > 0) || refund >= Number(b.dataset.max)) return say('Enter an amount above zero and below the item amount.');
+    }
     var note = ask('Note explaining the decision (both sides will see it):'); if (!note) return;
-    var x = await api('POST', '/admin/disputes/' + b.dataset.id + '/resolve', { outcome: b.dataset.w, note: note });
+    var x = await api('POST', '/admin/disputes/' + b.dataset.id + '/resolve', { outcome: b.dataset.w, note: note, refund_kobo: refund });
     if (!x._ok) return say(x._err); VIEWS.disputes();
   };
 };
@@ -291,6 +301,42 @@ VIEWS.broadcasts = async function () {
       VIEWS.broadcasts();
     };
   });
+};
+
+// ---- settings: fees and order times ------------------------------------------------------------
+VIEWS.settings = async function () {
+  var cur = {};
+  try { var r = await sb.from('app_settings').select('value').eq('key', 'escrow').maybeSingle(); cur = (r.data && r.data.value) || {}; } catch (e) {}
+  var F = [
+    ['Fees', null],
+    ['fee_buyer', 'Customer escrow fee (naira per order)', 100, 'naira'],
+    ['fee_seller', 'Partner escrow fee (naira per order)', 100, 'naira'],
+    ['first_order_discount', 'First-order discount for new Customers (naira)', 100, 'naira'],
+    ['rider_fee_bps', 'Ememart cut of the Rider delivery fee (percent)', 100, 'percent'],
+    ['Order times', null],
+    ['accept_minutes', 'Partner must accept or decline within (minutes). After this the Customer is refunded', 1, 'minutes'],
+    ['accept_reminder_minutes', 'Remind the Partner after (minutes)', 1, 'minutes'],
+    ['deliver_hours_food', 'Food must be delivered within (hours after accepting)', 1, 'hours'],
+    ['deliver_hours_other', 'Other orders must be delivered within (hours after accepting)', 1, 'hours'],
+    ['auto_release_hours', 'Customer has this long to confirm or dispute, then payment is released (hours)', 1, 'hours'],
+    ['auto_release_hours_food', 'Same, for food orders (hours)', 1, 'hours'],
+    ['release_reminder_hours', 'Remind the Customer before release (hours before)', 1, 'hours'],
+    ['dispute_reply_hours', 'The other side has this long to reply to a dispute (hours)', 1, 'hours']
+  ];
+  view('<div class="card"><h3>Fees and order times</h3><p class="mute">Changes apply to new orders straight away. Orders already placed keep the fees they were placed with.</p>' +
+    F.map(function (f) {
+      if (f[1] === null) return '<h4 style="margin:16px 0 6px">' + esc(f[0]) + '</h4>';
+      var v = cur[f[0]]; v = v == null ? '' : (f[2] > 1 ? Number(v) / f[2] : v);
+      return '<label style="display:block;margin-bottom:10px">' + esc(f[1]) + '<br><input data-k="' + f[0] + '" data-div="' + f[2] + '" type="number" min="0" step="any" value="' + esc(v) + '" style="width:140px"></label>';
+    }).join('') + '<button class="btn ok" id="st-save">Save settings</button></div>');
+  $('st-save').onclick = async function () {
+    var body = {};
+    Array.prototype.forEach.call(document.querySelectorAll('[data-k]'), function (i) {
+      if (i.value === '') return; body[i.dataset.k] = Math.round(Number(i.value) * Number(i.dataset.div));
+    });
+    var x = await api('PUT', '/admin/settings/escrow', body);
+    alert(x._ok ? 'Saved. New orders use these settings.' : x._err);
+  };
 };
 
 // ---- live chat inbox -------------------------------------------------------------------------
