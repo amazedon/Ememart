@@ -20,7 +20,7 @@
   }
 
   var ICON = { new_order: '🛒', order_delivered: '🏍️', escrow_released: '💰', order_cancelled: '❌', dispute_opened: '⚖️', dispute_resolved: '⚖️',
-               post_deletion_warning: '🗑️', freshness_reminder: '🍲', verification: '🪪', funding: '💳', booking: '📅' };
+               post_deletion_warning: '🗑️', freshness_reminder: '🍲', verification: '🪪', funding: '💳', booking: '📅', support_reply: '💬' };
 
   // ---- notifications -------------------------------------------------------------------------
   var seen = {}, firstLoad = true;
