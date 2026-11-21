@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Ememart — Hyperlocal Wire</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#10b981">
@@ -292,6 +292,9 @@ document.addEventListener('click', function askOnce(){
   .rv-reply-btn{margin-top:6px;border:1px solid #a7f3d0;background:#ecfdf5;color:#047857;font-weight:800;font-size:11px;border-radius:999px;padding:5px 14px;cursor:pointer}
   .post-closed .post-photo{filter:grayscale(.85);opacity:.7}
   .post-closed{opacity:.92}
+  /* Zoom is allowed (accessibility). Stop double-tap zoom on controls and iPhone focus-zoom on small inputs. */
+  html{touch-action:manipulation;-webkit-text-size-adjust:100%}
+  @supports (-webkit-touch-callout:none){ input,select,textarea{font-size:16px !important} }
   .fc-row{display:flex;gap:8px}
   .fc-btn{flex:1;font-size:11px;font-weight:800;color:#6b7280;background:#111827;border:1px solid #1f2937;border-radius:12px;padding:9px 10px;white-space:nowrap}
   body.light .fc-btn{background:#fff;border-color:#e2e8f0;color:#334155}
@@ -5321,8 +5324,9 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
 
 <div id="safety-panel" class="panel gap-3">
   <div class="border-b border-gray-800 pb-2">
-    <h2 class="text-lg font-black text-white">🛡️ Safety Network</h2>
-    <p class="text-xs text-gray-400 mt-0.5">Escrow dispute logs, panic activations, and verify checks.</p>
+    <button type="button" onclick="showPanel('account')" class="text-[11px] font-black text-gray-400 mb-1">&lsaquo; Back to Account</button>
+    <h2 class="text-lg font-black text-white">🛡️ Safety & Support</h2>
+    <p class="text-xs text-gray-400 mt-0.5">Emergency alerts, disputes, live chat and answers to common questions.</p>
   </div>
 
   <div class="flex bg-gray-900 rounded-xl border border-gray-800 p-0.5">
@@ -16878,7 +16882,8 @@ function handleMultiImageUpload(e){
   const files = Array.from(e.target.files).slice(0, 5 - state.postImages.length);
   if(!files.length) return;
 
-  files.forEach(file => {
+  if(files.some(f => !/^image\/(jpeg|png|webp|heic|heif)$/i.test(f.type))){ showPopupNotif('🖼️','Photos only','Videos and other files can\'t be posted. Please add photos (JPG, PNG or WebP).'); }
+  files.filter(f => /^image\//i.test(f.type)).forEach(file => {
     if(state.postImages.length >= 5){ showPopupNotif('⚠️','Max 5 Photos','You can add up to 5 photos per post.'); return; }
     const reader = new FileReader();
     reader.onload = ev => {
@@ -18293,7 +18298,10 @@ function verifyPinPress(digit){
       while(card.firstChild) body.appendChild(card.firstChild);
       var head=document.createElement('button'); head.type='button'; head.className='acc-head';
       head.innerHTML='<span class="text-lg">'+p[0]+'</span><span>'+p[1]+'</span><span class="acc-chev">›</span>';
-      head.onclick=function(){ openAccPage(card,p[0],p[1]); };
+      head.onclick=function(){
+        if(p[1]==='Safety & Support'){ try{ showPanel('safety'); window.scrollTo(0,0); }catch(e){} return; }
+        openAccPage(card,p[0],p[1]);
+      };
       card.appendChild(head); card.appendChild(body);
       card.classList.remove('overflow-hidden'); card.style.padding='14px 16px';
     });
@@ -18628,3 +18636,4 @@ function requirePin(action, callback){
 <script src="orders-live.js?v=20261118a"></script>
 <script src="partners-live.js?v=20261118a"></script>
 <script src="notifications-live.js?v=20261116d"></script>
+<script src="support.js?v=20261120a"></script>
