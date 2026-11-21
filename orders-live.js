@@ -29,6 +29,43 @@
   var PREP_TO_LOCAL = { placed: 'pending', accepted: 'accepted', preparing: 'preparing', ready: 'ready', on_the_way: 'ready' };
   function localStatus(o) { return o.status === 'held' ? (PREP_TO_LOCAL[o.prep_status || 'placed'] || 'pending') : STATUS[o.status]; }
   B.orders = [];
+  // ---- escrow settings from the admin dashboard (fees and times) -----------------------------
+  var CFG = { fee_buyer: 4500, fee_seller: 9000, auto_release_hours: 24, auto_release_hours_food: 24, accept_minutes: 30 };
+  B.escrowCfg = CFG;
+  function naira(k) { return '\u20A6' + Math.round(Number(k) / 100).toLocaleString('en-NG'); }
+  function applyEscrowText() {
+    [['fee_buyer', naira(CFG.fee_buyer)], ['fee_seller', naira(CFG.fee_seller)], ['release_hours', String(CFG.auto_release_hours)]].forEach(function (p) {
+      Array.prototype.forEach.call(document.querySelectorAll('[data-esc="' + p[0] + '"]'), function (n) { n.textContent = p[1]; });
+    });
+  }
+  window.applyEscrowText = applyEscrowText;
+  async function loadEscrowCfg() {
+    try {
+      var r = await window.sb.from('app_settings').select('value').eq('key', 'escrow').maybeSingle();
+      if (r.data && r.data.value) { Object.keys(r.data.value).forEach(function (k) { CFG[k] = r.data.value[k]; }); }
+      applyEscrowText();
+    } catch (e) {}
+  }
+  function relHours(o) {
+    var food = o && o.item_snapshot && o.item_snapshot.type === 'food';
+    return Number(food ? (CFG.auto_release_hours_food || CFG.auto_release_hours) : CFG.auto_release_hours) || 24;
+  }
+  function fmtLeft(ms) {
+    var s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return h ? h + ':' + p(m) + ':' + p(x) : p(m) + ':' + p(x);
+  }
+  var _expiredReload = 0;
+  setInterval(function () {
+    var now = Date.now(), expired = false;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-accept-by]'), function (n) {
+      var left = Number(n.getAttribute('data-accept-by')) - now; n.textContent = fmtLeft(left); if (left <= 0) expired = true;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-release-at]'), function (n) {
+      n.textContent = fmtLeft(Number(n.getAttribute('data-release-at')) - now);
+    });
+    if (expired && now - _expiredReload > 20000) { _expiredReload = now; setTimeout(function () { loadOrders(); loadWallet(); }, 4000); }
+  }, 1000);
   function attachOrders() {
     if (!me() || typeof state === 'undefined') return;
     state.posts.forEach(function (p) { p.orders = []; });
@@ -44,6 +81,9 @@
         note: esc(o.note || ''), escrow: true, status: localStatus(o), prepStatus: o.prep_status || 'placed', hasRider: !!o.rider_id, escrowFrozen: o.status === 'disputed',
         ts: new Date(o.created_at).getTime(), postId: post.id, foodName: esc(snap.title || post.foodName || ''),
         vendorId: o.seller_id, vendorName: esc(o.seller_name || ''), serverStatus: o.status,
+        acceptBy: (!o.accepted_at && o.accept_by && o.status === 'held') ? new Date(o.accept_by).getTime() : 0,
+        deliverBy: o.deliver_by ? new Date(o.deliver_by).getTime() : 0,
+        autoReleaseAt: o.auto_release_at ? new Date(o.auto_release_at).getTime() : 0,
       });
     });
     try { renderVendorPortalOrders(); } catch (e) {}
@@ -110,10 +150,10 @@
     set('conf-qty', String(_activeOrderQty));
     set('conf-address', address);
     set('conf-escrow', '🔐 Escrow');
-    set('conf-amount', '₦' + fmt(unit * _activeOrderQty + 200));
+    set('conf-amount', '₦' + fmt(unit * _activeOrderQty + (window.postDeliveryFee ? window.postDeliveryFee(post) : 200)));
     set('conf-balance', '₦' + fmt(u.balance));
     set('conf-time', new Date().toLocaleString());
-    set('escrow-held-amount', '₦' + fmt(unit * _activeOrderQty + 200));
+    set('escrow-held-amount', '₦' + fmt(unit * _activeOrderQty + (window.postDeliveryFee ? window.postDeliveryFee(post) : 200)));
     var panel = E('conf-escrow-panel'); if (panel) panel.classList.remove('hidden');
     E('escrow-confirm-section') && E('escrow-confirm-section').classList.remove('hidden');
     E('escrow-released-section') && E('escrow-released-section').classList.add('hidden');
@@ -125,7 +165,7 @@
 
   // ---- 5. escrow: no demo timers; the server holds, releases and auto-releases --------------
   window.autoReleaseEscrow = function () {};
-  window.startEscrowCountdown = function () { var c = E('escrow-countdown'); if (c) c.textContent = 'auto-release 48h after delivery'; };
+  window.startEscrowCountdown = function () { var c = E('escrow-countdown'); if (c) c.textContent = 'auto-release ' + CFG.auto_release_hours + 'h after delivery'; };
   window.registerEscrow = function () {};
 
   window.confirmEscrowDelivery = async function () {
@@ -151,7 +191,7 @@
       if (!next) {
         var d = await api('POST', '/orders/' + orderId + '/deliver');
         if (d && d.success === false) { toast('❌', 'Not updated', d.message || 'Please try again.'); return; }
-        toast('🏍️', 'Marked delivered', 'The buyer has been asked to confirm. Payment auto-releases in 48 hours.');
+        toast('🏍️', 'Marked delivered', 'The buyer has been asked to confirm. Payment auto-releases in ' + relHours(o) + ' hours.');
       } else if (cur === 'ready' && o.rider_id) {
         toast('ℹ️', 'Waiting for the rider', 'A rider is assigned and will collect this order.'); return;
       } else {
@@ -190,7 +230,13 @@
     if (m && !m.classList.contains('hidden')) { loadOrders().then(function () { try { renderOrderTrackingModal(window._trackingOrderId || _trackingOrderId); } catch (e) {} }); }
   }, 15000);
   window.releaseEscrow = function (postId, orderId) {
-    toast('ℹ️', 'Waiting for the buyer', 'The buyer confirms delivery to release payment, or it releases automatically 48 hours after you mark it delivered.');
+    toast('ℹ️', 'Waiting for the buyer', 'The buyer confirms delivery to release payment, or it releases automatically ' + CFG.auto_release_hours + ' hours after you mark it delivered.');
+  };
+  window.declineOrderAsSeller = async function (orderId) {
+    if (!confirm('Decline this order? The customer will be refunded.')) return;
+    var r = await api('POST', '/orders/' + orderId + '/decline');
+    if (!r.success) { toast('❌', 'Not declined', r.message || 'Please try again.'); return; }
+    toast('✅', 'Order declined', 'The customer was refunded.'); loadOrders();
   };
   window.cancelOrderAsSeller = async function (orderId) {
     if (!confirm('Cancel this order and refund the buyer?')) return;
@@ -260,7 +306,7 @@
     addPinBox();
     var _open = window.placeOrder;
     window.placeOrder = function () { addPinBox(); return _open.apply(this, arguments); };
-    loadWallet(); loadOrders();
+    loadWallet(); loadOrders(); loadEscrowCfg();
   }
   window.addEventListener('load', function () { setTimeout(start, 800); });
   setInterval(function () { if (!document.hidden && me()) { loadOrders(); loadWallet(); } }, 30000);
