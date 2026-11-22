@@ -172,6 +172,28 @@ export async function validWebhookSignature(rawBody: string, header: string | nu
 // Housekeeping that SQL alone cannot do. Called every 5 minutes by pg_cron (see DEPLOY.md).
 //   supabase functions deploy jobs --no-verify-jwt     (protected by the x-cron-secret header instead)
 
+// ---------- Cloudinary (post photos) ----------
+// Secrets needed: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+async function cldSign(params: Record<string, string | number>): Promise<string> {
+  const secret = Deno.env.get("CLOUDINARY_API_SECRET");
+  if (!secret) throw new Error("Missing secret: CLOUDINARY_API_SECRET");
+  const str = Object.keys(params).sort().map((k) => `${k}=${params[k]}`).join("&") + secret;
+  const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+export async function cloudinaryDestroy(publicId: string): Promise<boolean> {
+  const cloud = Deno.env.get("CLOUDINARY_CLOUD_NAME"), key = Deno.env.get("CLOUDINARY_API_KEY");
+  if (!cloud || !key) return false;
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = await cldSign({ public_id: publicId, timestamp, invalidate: "true" });
+  const fd = new FormData();
+  fd.set("public_id", publicId); fd.set("timestamp", String(timestamp)); fd.set("invalidate", "true");
+  fd.set("api_key", key); fd.set("signature", signature);
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/image/destroy`, { method: "POST", body: fd });
+  const j = await r.json().catch(() => ({}));
+  return r.ok && (j.result === "ok" || j.result === "not found");
+}
+
 async function drainStorageQueue() {
   const { data } = await admin.from("storage_delete_queue").select("id, bucket, path").order("id").limit(500);
   if (!data?.length) return 0;
@@ -182,6 +204,18 @@ async function drainStorageQueue() {
   }
   let removed = 0;
   for (const [bucket, b] of byBucket) {
+    // photos kept on Cloudinary are stored as "cld:<public id>"
+    const cld = b.paths.map((p, i) => ({ p, id: b.ids[i] })).filter((x) => x.p.startsWith("cld:"));
+    if (cld.length) {
+      const done: number[] = [];
+      for (const x of cld) {
+        try { if (await cloudinaryDestroy(x.p.slice(4))) done.push(x.id); } catch (e) { console.error("cloudinary delete failed", x.p, e); }
+      }
+      if (done.length) { await admin.from("storage_delete_queue").delete().in("id", done); removed += done.length; }
+      const keep = b.paths.map((p, i) => ({ p, id: b.ids[i] })).filter((x) => !x.p.startsWith("cld:"));
+      b.paths = keep.map((x) => x.p); b.ids = keep.map((x) => x.id);
+      if (!b.paths.length) continue;
+    }
     const { error } = await admin.storage.from(bucket).remove(b.paths);
     if (error) { console.error("storage remove failed", bucket, error.message); continue; } // retried next run
     await admin.from("storage_delete_queue").delete().in("id", b.ids);
