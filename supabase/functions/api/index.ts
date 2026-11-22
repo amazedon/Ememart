@@ -1756,6 +1756,48 @@ support.post("/admin/support/:id/close", async (c) => {
   return c.json({ ok: true });
 });
 
+
+// ---------- Cloudinary (post photos) ----------
+// Secrets needed: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+async function cldSign(params: Record<string, string | number>): Promise<string> {
+  const secret = Deno.env.get("CLOUDINARY_API_SECRET");
+  if (!secret) throw new Error("Missing secret: CLOUDINARY_API_SECRET");
+  const str = Object.keys(params).sort().map((k) => `${k}=${params[k]}`).join("&") + secret;
+  const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+export async function cloudinaryDestroy(publicId: string): Promise<boolean> {
+  const cloud = Deno.env.get("CLOUDINARY_CLOUD_NAME"), key = Deno.env.get("CLOUDINARY_API_KEY");
+  if (!cloud || !key) return false;
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = await cldSign({ public_id: publicId, timestamp, invalidate: "true" });
+  const fd = new FormData();
+  fd.set("public_id", publicId); fd.set("timestamp", String(timestamp)); fd.set("invalidate", "true");
+  fd.set("api_key", key); fd.set("signature", signature);
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/image/destroy`, { method: "POST", body: fd });
+  const j = await r.json().catch(() => ({}));
+  return r.ok && (j.result === "ok" || j.result === "not found");
+}
+
+// ---------- photo upload to Cloudinary ----------
+// The app asks for a signed ticket here, then sends the photo straight to Cloudinary.
+// The API secret never leaves the server. Each user can only write inside their own folder.
+export const media = newRouter();
+const mediaHits = new Map<string, number[]>();
+media.post("/media/sign", async (c) => {
+  const uid = c.get("uid");
+  const cloud = Deno.env.get("CLOUDINARY_CLOUD_NAME"), key = Deno.env.get("CLOUDINARY_API_KEY");
+  if (!cloud || !key || !Deno.env.get("CLOUDINARY_API_SECRET")) throw new HttpError(503, "Photo storage is not set up yet");
+  const now = Date.now();
+  const hits = (mediaHits.get(uid) ?? []).filter((t) => now - t < 3600_000);
+  if (hits.length >= 60) throw new HttpError(429, "Too many uploads. Try again later.");
+  hits.push(now); mediaHits.set(uid, hits);
+  const timestamp = Math.floor(now / 1000);
+  const public_id = `ememart-posts/${uid}/${now}-${Math.floor(Math.random() * 1e6)}`;
+  const signature = await cldSign({ public_id, timestamp });
+  return c.json({ cloud_name: cloud, api_key: key, timestamp, public_id, signature });
+});
+
 const app = new Hono<AppEnv>().basePath("/api");
 
 app.use("*", async (c, next) => {
@@ -1789,6 +1831,7 @@ app.route("/", market);
 app.route("/", partners);
 app.route("/", adminRoutes);
 app.route("/", support);
+app.route("/", media);
 
 app.onError((err, c) => {
   if (err instanceof HttpError) return c.json({ error: err.message }, err.status as 400);
