@@ -15,10 +15,42 @@
   function me() { return typeof state !== 'undefined' && state.session ? state.session : null; }
   function toast(i, t, m) { try { showPopupNotif(i, t, m); } catch (e) {} }
 
-  // ---- upload a data: URL photo to the post-images bucket ----------------------------------
+  // ---- upload a photo: shrink it, then send it to Cloudinary (falls back to Supabase storage) ----
+  function shrink(dataUrl, maxSide, quality) {
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () {
+        var w = img.naturalWidth, h = img.naturalHeight, k = Math.min(1, maxSide / Math.max(w, h));
+        var cv = document.createElement('canvas'); cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+        var cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
+        cx.drawImage(img, 0, 0, cv.width, cv.height);
+        cv.toBlob(function (b) { resolve(b); }, 'image/jpeg', quality);
+      };
+      img.onerror = function () { resolve(null); };
+      img.src = dataUrl;
+    });
+  }
+  async function uploadToCloudinary(blob) {
+    var t = await window.callApi('POST', '/media/sign', {});
+    if (!t || !t.public_id) throw new Error((t && t.message) || 'Could not start the upload');
+    var fd = new FormData();
+    fd.append('file', blob); fd.append('api_key', t.api_key); fd.append('timestamp', t.timestamp);
+    fd.append('public_id', t.public_id); fd.append('signature', t.signature);
+    var r = await fetch('https://api.cloudinary.com/v1_1/' + t.cloud_name + '/image/upload', { method: 'POST', body: fd });
+    var j = await r.json();
+    if (!r.ok || !j.secure_url) throw new Error((j.error && j.error.message) || 'Photo upload failed');
+    // ask Cloudinary for a lighter copy: best format for the phone, auto quality, max 1200px wide
+    var url = j.secure_url.replace('/upload/', '/upload/f_auto,q_auto,w_1200,c_limit/');
+    return { url: url, path: 'cld:' + j.public_id };
+  }
   async function uploadImage(dataUrl, userId) {
     if (!/^data:image\//.test(dataUrl)) return { url: dataUrl, path: null };   // already a normal URL
-    var blob = await (await fetch(dataUrl)).blob();
+    var blob = (await shrink(dataUrl, 1600, 0.82)) || (await (await fetch(dataUrl)).blob());
+    try {
+      return await uploadToCloudinary(blob);
+    } catch (e) {
+      console.warn('Cloudinary upload failed, using Supabase storage instead:', e && e.message);
+    }
     var ext = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
     var path = userId + '/' + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '.' + ext;
     var up = await sb.storage.from('post-images').upload(path, blob, { contentType: blob.type, upsert: false });
