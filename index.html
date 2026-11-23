@@ -52,6 +52,8 @@
   .hero h1{font-size:clamp(2.5rem,5.6vw,4.2rem);margin-bottom:20px}
   .hero p.lead{font-size:1.2rem;color:var(--muted);max-width:36ch;margin-bottom:30px}
   .cta{display:flex;flex-wrap:wrap;gap:12px}
+  .cta-row{flex-wrap:nowrap;gap:10px}
+  .cta-row .btn{flex:1 1 0;min-width:0;padding:14px 8px;font-size:.95rem;white-space:nowrap}
   .hint{margin-top:16px;font-size:.92rem;color:var(--muted)}
   .phones{position:relative;height:560px;display:flex;justify-content:center}
   .phone{position:absolute;width:250px;border-radius:34px;border:8px solid var(--ink);background:var(--ink);overflow:hidden;box-shadow:0 26px 50px -20px rgba(15,31,25,.45)}
@@ -164,7 +166,7 @@
       <div>
         <h1>Buy and sell near you, safely.</h1>
         <p class="lead">Order fresh food, hire local artisans and book riders in your area. Your money stays in escrow until you confirm your order.</p>
-        <div class="cta">
+        <div class="cta cta-row">
           <a class="btn" href="/app.html">Open Ememart</a>
           <a class="btn ghost" href="#how">See how it works</a>
         </div>
