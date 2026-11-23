@@ -3799,18 +3799,12 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
         </div>
       </div>
       <div class="mt-4 flex flex-col gap-2 w-full max-w-xs">
-        <div class="bg-emerald-950/40 border border-emerald-900/50 rounded-xl p-3 flex items-center gap-2.5">
+        <div data-promo="deposit" class="hidden bg-emerald-950/40 border border-emerald-900/50 rounded-xl p-3 flex items-center gap-2.5">
           <span class="text-lg">🎁</span>
-          <div class="text-[10px] text-gray-300">Deposit <strong class="text-white">₦1,000+</strong> and get a <strong class="text-emerald-400">₦100 bonus</strong> instantly</div>
+          <div class="text-[10px] text-gray-300" data-promo-text="deposit-tile"></div>
         </div>
-        <div class="bg-sky-950/30 border border-sky-900/40 rounded-xl p-3 flex items-center gap-2.5">
-          <span class="text-lg">🔗</span>
-          <div class="text-[10px] text-gray-300">Refer a friend and earn <strong class="text-white">₦500</strong> when they deposit ₦1,000+</div>
-        </div>
-        <div class="bg-amber-950/30 border border-amber-900/40 rounded-xl p-3 flex items-center gap-2.5">
-          <span class="text-lg">🎖️</span>
-          <div class="text-[10px] text-gray-300">Earn <strong class="text-white">1 loyalty point per ₦100</strong> spent. Redeem for escrow fee discounts</div>
-        </div>
+        
+        
       </div>
     </div>
 
@@ -3895,9 +3889,9 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
             <div id="ob-ready-role-desc" class="text-[10px] text-gray-400 mt-0.5">You can order food and hire artisans right away</div>
           </div>
         </div>
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex items-center gap-3">
+        <div data-promo="firstorder" class="hidden bg-gray-900 border border-gray-800 rounded-xl p-3 flex items-center gap-3">
           <span class="text-xl flex-shrink-0">🎁</span>
-          <div class="text-[10px] text-gray-300">Your <strong class="text-white">₦500 first order discount</strong> is waiting — order anything from the Feed to claim it</div>
+          <div class="text-[10px] text-gray-300" data-promo-text="firstorder"></div>
         </div>
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 flex items-center gap-3">
           <span class="text-xl flex-shrink-0">🔐</span>
@@ -4768,9 +4762,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
       </label>
     </div>
     <!-- First deposit bonus info -->
-    <div class="bg-indigo-950/30 border border-indigo-900/40 rounded-xl p-3 text-[10px] text-indigo-300 leading-relaxed">
-      🎁 <strong>New user bonus:</strong> Deposit ₦1,000+ and get ₦100 cashback instantly!
-    </div>
+    <div data-promo="deposit" class="hidden bg-indigo-950/30 border border-indigo-900/40 rounded-xl p-3 text-[10px] text-indigo-300 leading-relaxed" data-promo-text="deposit-modal"></div>
   </div>
 
 
@@ -5050,8 +5042,8 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
         <div><div class="text-[10px] text-sky-300 uppercase font-black tracking-wider">📅 My bookings</div><div class="text-[9px] text-gray-500 mt-0.5">Pre-orders you made or received</div></div>
         <button onclick="openMyBookings()" class="btn-sm-outline text-sky-300 border-sky-900/50 text-[9px]">Open</button>
       </div>
-      <!-- Loyalty Points -->
-      <div class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex items-center justify-between">
+      <!-- Loyalty Points (hidden until it is built on the server) -->
+      <div style="display:none" class="bg-gray-950 border border-gray-800 rounded-xl p-3 flex items-center justify-between">
         <div>
           <div class="text-[10px] text-gray-400 uppercase font-black tracking-wider">🎖️ Loyalty Points</div>
           <div id="acc-loyalty-pts" class="text-sm font-black text-amber-400 mono">0 pts</div>
@@ -5059,8 +5051,8 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
         </div>
         <button onclick="openLoyaltyModal()" class="btn-sm-outline text-amber-400 border-amber-900/50 text-[9px]">Redeem</button>
       </div>
-      <!-- Referral + Cashback -->
-      <div class="bg-indigo-950/30 border border-indigo-900/40 rounded-xl p-3 flex flex-col gap-2">
+      <!-- Referral + Cashback (hidden until it is built on the server) -->
+      <div style="display:none" class="bg-indigo-950/30 border border-indigo-900/40 rounded-xl p-3 flex flex-col gap-2">
         <div class="flex items-center justify-between">
           <div>
             <div class="text-[10px] text-indigo-300 uppercase font-black tracking-wider">🔗 Referral & Cashback</div>
@@ -5702,15 +5694,15 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
 <div id="delivery-code-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="modal-sheet flex flex-col gap-4">
     <div class="flex justify-between items-center">
-      <div><h3 class="text-base font-black text-white">✅ Confirm Delivery</h3><p class="text-[10px] text-gray-400">Enter the 4-digit code from the buyer</p></div>
+      <div><h3 class="text-base font-black text-white">✅ Confirm Delivery</h3><p class="text-[10px] text-gray-400">Enter the 6-digit code from the customer</p></div>
       <button onclick="document.getElementById('delivery-code-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black">✕</button>
     </div>
     <div class="bg-emerald-950/30 border border-emerald-900/50 rounded-xl p-3 text-[10px] text-emerald-300 leading-relaxed">
-      Ask the buyer for their <strong>4-digit delivery code</strong> to confirm delivery and trigger escrow release.
+      Ask the customer for their <strong>6-digit delivery code</strong>. A correct code confirms the handover and releases the payment right away.
     </div>
     <div class="flex flex-col gap-1">
       <label class="label-sm">Buyer's Delivery Code</label>
-      <input type="number" id="delivery-code-input" placeholder="0000" maxlength="4" class="inp text-center text-3xl font-black tracking-widest" style="letter-spacing:0.4em;">
+      <input type="text" inputmode="numeric" autocomplete="off" id="delivery-code-input" placeholder="000000" maxlength="6" class="inp text-center text-3xl font-black tracking-widest" style="letter-spacing:0.3em;">
     </div>
     <!-- Proof of delivery photo -->
     <div class="flex flex-col gap-1">
@@ -9651,6 +9643,7 @@ function renderVendorPortalOrders(){
         ${o.acceptBy && o.status==='pending' ? `<div class="w-full text-[10px] font-black text-amber-400">Accept or decline within <span class="mono" data-accept-by="${o.acceptBy}">--:--</span>, or the customer is refunded.</div>` : ''}
         ${o.deliverBy && ['accepted','preparing','ready'].includes(o.status) ? `<div class="w-full text-[10px] font-black text-gray-400">Deliver by ${new Date(o.deliverBy).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>` : ''}
         ${canAdvance ? `<button onclick="advanceOrderStatus('${o.postId}','${o.id}')" class="btn-primary flex-1 py-2 text-[10px]">${nextAction[o.status||'pending']}</button>` : ''}
+        ${o.prepStatus==='on_the_way' && !o.hasRider && o.serverStatus==='held' ? `<button onclick="openHandover('${o.id}')" class="btn-primary flex-1 py-2 text-[10px]">Enter delivery code</button>` : ''}
         ${o.acceptBy && o.status==='pending' ? `<button onclick="declineOrderAsSeller('${o.id}')" class="btn-sm-outline flex-1 py-2 text-[10px] text-red-400">Decline</button>` : ''}
         <button onclick="msgVendor('${o.buyerId}','${o.buyerName}')" class="btn-sm-outline flex-1 py-2 text-[10px]">💬 Message</button>
         ${o.status==='delivered' && o.escrow ? `<button onclick="releaseEscrow('${o.postId}','${o.id}')" class="btn-primary flex-1 py-2 text-[10px] bg-amber-500 hover:bg-amber-400 text-gray-900">💰 Release Escrow</button>` : ''}
@@ -12307,6 +12300,32 @@ const ESCROW_FEE_BUYER  = 45;
 const ESCROW_FEE_SELLER = 90;
 const AUTO_RELEASE_MS   = 48 * 60 * 60 * 1000; // 48 hours
 const FIRST_ORDER_DISCOUNT = 500;
+// Promotions come from the admin dashboard. Everything is off until switched on there.
+window.PROMO = { depositBonus: null, firstOrder: 0 };
+async function loadPromos(){
+  try {
+    const [pr, es] = await Promise.all([
+      window.sb.from('app_settings').select('value').eq('key','promos').maybeSingle(),
+      window.sb.from('app_settings').select('value').eq('key','escrow').maybeSingle()
+    ]);
+    const d = pr.data && pr.data.value && pr.data.value.deposit_bonus;
+    window.PROMO.depositBonus = d && d.enabled && Number(d.bonus_kobo) > 0 ? { min: Number(d.min_kobo)/100, bonus: Number(d.bonus_kobo)/100 } : null;
+    const ev = (es.data && es.data.value) || {};
+    window.PROMO.firstOrder = Math.min(Number(ev.first_order_discount || 0), Number(ev.fee_buyer || 0)) / 100;   // the discount can never be more than the Customer's escrow fee
+  } catch(e){ window.PROMO.depositBonus = null; window.PROMO.firstOrder = 0; }
+  applyPromoUI();
+}
+function applyPromoUI(){
+  const P = window.PROMO, n = v => '₦' + Number(v).toLocaleString();
+  document.querySelectorAll('[data-promo="deposit"]').forEach(e => e.classList.toggle('hidden', !P.depositBonus));
+  document.querySelectorAll('[data-promo="firstorder"]').forEach(e => e.classList.toggle('hidden', !(P.firstOrder > 0)));
+  if(P.depositBonus){
+    document.querySelectorAll('[data-promo-text="deposit-tile"]').forEach(e => e.innerHTML = 'Your first deposit of <strong class="text-white">' + n(P.depositBonus.min) + '+</strong> earns a <strong class="text-emerald-400">' + n(P.depositBonus.bonus) + ' bonus</strong>');
+    document.querySelectorAll('[data-promo-text="deposit-modal"]').forEach(e => e.innerHTML = '<strong>Welcome bonus:</strong> your first deposit of ' + n(P.depositBonus.min) + '+ earns ' + n(P.depositBonus.bonus) + ' extra.');
+  }
+  if(P.firstOrder > 0) document.querySelectorAll('[data-promo-text="firstorder"]').forEach(e => e.innerHTML = 'Your <strong class="text-white">' + n(P.firstOrder) + ' first order discount</strong> is waiting. Order anything from the Feed to claim it');
+}
+setTimeout(loadPromos, 1500);
 
 // Active order context (set when showOrderConfirmation runs)
 
@@ -12473,13 +12492,14 @@ checkOverdueEscrows();
 
 // --- First order discount logic ---
 function applyFirstOrderDiscount(order){
+  if(!(window.PROMO && window.PROMO.firstOrder > 0)) return;
   if(localStorage.getItem('ememart_first_order_dismissed')) return;
   if(!order) return;
   order.total = Math.max(0, (order.total||0) - FIRST_ORDER_DISCOUNT);
   showPopupNotif('🎉','First Order Discount!',`₦${fmt(FIRST_ORDER_DISCOUNT)} discount applied to your first order!`);
 }
 function checkFirstOrderDiscount(){
-  if(!state.session) return;
+  if(!state.session || !(window.PROMO && window.PROMO.firstOrder > 0)) return;
   const used = localStorage.getItem('ememart_first_order_used');
   const dismissed = localStorage.getItem('ememart_first_order_dismissed');
   if(!used && !dismissed){
@@ -12964,7 +12984,7 @@ function renderBuyerOrders(){
 
   myOrders.sort((a,b)=>b.ts-a.ts).forEach(o => {
     const isActive  = activeStatuses.includes(o.status);
-    const canCancel = o.status==='pending' && (Date.now()-o.ts)<5*60*1000;
+    const canCancel = o.status==='pending' && (window.EMEMART_BACKEND && window.EMEMART_BACKEND.mode === 'live' ? !!o.acceptBy : (Date.now()-o.ts)<5*60*1000);
     const hasTracking = !!getTrackingRecord(o.id);
     const div = document.createElement('div');
     div.className = `bg-gray-950 border ${isActive?'border-sky-900/40':'border-gray-800'} rounded-xl p-3 flex flex-col gap-1.5`;
@@ -12986,6 +13006,7 @@ function renderBuyerOrders(){
         </div>
       </div>
       ${o.acceptBy && o.status==='pending' ? `<div class="text-[10px] font-black text-amber-400">Waiting for the Partner to accept: <span class="mono" data-accept-by="${o.acceptBy}">--:--</span>. If they do not accept, you are refunded automatically.</div>` : ''}
+      ${o.deliveryCode && o.serverStatus==='held' ? `<div class="bg-indigo-950/40 border border-indigo-900/50 rounded-xl p-2.5 flex items-center justify-between gap-2"><div><div class="text-[9px] text-indigo-300 font-black">Your delivery code</div><div class="text-[9px] text-gray-400 leading-snug">Give it only when you have your order. It releases the payment right away.</div></div><div class="text-lg font-black text-white mono tracking-widest">${o.deliveryCode}</div></div>` : ''}
       ${o.autoReleaseAt && o.status==='delivered' ? `<div class="text-[10px] font-black text-emerald-400">Payment releases to the Partner in <span class="mono" data-release-at="${o.autoReleaseAt}">--:--:--</span>. Confirm now, or open a dispute if something is wrong.</div>` : ''}
       ${isActive ? `<div class="h-1 bg-gray-800 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-sky-500 to-emerald-500 rounded-full transition-all duration-700" style="width:${{'pending':10,'accepted':30,'picked_up':60,'on_the_way':85,'delivered':100}[o.status]||10}%"></div></div>` : ''}`;
     w.appendChild(div);
