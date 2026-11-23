@@ -1067,7 +1067,11 @@ orders.get("/orders", async (c) => {
   const ids = [...new Set((data ?? []).flatMap((o: any) => [o.buyer_id, o.seller_id]))];
   const { data: profs } = ids.length ? await admin.from("public_profiles").select("id, full_name, area").in("id", ids) : { data: [] };
   const name = new Map((profs ?? []).map((p: any) => [p.id, p]));
-  const out = (data ?? []).map((o: any) => ({ ...o, buyer_name: name.get(o.buyer_id)?.full_name ?? "", seller_name: name.get(o.seller_id)?.full_name ?? "" }));
+  // Only the Customer is shown the delivery code. Partners and Riders never receive it.
+  const mine = (data ?? []).filter((o: any) => o.buyer_id === uid && ["held", "delivered"].includes(o.status)).map((o: any) => o.id);
+  const { data: codes } = mine.length ? await admin.from("order_codes").select("order_id, code").in("order_id", mine) : { data: [] };
+  const codeOf = new Map((codes ?? []).map((r: any) => [r.order_id, r.code]));
+  const out = (data ?? []).map((o: any) => ({ ...o, buyer_name: name.get(o.buyer_id)?.full_name ?? "", seller_name: name.get(o.seller_id)?.full_name ?? "", delivery_code: codeOf.get(o.id) ?? null }));
   return c.json({ orders: out });
 });
 
@@ -1092,6 +1096,34 @@ orders.post("/orders/:id/deliver", async (c) => {
   return c.json({ ok: true });
 });
 
+// The Partner (or the Rider, when one is assigned) enters the Customer's 6-digit code at handover.
+// A correct code releases the payment immediately. Five wrong tries lock the code.
+orders.post("/orders/:id/handover", async (c) => {
+  const uid = c.get("uid");
+  const b = await parseBody(c, z.object({ code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code") }));
+  const { data: o } = await admin.from("orders").select("*").eq("id", c.req.param("id")).maybeSingle();
+  if (!o) throw new HttpError(404, "Order not found");
+  const isRider = !!o.rider_id && o.rider_id === uid;
+  const isSeller = o.seller_id === uid && !o.rider_id;
+  if (!isRider && !isSeller) throw new HttpError(403, "Only the Partner or Rider handing over this order can enter the code");
+  if (!["held", "delivered"].includes(o.status)) throw new HttpError(400, `Order is ${o.status}`);
+  if (o.delivery_status !== "on_the_way" && o.prep_status !== "on_the_way") throw new HttpError(400, "The order is not on its way yet");
+  const { data: row } = await admin.from("order_codes").select("code, attempts").eq("order_id", o.id).maybeSingle();
+  if (!row) throw new HttpError(400, "There is no delivery code for this order yet");
+  if (row.attempts >= 5) throw new HttpError(429, "Too many wrong codes. Ask the customer to confirm delivery in their app instead.");
+  if (row.code !== b.code) {
+    await admin.from("order_codes").update({ attempts: row.attempts + 1 }).eq("order_id", o.id);
+    throw new HttpError(400, `Wrong code. ${4 - row.attempts} ${4 - row.attempts === 1 ? "try" : "tries"} left.`);
+  }
+  const { error } = await admin.rpc("release_order", { p_order: o.id });
+  if (error) throw new HttpError(500, error.message);
+  const now = new Date().toISOString();
+  await admin.from("orders").update({ delivery_status: "delivered", delivered_at: o.delivered_at ?? now, ...(isRider ? { rider_delivered_at: now } : {}) }).eq("id", o.id);
+  await notify(o.buyer_id, "order_delivered", "Order delivered", "Your delivery code was entered and the payment has been released to the Partner.", { order: o.id });
+  await audit(uid, "order.handover_code", o.id);
+  return c.json({ ok: true });
+});
+
 // Buyer confirms: money goes to seller
 orders.post("/orders/:id/confirm", async (c) => {
   const o = await myOrder(c.req.param("id"), c.get("uid"));
@@ -1102,14 +1134,23 @@ orders.post("/orders/:id/confirm", async (c) => {
   return c.json({ ok: true });
 });
 
-// Seller cancels: buyer is fully refunded
+// Cancel: the seller any time while held, or the Customer until the Partner accepts. Buyer is fully refunded.
 orders.post("/orders/:id/cancel", async (c) => {
   const o = await myOrder(c.req.param("id"), c.get("uid"));
-  if (o.seller_id !== c.get("uid")) throw new HttpError(403, "Only the seller can cancel");
+  const byBuyer = o.buyer_id === c.get("uid");
+  if (!byBuyer && o.seller_id !== c.get("uid")) throw new HttpError(403, "Not your order");
   if (o.status !== "held") throw new HttpError(400, `Order is ${o.status}`);
+  // A Customer can cancel at any time until the Partner accepts. After that, only the Partner can cancel.
+  if (byBuyer && o.accepted_at) throw new HttpError(400, "The Partner has already accepted this order. Message them, or open a dispute if there is a problem.");
   const { error } = await admin.rpc("refund_order", { p_order: o.id });
   if (error) throw new HttpError(500, error.message);
-  await notify(o.buyer_id, "order_cancelled", "Order cancelled", "The seller cancelled. You have been refunded.", { order: o.id });
+  if (byBuyer) {
+    await notify(o.seller_id, "order_cancelled", "Order cancelled", "The customer cancelled before you accepted. No action needed.", { order: o.id });
+    await notify(o.buyer_id, "order_cancelled", "Order cancelled", "You cancelled. Your money is back in your wallet in full.", { order: o.id });
+    await audit(c.get("uid"), "order.cancelled_by_buyer", o.id);
+  } else {
+    await notify(o.buyer_id, "order_cancelled", "Order cancelled", "The seller cancelled. You have been refunded.", { order: o.id });
+  }
   return c.json({ ok: true });
 });
 
@@ -1318,6 +1359,23 @@ adminRoutes.put("/admin/settings/funding_fees", async (c) => {
   const { error } = await admin.from("app_settings").upsert({ key: "funding_fees", value: next, updated_at: new Date().toISOString() });
   if (error) throw new HttpError(400, error.message);
   await audit(c.get("uid"), "settings.funding_fees_updated", "funding_fees", { before: cur, after: next });
+  return c.json({ ok: true, settings: next });
+});
+
+// ----- promotions (off until switched on in the admin Settings tab) -----
+adminRoutes.put("/admin/settings/promos", async (c) => {
+  need(c, "finance");
+  const b = await parseBody(c, z.object({
+    deposit_bonus: z.object({
+      enabled: z.boolean(), min_kobo: z.number().int().min(0).max(100_000_000), bonus_kobo: z.number().int().min(0).max(100_000_000),
+    }).optional(),
+  }));
+  const { data: row } = await admin.from("app_settings").select("value").eq("key", "promos").maybeSingle();
+  const cur = (row?.value ?? {}) as any;
+  const next = { ...cur, ...Object.fromEntries(Object.entries(b).filter(([, v]) => v !== undefined)) };
+  const { error } = await admin.from("app_settings").upsert({ key: "promos", value: next, updated_at: new Date().toISOString() });
+  if (error) throw new HttpError(400, error.message);
+  await audit(c.get("uid"), "settings.promos_updated", "promos", { before: cur, after: next });
   return c.json({ ok: true, settings: next });
 });
 
@@ -1693,7 +1751,8 @@ partners.post("/rider/jobs/:id/status", async (c) => {
   if (b.status === "delivered") patch.rider_delivered_at = new Date().toISOString();
   await admin.from("orders").update(patch).eq("id", o.id);
   const text = { picked_up: "Your order was picked up.", on_the_way: "Your rider is on the way.", delivered: "The rider marked your order as delivered. Please confirm in the app." }[b.status];
-  await notify(o.buyer_id, "delivery_" + b.status, "Delivery update", text, { order: o.id });
+  const body = b.status === "on_the_way" ? deliveryCodeText(await ensureDeliveryCode(o.id), "rider") : text;
+  await notify(o.buyer_id, "delivery_" + b.status, "Delivery update", body, { order: o.id });
   await audit(c.get("uid"), "rider." + b.status, o.id);
   return c.json({ ok: true });
 });
@@ -1726,7 +1785,8 @@ partners.post("/orders/:id/progress", async (c) => {
     accepted: "The Partner accepted your order.", preparing: "Your order is being prepared.",
     ready: "Your order is ready.", on_the_way: "Your order is on the way.",
   };
-  await notify(o.buyer_id, "order_" + b.step, "Order update", text[b.step], { order: o.id });
+  const body = b.step === "on_the_way" ? deliveryCodeText(await ensureDeliveryCode(o.id), "Partner") : text[b.step];
+  await notify(o.buyer_id, "order_" + b.step, "Order update", body, { order: o.id });
   await audit(uid, "order." + b.step, o.id);
   return c.json({ ok: true, step: b.step });
 });
@@ -1897,6 +1957,24 @@ media.post("/media/sign", async (c) => {
   const signature = await cldSign({ public_id, timestamp });
   return c.json({ cloud_name: cloud, api_key: key, timestamp, public_id, signature });
 });
+
+// ---------- 6-digit delivery code ----------
+// Created when the order goes "on the way". Kept in order_codes, which only the server can read.
+async function ensureDeliveryCode(orderId: string): Promise<string> {
+  const { data: ex } = await admin.from("order_codes").select("code").eq("order_id", orderId).maybeSingle();
+  if (ex) return ex.code;
+  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, "0");
+  const { error } = await admin.from("order_codes").insert({ order_id: orderId, code });
+  if (error) {
+    const { data } = await admin.from("order_codes").select("code").eq("order_id", orderId).maybeSingle();
+    if (data) return data.code;
+    throw new HttpError(500, "Could not create the delivery code");
+  }
+  return code;
+}
+function deliveryCodeText(code: string, who: string): string {
+  return `Your order is on the way. Your delivery code is ${code}. Give it to the ${who} only when you have your order in your hands. Entering it releases the payment right away.`;
+}
 
 const app = new Hono<AppEnv>().basePath("/api");
 
