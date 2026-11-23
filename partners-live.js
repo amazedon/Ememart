@@ -158,7 +158,7 @@
       '<div class="flex items-end justify-between gap-2"><div><div class="text-[10px] text-gray-500 font-bold">You earn</div><div class="text-emerald-500 font-black text-base">' + naira(j.earn_kobo != null ? j.earn_kobo : j.delivery_fee_kobo) + '</div>' +
       '<div class="text-[10px] text-gray-500">Delivery fee ' + naira(j.delivery_fee_kobo) + ' less EMEMART fee</div></div>' + (actions || '') + '</div></div>';
   }
-  var NEXT = { accepted: ['picked_up', 'Picked up'], picked_up: ['on_the_way', 'On the way'], on_the_way: ['delivered', 'Delivered'] };
+  var NEXT = { accepted: ['picked_up', 'Picked up'], picked_up: ['on_the_way', 'On the way'], on_the_way: ['delivered', 'Enter delivery code'] };
   async function loadEarnings() {
     try {
       var r = await api('GET', '/rider/earnings');
@@ -211,6 +211,7 @@
     try { await api('POST', '/rider/jobs/' + id + '/drop'); renderRiderActiveDeliveries(); } catch (e) { toast('⚠️', 'Cannot drop', e.message || ''); }
   };
   window.riderStep = async function (id, status) {
+    if (status === 'delivered') { if (typeof openHandover === 'function') openHandover(id); return; }   // the Customer's 6-digit code confirms handover
     try { await api('POST', '/rider/jobs/' + id + '/status', { status: status }); renderRiderActiveDeliveries(); if (status === 'delivered') toast('✅', 'Delivered', 'The customer was asked to confirm.'); }
     catch (e) { toast('❌', 'Could not update', e.message || 'Try again.'); }
   };
