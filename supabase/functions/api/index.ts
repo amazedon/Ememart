@@ -180,6 +180,48 @@ export async function transfer(p: {
 
 export const requeryTransfer = (ref: string) => call("POST", "/payout/requery", { transaction_reference: ref });
 
+/** Funding fee the Customer pays (set in the admin dashboard). Never more than the amount minus 1 kobo. */
+export function fundingFee(cfg: any, kind: "transfer" | "checkout", amountKobo: number): number {
+  const c = cfg?.[kind] ?? {};
+  let fee = Math.round(amountKobo * (Number(c.percent_bps) || 0) / 10000) + (Number(c.flat_kobo) || 0);
+  const cap = Number(c.cap_kobo) || 0;
+  if (cap > 0 && fee > cap) fee = cap;
+  return Math.max(0, Math.min(fee, amountKobo - 1));
+}
+export async function getFundingFees() {
+  const { data } = await admin.from("app_settings").select("value").eq("key", "funding_fees").maybeSingle();
+  return (data?.value ?? {}) as any;
+}
+
+/** Static virtual account for one customer. The BVN is sent to Squad and never stored by Ememart. */
+export async function createVirtualAccount(p: {
+  customerId: string; firstName: string; lastName: string; mobile: string; email?: string | null;
+  bvn: string; dob: string; gender: string; address: string;
+}) {
+  const body: Record<string, unknown> = {
+    customer_identifier: p.customerId, first_name: p.firstName, last_name: p.lastName, mobile_num: p.mobile,
+    bvn: p.bvn, dob: p.dob, gender: p.gender, address: p.address,
+  };
+  if (p.email) body.email = p.email;
+  const ben = Deno.env.get("SQUAD_BENEFICIARY_ACCOUNT");   // your settlement account, only if Squad asks for it
+  if (ben) body.beneficiary_account = ben;
+  const r = await call("POST", "/virtual-account", body);
+  const d = r.data?.data;
+  if (r.httpStatus !== 200 || !d?.virtual_account_number) {
+    throw new Error(String(r.data?.message ?? "Could not create the account number"));
+  }
+  return { accountNumber: String(d.virtual_account_number), bankCode: String(d.bank_code ?? "") };
+}
+
+/** Ask Squad for this customer's transactions and find the one named in the webhook (never trust the webhook body alone). */
+export async function verifyVaTransaction(customerId: string, ref: string): Promise<{ found: boolean; amountKobo: number }> {
+  const r = await call("GET", `/virtual-account/customer/transactions/${encodeURIComponent(customerId)}`);
+  const list: any[] = Array.isArray(r.data?.data) ? r.data.data : [];
+  const t = list.find((x) => String(x.transaction_reference) === ref && String(x.transaction_indicator ?? "C") === "C");
+  if (r.httpStatus !== 200 || !t) return { found: false, amountKobo: 0 };
+  return { found: true, amountKobo: Math.round(parseFloat(String(t.principal_amount)) * 100) };
+}
+
 /** HMAC-SHA512 signature check. Squad's docs are unclear whether the raw text or re-serialised JSON is signed,
  *  so accept a match on either. */
 export async function validWebhookSignature(rawBody: string, header: string | null): Promise<boolean> {
@@ -832,6 +874,48 @@ wallet.get("/wallet", async (c) => {
   return c.json({ balance_kobo: w?.balance_kobo ?? 0, limits: limits[tierOf(p.verified)], entries: entries ?? [] });
 });
 
+// ----- bank transfer funding: each customer gets their own account number -----
+const vaCustomerId = (uid: string) => `EME_${uid}`;
+wallet.get("/wallet/va", async (c) => {
+  const { data } = await admin.from("virtual_accounts").select("account_number, bank_name, account_name").eq("user_id", c.get("uid")).maybeSingle();
+  return c.json({ account: data ?? null });
+});
+wallet.post("/wallet/va", async (c) => {
+  const p = c.get("profile");
+  if (p.country !== "NG") throw new HttpError(403, "Bank transfer funding is only available in Nigeria for now");
+  const { data: ex } = await admin.from("virtual_accounts").select("account_number, bank_name, account_name").eq("user_id", p.id).maybeSingle();
+  if (ex) return c.json({ account: ex });
+  const b = await parseBody(c, z.object({
+    bvn: z.string().regex(/^\d{11}$/, "BVN must be 11 digits"),
+    dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter your date of birth"),
+    gender: z.enum(["1", "2"]),
+    address: z.string().trim().min(5, "Enter your address").max(200),
+    mobile: z.string().trim().max(20).optional(),
+  }));
+  const [yy, mm, dd] = b.dob.split("-");
+  if (isNaN(Date.parse(b.dob)) || Number(yy) < 1900) throw new HttpError(400, "Enter a valid date of birth");
+  let mobile = String(b.mobile || p.phone || "").replace(/\D/g, "");
+  if (mobile.startsWith("234")) mobile = "0" + mobile.slice(3);
+  if (mobile.length < 10) throw new HttpError(400, "Enter your phone number");
+  const parts = String(p.full_name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) throw new HttpError(400, "Add your full name to your profile first");
+  let acc;
+  try {
+    acc = await createVirtualAccount({
+      customerId: vaCustomerId(p.id), firstName: parts[0], lastName: parts.slice(1).join(" ") || parts[0], mobile,
+      email: p.email ?? c.get("email"), bvn: b.bvn, dob: `${mm}/${dd}/${yy}`, gender: b.gender, address: b.address,
+    });
+  } catch (e) { throw new HttpError(400, (e as Error).message); }
+  const row = {
+    user_id: p.id, account_number: acc.accountNumber, account_name: p.full_name,
+    bank_name: BANKS.find((x) => x.code === acc.bankCode)?.name ?? (acc.bankCode === "058" ? "GTBank" : "Bank"),
+  };
+  const ins = await admin.from("virtual_accounts").insert(row);
+  if (ins.error) throw new HttpError(500, "Could not save your account number. Try again.");
+  await audit(p.id, "va.created", p.id, { bank: row.bank_name });   // never log the BVN
+  return c.json({ account: { account_number: row.account_number, bank_name: row.bank_name, account_name: row.account_name } });
+});
+
 wallet.post("/wallet/fund", async (c) => {
   const p = c.get("profile");
   if (p.country !== "NG") throw new HttpError(403, "Wallet funding is only available in Nigeria for now");
@@ -843,11 +927,12 @@ wallet.post("/wallet/fund", async (c) => {
   const email = p.email ?? c.get("email");
   if (!email) throw new HttpError(400, "An email address is required to fund your wallet");
   const ref = `EMEFUND${Date.now()}${crypto.randomUUID().slice(0, 8)}`.toUpperCase();
-  await admin.from("funding_intents").insert({ ref, user_id: p.id, amount_kobo });
+  const fee_kobo = fundingFee(await getFundingFees(), "checkout", amount_kobo);
+  await admin.from("funding_intents").insert({ ref, user_id: p.id, amount_kobo, fee_kobo });
   const checkout_url = await initiatePayment({
     ref, email, amountKobo: amount_kobo, name: p.full_name, callbackUrl: Deno.env.get("PAYMENT_CALLBACK_URL"),
   });
-  return c.json({ ref, checkout_url });
+  return c.json({ ref, checkout_url, fee_kobo });
 });
 
 wallet.get("/wallet/banks", (c) => c.json({ banks: BANKS }));
@@ -1218,6 +1303,21 @@ adminRoutes.put("/admin/settings/escrow", async (c) => {
   const { error } = await admin.from("app_settings").upsert({ key: "escrow", value: next, updated_at: new Date().toISOString() });
   if (error) throw new HttpError(400, error.message);
   await audit(c.get("uid"), "settings.escrow_updated", "escrow", { before: cur, after: next });
+  return c.json({ ok: true, settings: next });
+});
+
+// ----- wallet funding fees (editable in the admin Settings tab) -----
+adminRoutes.put("/admin/settings/funding_fees", async (c) => {
+  need(c, "finance");
+  const rule = z.object({
+    percent_bps: z.number().int().min(0).max(1000), flat_kobo: z.number().int().min(0).max(500_000), cap_kobo: z.number().int().min(0).max(5_000_000),
+  });
+  const b = await parseBody(c, z.object({ transfer: rule.optional(), checkout: rule.optional() }));
+  const cur = await getFundingFees();
+  const next = { ...cur, ...Object.fromEntries(Object.entries(b).filter(([, v]) => v !== undefined)) };
+  const { error } = await admin.from("app_settings").upsert({ key: "funding_fees", value: next, updated_at: new Date().toISOString() });
+  if (error) throw new HttpError(400, error.message);
+  await audit(c.get("uid"), "settings.funding_fees_updated", "funding_fees", { before: cur, after: next });
   return c.json({ ok: true, settings: next });
 });
 
