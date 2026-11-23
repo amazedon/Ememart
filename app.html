@@ -4810,7 +4810,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
     <div class="flex justify-between items-center">
       <div>
         <h3 class="text-base font-black text-white">💳 Fund Wallet</h3>
-        <p class="text-[10px] text-gray-400 mt-0.5">Card, Bank Transfer or USSD</p>
+        <p class="text-[10px] text-gray-400 mt-0.5">Bank transfer, card or USSD</p>
       </div>
       <button onclick="document.getElementById('deposit-modal').classList.add('hidden')" class="text-gray-400 hover:text-white text-lg font-black">✕</button>
     </div>
@@ -4818,16 +4818,49 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
       <span class="text-xs text-gray-400 font-bold">Current Balance</span>
       <span id="dep-balance-display" class="text-base font-black text-emerald-400 mono">₦0.00</span>
     </div>
+    <div class="rounded-xl border border-gray-800 p-3 flex flex-col gap-2">
+      <div class="flex items-center gap-2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-400"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8"/><path d="M3 20h18"/></svg>
+        <span class="text-xs font-black text-white">Pay by bank transfer</span>
+      </div>
+      <p id="va-loading" class="text-[11px] text-gray-400">Loading your account number...</p>
+      <div id="va-display" class="hidden flex flex-col gap-2">
+        <div class="flex justify-between items-center bg-emerald-950/40 border border-emerald-900/50 rounded-lg p-3">
+          <div>
+            <div id="va-bank-name" class="text-[11px] text-gray-400 font-bold"></div>
+            <div id="va-account-number" class="text-lg font-black text-emerald-400 mono tracking-wider"></div>
+            <div id="va-account-name" class="text-[10px] text-gray-500"></div>
+          </div>
+          <button onclick="copyVirtualAccountNumber()" class="btn-sm-outline px-3 py-2">Copy</button>
+        </div>
+        <p class="text-[10px] text-gray-500 leading-relaxed">Send any amount from any bank app to this account. Your wallet is credited automatically, usually within a minute.</p>
+        <p id="va-fee-note" class="hidden text-[10px] text-amber-400 leading-relaxed"></p>
+      </div>
+      <div id="va-setup" class="hidden flex flex-col gap-2">
+        <p class="text-[11px] text-gray-400 leading-relaxed">Get your own account number once. Your BVN is sent to our payment partner Squad to open it. Ememart does not keep your BVN.</p>
+        <input id="va-bvn" inputmode="numeric" maxlength="11" placeholder="BVN (11 digits)" class="inp">
+        <div class="flex gap-2">
+          <input id="va-dob" type="date" class="inp flex-1" aria-label="Date of birth">
+          <select id="va-gender" class="inp flex-1" aria-label="Gender"><option value="">Gender</option><option value="1">Male</option><option value="2">Female</option></select>
+        </div>
+        <input id="va-address" placeholder="Home address" class="inp">
+        <input id="va-mobile" inputmode="tel" placeholder="Phone number" class="inp">
+        <button id="va-create-btn" onclick="createVirtualAccountUI()" class="btn-primary py-3">Get my account number</button>
+      </div>
+      <p id="va-error" class="hidden text-[11px] text-red-400"></p>
+    </div>
+    <div class="text-[11px] text-gray-500 font-bold text-center">or pay with card or USSD</div>
     <div class="flex flex-col gap-1">
       <label class="label-sm">Amount to Fund (₦)</label>
-      <input type="number" id="dep-amount" placeholder="Enter amount (min ₦100)" class="inp" min="100">
+      <input type="number" id="dep-amount" placeholder="Enter amount (min ₦100)" class="inp" min="100" oninput="updateFundFee()">
+      <p id="dep-fee-note" class="hidden text-[10px] text-amber-400 leading-relaxed"></p>
     </div>
     <div class="flex gap-2 flex-wrap">
-      <button onclick="document.getElementById('dep-amount').value=500" class="tab-pill">₦500</button>
-      <button onclick="document.getElementById('dep-amount').value=1000" class="tab-pill">₦1,000</button>
-      <button onclick="document.getElementById('dep-amount').value=2000" class="tab-pill">₦2,000</button>
-      <button onclick="document.getElementById('dep-amount').value=5000" class="tab-pill">₦5,000</button>
-      <button onclick="document.getElementById('dep-amount').value=10000" class="tab-pill">₦10,000</button>
+      <button onclick="document.getElementById('dep-amount').value=500;updateFundFee()" class="tab-pill">₦500</button>
+      <button onclick="document.getElementById('dep-amount').value=1000;updateFundFee()" class="tab-pill">₦1,000</button>
+      <button onclick="document.getElementById('dep-amount').value=2000;updateFundFee()" class="tab-pill">₦2,000</button>
+      <button onclick="document.getElementById('dep-amount').value=5000;updateFundFee()" class="tab-pill">₦5,000</button>
+      <button onclick="document.getElementById('dep-amount').value=10000;updateFundFee()" class="tab-pill">₦10,000</button>
     </div>
     <button id="dep-confirm-btn" onclick="confirmDeposit()" class="btn-primary py-3">💳 Pay with Squad</button>
     <p class="text-[10px] text-gray-500 text-center">Secured by Squad · Supports Card, Bank Transfer & USSD</p>
@@ -8619,35 +8652,92 @@ function doDeposit(){
 
 let _virtualAccountNumber = null;
 
-async function loadVirtualAccount(){
-  return; // dedicated accounts removed: wallet is funded through Squad checkout
-  const loadingEl = el('va-loading');
-  const notEligibleEl = el('va-not-eligible');
-  const displayEl = el('va-display');
-  loadingEl?.classList.remove('hidden');
-  notEligibleEl?.classList.add('hidden');
-  displayEl?.classList.add('hidden');
-
+let _fundFees = null;
+async function loadFundFees(){
   try {
-    const res = await apiPost('virtual_account.php', 'get', {});
-    loadingEl?.classList.add('hidden');
+    const r = await window.sb.from('app_settings').select('value').eq('key','funding_fees').maybeSingle();
+    _fundFees = (r.data && r.data.value) || {};
+  } catch(e){ _fundFees = _fundFees || {}; }
+  updateFundFee();
+}
+function fundFeeFor(kind, naira){
+  const c = (_fundFees && _fundFees[kind]) || {}, kobo = Math.round(naira * 100);
+  let fee = Math.round(kobo * (Number(c.percent_bps)||0) / 10000) + (Number(c.flat_kobo)||0);
+  const cap = Number(c.cap_kobo)||0; if(cap > 0 && fee > cap) fee = cap;
+  return Math.max(0, Math.min(fee, kobo - 1)) / 100;
+}
+function feeRuleText(kind){
+  const c = (_fundFees && _fundFees[kind]) || {}, parts = [];
+  if(Number(c.percent_bps)) parts.push((Number(c.percent_bps)/100) + '%');
+  if(Number(c.flat_kobo)) parts.push('₦' + (Number(c.flat_kobo)/100).toLocaleString());
+  if(!parts.length) return '';
+  let t = 'Funding fee: ' + parts.join(' + ');
+  if(Number(c.cap_kobo)) t += ' (most ₦' + (Number(c.cap_kobo)/100).toLocaleString() + ')';
+  return t + '. It is taken from the money you add.';
+}
+function updateFundFee(){
+  const vn = el('va-fee-note'), cn = el('dep-fee-note');
+  const vt = feeRuleText('transfer');
+  if(vn){ vn.textContent = vt; vn.classList.toggle('hidden', !vt); }
+  if(!cn) return;
+  const amt = parseFloat(el('dep-amount').value) || 0, fee = amt >= 100 ? fundFeeFor('checkout', amt) : 0;
+  if(fee > 0){
+    cn.textContent = 'Funding fee ₦' + fee.toLocaleString() + '. Your wallet gets ₦' + (amt - fee).toLocaleString() + '.';
+    cn.classList.remove('hidden');
+  } else {
+    const t = feeRuleText('checkout');
+    cn.textContent = t; cn.classList.toggle('hidden', !t);
+  }
+}
 
-    if(res.success && res.data?.account){
-      const acc = res.data.account;
-      _virtualAccountNumber = acc.account_number;
-      el('va-bank-name').textContent = acc.bank_name;
-      el('va-account-number').textContent = acc.account_number;
-      displayEl?.classList.remove('hidden');
-    } else if(res.data?.reason === 'flutterwave_failed'){
-      notEligibleEl?.classList.remove('hidden');
-      notEligibleEl.innerHTML = `⚠️ We couldn't issue you a dedicated account number (${res.data.detail || 'verification issue with your BVN'}). Please use Pay with Flutterwave above instead, or contact support.`;
-    } else {
-      notEligibleEl?.classList.remove('hidden');
+async function loadVirtualAccount(){
+  loadFundFees();
+  const loadingEl = el('va-loading'), setupEl = el('va-setup'), displayEl = el('va-display'), errEl = el('va-error');
+  errEl?.classList.add('hidden');
+  if(typeof window.getVirtualAccount !== 'function'){ loadingEl?.classList.add('hidden'); return; }
+  loadingEl?.classList.remove('hidden'); setupEl?.classList.add('hidden'); displayEl?.classList.add('hidden');
+  try {
+    const res = await window.getVirtualAccount();
+    loadingEl?.classList.add('hidden');
+    if(res.success && res.account){ showVirtualAccount(res.account); }
+    else {
+      setupEl?.classList.remove('hidden');
+      const ph = el('va-mobile'); if(ph && !ph.value && state.session && state.session.phone) ph.value = state.session.phone;
     }
   } catch(e){
     loadingEl?.classList.add('hidden');
-    notEligibleEl?.classList.remove('hidden');
+    if(errEl){ errEl.textContent = 'Could not load your account number. Use card or USSD below.'; errEl.classList.remove('hidden'); }
   }
+}
+
+function showVirtualAccount(acc){
+  _virtualAccountNumber = acc.account_number;
+  el('va-bank-name').textContent = acc.bank_name || 'Bank';
+  el('va-account-number').textContent = acc.account_number;
+  el('va-account-name').textContent = acc.account_name || '';
+  el('va-setup')?.classList.add('hidden');
+  el('va-display')?.classList.remove('hidden');
+}
+
+async function createVirtualAccountUI(){
+  const errEl = el('va-error'), btn = el('va-create-btn');
+  const say = m => { errEl.textContent = m; errEl.classList.remove('hidden'); };
+  errEl.classList.add('hidden');
+  const bvn = (el('va-bvn').value || '').replace(/\D/g,''), dob = el('va-dob').value, gender = el('va-gender').value;
+  const address = (el('va-address').value || '').trim(), mobile = (el('va-mobile').value || '').trim();
+  if(bvn.length !== 11) return say('Enter your 11-digit BVN.');
+  if(!dob) return say('Enter your date of birth.');
+  if(!gender) return say('Select your gender.');
+  if(address.length < 5) return say('Enter your home address.');
+  if(mobile.replace(/\D/g,'').length < 10) return say('Enter your phone number.');
+  btn.disabled = true; btn.textContent = 'Creating your account number...';
+  try {
+    const res = await window.createVirtualAccount({ bvn, dob, gender, address, mobile });
+    if(!res.success || !res.account) return say(res.message || 'Could not create your account number. Check your details.');
+    el('va-bvn').value = '';
+    showVirtualAccount(res.account);
+  } catch(e){ say('Connection failed. Try again.'); }
+  finally { btn.disabled = false; btn.textContent = 'Get my account number'; }
 }
 
 function copyVirtualAccountNumber(){
@@ -18634,7 +18724,7 @@ function requirePin(action, callback){
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="rules.js?v=20261116c"></script>
-<script src="backend.js?v=20261117a"></script>
+<script src="backend.js?v=20261122c"></script>
 <script src="posts-live.js?v=20261122b"></script>
 <script src="orders-live.js?v=20261122a"></script>
 <script src="partners-live.js?v=20261118a"></script>
