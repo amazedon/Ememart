@@ -170,6 +170,20 @@ export async function getFundingFees() {
   return (data?.value ?? {}) as any;
 }
 
+/** First-deposit bonus (admin Settings -> Promotions). Off by default. One bonus per Customer, ever. Returns kobo given. */
+export async function applyDepositBonus(userId: string, grossKobo: number, ref: string): Promise<number> {
+  const { data } = await admin.from("app_settings").select("value").eq("key", "promos").maybeSingle();
+  const c = data?.value?.deposit_bonus;
+  if (!c?.enabled) return 0;
+  const bonus = Number(c.bonus_kobo) || 0;
+  if (bonus <= 0 || grossKobo < (Number(c.min_kobo) || 0)) return 0;
+  const idem = `depbonus:${userId}`;
+  const { data: had } = await admin.from("ledger_entries").select("id").eq("idempotency_key", idem).maybeSingle();
+  if (had) return 0;   // already received it once
+  const r = await admin.rpc("ledger_post", { p_user: userId, p_amount: bonus, p_kind: "adjustment", p_ref: ref, p_idem: idem, p_meta: { reason: "first_deposit_bonus" } });
+  return r.error ? 0 : bonus;
+}
+
 /** Static virtual account for one customer. The BVN is sent to Squad and never stored by Ememart. */
 export async function createVirtualAccount(p: {
   customerId: string; firstName: string; lastName: string; mobile: string; email?: string | null;
@@ -243,9 +257,10 @@ async function handleVirtual(evt: any, ref: string) {
   }
   await admin.from("squad_events").update({ processed: true }).eq("event_ref", ref);
   const naira = (k: number) => "₦" + (k / 100).toLocaleString();
-  await notify(va.user_id, "wallet_funded", "Wallet funded", fee > 0
+  const bonus = await applyDepositBonus(va.user_id, v.amountKobo, ref);
+  await notify(va.user_id, "wallet_funded", "Wallet funded", (fee > 0
     ? `${naira(v.amountKobo)} received by bank transfer. Funding fee ${naira(fee)}. ${naira(v.amountKobo - fee)} added to your wallet.`
-    : `${naira(v.amountKobo)} has been added by bank transfer.`, { ref });
+    : `${naira(v.amountKobo)} has been added by bank transfer.`) + (bonus > 0 ? ` Bonus ${naira(bonus)} added.` : ""), { ref });
   return reply(200, ref, "Success");
 }
 
@@ -294,8 +309,9 @@ Deno.serve(async (req) => {
   await admin.from("funding_intents").update({ status: "success" }).eq("ref", ref);
   await admin.from("squad_events").update({ processed: true }).eq("event_ref", ref);
   const nr = (k: number) => "₦" + (k / 100).toLocaleString();
-  await notify(intent.user_id, "wallet_funded", "Wallet funded", fee > 0
+  const bonus = await applyDepositBonus(intent.user_id, Number(intent.amount_kobo), ref);
+  await notify(intent.user_id, "wallet_funded", "Wallet funded", (fee > 0
     ? `${nr(Number(intent.amount_kobo))} paid. Funding fee ${nr(fee)}. ${nr(Number(intent.amount_kobo) - fee)} added to your wallet.`
-    : `${nr(Number(intent.amount_kobo))} has been added.`, { ref });
+    : `${nr(Number(intent.amount_kobo))} has been added.`) + (bonus > 0 ? ` Bonus ${nr(bonus)} added.` : ""), { ref });
   return reply(200, ref, "Success");
 });
