@@ -337,6 +337,32 @@ VIEWS.settings = async function () {
     var x = await api('PUT', '/admin/settings/escrow', body);
     alert(x._ok ? 'Saved. New orders use these settings.' : x._err);
   };
+
+  // wallet funding fees: the Customer pays these, they are taken from the money they add
+  var ff = {};
+  try { var fr = await sb.from('app_settings').select('value').eq('key', 'funding_fees').maybeSingle(); ff = (fr.data && fr.data.value) || {}; } catch (e) {}
+  function ffBox(kind, title, note) {
+    var c = ff[kind] || {};
+    function n(v, d) { return v == null ? 0 : Number(v) / d; }
+    return '<div style="margin-top:14px"><h4 style="margin:0 0 4px">' + title + '</h4><p class="mute" style="margin:0 0 8px">' + note + '</p>' +
+      '<label style="display:inline-block;margin:0 14px 10px 0">Percentage of the amount (%)<br><input data-ff="' + kind + '.percent_bps" data-div="100" type="number" min="0" max="10" step="any" value="' + n(c.percent_bps, 100) + '" style="width:120px"></label>' +
+      '<label style="display:inline-block;margin:0 14px 10px 0">Flat fee (naira)<br><input data-ff="' + kind + '.flat_kobo" data-div="0.01" type="number" min="0" step="any" value="' + n(c.flat_kobo, 100) + '" style="width:120px"></label>' +
+      '<label style="display:inline-block;margin:0 0 10px 0">Highest fee (naira, 0 = no limit)<br><input data-ff="' + kind + '.cap_kobo" data-div="0.01" type="number" min="0" step="any" value="' + n(c.cap_kobo, 100) + '" style="width:120px"></label></div>';
+  }
+  var box = document.createElement('div'); box.className = 'card'; box.style.marginTop = '14px';
+  box.innerHTML = '<h3>Wallet funding fees</h3><p class="mute">The Customer pays this fee. It is taken from the money they add, and shows as its own line in their history. Leave everything at 0 for no fee. Changes apply to new payments straight away.</p>' +
+    ffBox('transfer', 'Bank transfer to the Customer\'s own account number', 'Example: 0.5% with a highest fee of 200 naira.') +
+    ffBox('checkout', 'Card, USSD or transfer on the payment page', 'Same rules, set separately.') +
+    '<button class="btn ok" id="ff-save">Save funding fees</button>';
+  document.querySelector('#st-save').closest('.card').insertAdjacentElement('afterend', box);
+  $('ff-save').onclick = async function () {
+    var body = { transfer: {}, checkout: {} };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ff]'), function (i) {
+      var k = i.dataset.ff.split('.'); body[k[0]][k[1]] = Math.round(Number(i.value || 0) * (k[1] === 'percent_bps' ? 100 : 100));
+    });
+    var x = await api('PUT', '/admin/settings/funding_fees', body);
+    alert(x._ok ? 'Saved. New payments use these fees.' : x._err);
+  };
 };
 
 // ---- live chat inbox -------------------------------------------------------------------------
