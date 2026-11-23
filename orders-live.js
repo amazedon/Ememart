@@ -84,6 +84,7 @@
         acceptBy: (!o.accepted_at && o.accept_by && o.status === 'held') ? new Date(o.accept_by).getTime() : 0,
         deliverBy: o.deliver_by ? new Date(o.deliver_by).getTime() : 0,
         autoReleaseAt: o.auto_release_at ? new Date(o.auto_release_at).getTime() : 0,
+        deliveryCode: o.delivery_code || '', deliveryStatus: o.delivery_status || '',
       });
     });
     try { renderVendorPortalOrders(); } catch (e) {}
@@ -245,6 +246,29 @@
     toast('✅', 'Order cancelled', 'The buyer was refunded.'); loadOrders();
   };
 
+  // ---- delivery code: the Partner or Rider types the Customer's 6-digit code, and the payment is released ----
+  var _handoverId = null;
+  window.openHandover = function (id) {
+    _handoverId = id;
+    var i = E('delivery-code-input'); if (i) i.value = '';
+    var m = E('delivery-code-modal'); if (m) m.classList.remove('hidden');
+  };
+  var _origOpenCode = window.openDeliveryCodeModal;
+  window.openDeliveryCodeModal = function () { _handoverId = null; return _origOpenCode && _origOpenCode.apply(this, arguments); };
+  var _origConfirmCode = window.confirmDeliveryCode;
+  window.confirmDeliveryCode = async function () {
+    if (!_handoverId) return _origConfirmCode && _origConfirmCode.apply(this, arguments);
+    var code = String((E('delivery-code-input') || {}).value || '').replace(/\D/g, '');
+    if (code.length !== 6) { toast('⚠️', 'Enter the code', 'The delivery code has 6 digits.'); return; }
+    var r = await api('POST', '/orders/' + _handoverId + '/handover', { code: code });
+    if (!r.success) { toast('❌', 'Not confirmed', r.message || 'Please try again.'); return; }
+    var m = E('delivery-code-modal'); if (m) m.classList.add('hidden');
+    _handoverId = null;
+    toast('✅', 'Delivered', 'The code is correct. Payment has been released.');
+    loadOrders(); loadWallet();
+    try { renderRiderActiveDeliveries(); } catch (e) {}
+  };
+
   // ---- 6. disputes: submitting the form also opens a real dispute on the server --------------
   var _submitDispute = window.submitDispute;
   window.submitDispute = async function () {
@@ -348,6 +372,12 @@
   // ---- 10. features that are not on the server yet: stop them from changing money locally ---
   function notYet(name) { toast('ℹ️', name, 'This feature is not available yet.'); }
   window.initializeSplitPayment = function () { notYet('Group split'); };
-  window.cancelOrder = function () { toast('ℹ️', 'Cancel order', 'Ask the seller to cancel. You will be refunded to your wallet automatically.'); };
+  // The Customer can cancel until the Partner accepts. The server refunds in full.
+  window.cancelOrder = async function (postId, orderId) {
+    if (!confirm('Cancel this order? Your money goes back to your wallet in full.')) return;
+    var r = await api('POST', '/orders/' + orderId + '/cancel');
+    if (!r.success) { toast('❌', 'Not cancelled', r.message || 'Please try again.'); return; }
+    toast('✅', 'Order cancelled', 'Your money is back in your wallet.'); loadOrders();
+  };
   window.updateDeliveryStatus = function () { notYet('Rider deliveries'); };
 })();
