@@ -4739,7 +4739,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
           <div class="text-[10px] text-gray-400 uppercase font-black tracking-wider">Wallet Balance</div>
           <div class="flex items-center gap-2 mt-1">
             <div id="wallet-hub-balance" class="text-3xl font-black text-white mono">₦0.00</div>
-            <button onclick="toggleBalanceVisibility()" class="text-gray-500 hover:text-emerald-400 transition text-xl leading-none" title="Show/hide balance">👁️</button>
+            <button type="button" onclick="toggleBalanceVisibility()" class="bal-eye text-gray-500 hover:text-emerald-400 transition" title="Show or hide balance" aria-label="Show or hide balance"><svg class="eye-s" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="eye-h hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button>
           </div>
         </div>
         <div class="text-2xl">💰</div>
@@ -4913,7 +4913,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
       <div class="h-px bg-gray-800 my-1"></div>
       <div class="flex justify-between items-center">
         <span class="text-xs text-gray-400">Escrow Wallet Balance</span>
-        <span id="acc-balance" class="text-emerald-400 font-black mono text-sm">₦0.00</span>
+        <span class="flex items-center gap-2"><span id="acc-balance" class="text-emerald-400 font-black mono text-sm">₦0.00</span><button type="button" onclick="toggleBalanceVisibility()" class="bal-eye text-gray-500 hover:text-emerald-400 transition" title="Show or hide balance" aria-label="Show or hide balance"><svg class="eye-s" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg class="eye-h hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button></span>
       </div>
       <div class="grid grid-cols-3 gap-2">
         <button onclick="doDeposit()" class="btn-sm-primary">+ Fund</button>
@@ -8628,6 +8628,9 @@ function msgVendor(vendorId, vendorName){
 
 
 
+let _balanceHidden = localStorage.getItem('ememart_balance_hidden') === 'true';
+function fmtCurrency(n){ return '₦' + parseFloat(n||0).toLocaleString('en-NG',{minimumFractionDigits:2}); }
+
 function doDeposit(){
   if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in to fund your wallet.'); return; }
   if(!isPinSet()){
@@ -10000,7 +10003,7 @@ function switchFinanceTab(tab){
   if(tab === 'txns') renderTxnList();
   if(tab === 'wallet'){
     const bal = el('wallet-hub-balance');
-    if(bal) bal.textContent = fmtCurrency(state.session?.balance || 0);
+    if(bal) bal.textContent = _balanceHidden ? '₦ ••••••' : fmtCurrency(state.session?.balance || 0);
   }
 }
 
@@ -11569,7 +11572,7 @@ function syncAccountDisplay(){
     const lgaEl   = el('acc-lga');      if(lgaEl)   lgaEl.textContent   = s.lga   || '—';
     const stateEl = el('acc-state');    if(stateEl) stateEl.textContent = s.state || '—';
     const numEl   = el('acc-num');      if(numEl)   numEl.textContent   = s.accountNum || ('EM-' + s.id);
-    const balEl   = el('acc-balance');  if(balEl)   balEl.textContent   = fmtCurrency(s.balance||0);
+    const balEl   = el('acc-balance');  if(balEl)   balEl.textContent   = _balanceHidden ? '₦ ••••••' : fmtCurrency(s.balance||0);
     const avatarEl= el('acc-avatar');   if(avatarEl) renderAccAvatar();
     const roleLbl = el('acc-role-label'); if(roleLbl) roleLbl.textContent = (s.role||'user') + ' profile';
     updateRoleChangeStatusBadge();
@@ -11621,7 +11624,7 @@ function syncAccountDisplay(){
 
   // Wallet hub balance
   const whbEl = el('wallet-hub-balance');
-  if(whbEl) whbEl.textContent = loggedIn ? fmtCurrency(s.balance||0) : '₦0.00';
+  if(whbEl) whbEl.textContent = loggedIn ? (_balanceHidden ? '₦ ••••••' : fmtCurrency(s.balance||0)) : '₦0.00';
   // Rider portal
   const rp = el('acc-rider-portal');
   if(rp) rp.classList.toggle('hidden', state.session?.role !== 'rider');
@@ -11665,7 +11668,7 @@ function syncAccountDisplay(){
   updateLoyaltyDisplay();
   // Finance hub balance
   const whb = el('wallet-hub-balance');
-  if(whb) whb.textContent = fmtCurrency(state.session?.balance || 0);
+  if(whb) whb.textContent = _balanceHidden ? '₦ ••••••' : fmtCurrency(state.session?.balance || 0);
   // Check low balance
   checkLowBalanceAlert();
 }
@@ -14235,13 +14238,14 @@ function toggleBalanceVisibility(){
   applyBalanceVisibility();
 }
 
-let _balanceHidden = localStorage.getItem('ememart_balance_hidden') === 'true';
 
 function applyBalanceVisibility(){
   const actual = fmtCurrency(state.session?.balance || 0);
   const display = _balanceHidden ? '₦ ••••••' : actual;
   const sb = el('session-balance'); if(sb) sb.textContent = display;
   const whb = el('wallet-hub-balance'); if(whb) whb.textContent = display;
+  const ab = el('acc-balance'); if(ab) ab.textContent = display;
+  document.querySelectorAll('.bal-eye').forEach(b=>{ b.querySelector('.eye-s')?.classList.toggle('hidden', _balanceHidden); b.querySelector('.eye-h')?.classList.toggle('hidden', !_balanceHidden); });
 
   // Toggle SVG eye icons on the main home button
   const showIcon = el('eye-icon-show');
