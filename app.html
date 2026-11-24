@@ -4166,6 +4166,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
         <button onclick="doDeposit()" class="btn-sm-primary">+ Fund Wallet</button>
         <button onclick="showPanel('finance')" class="btn-sm-outline">💰 Finance</button>
       </div>
+      <button type="button" onclick="openTxnHistory()" class="btn-sm-outline w-full flex items-center justify-center gap-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>Transaction history</button>
     </div>
   </div>
 
@@ -8629,6 +8630,7 @@ function msgVendor(vendorId, vendorName){
 
 
 let _balanceHidden = localStorage.getItem('ememart_balance_hidden') === 'true';
+var _deferredInstall = null, _pinRequired = false, _escrowOrderId = null, _escrowPostId = null;
 function fmtCurrency(n){ return '₦' + parseFloat(n||0).toLocaleString('en-NG',{minimumFractionDigits:2}); }
 
 function doDeposit(){
@@ -10972,7 +10974,9 @@ async function openWithdrawHistory(){
       <div class="min-w-0"><div class="text-xs font-black text-white" data-noicon>${pdEsc(w.bank_name)} ${pdEsc(w.account_number)}</div>
       <div class="text-[10px] text-gray-500">${new Date(w.created_at).toLocaleString('en-NG',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
       <div class="text-right flex-shrink-0"><div class="text-sm font-black text-white mono">₦${Math.round(w.amount_kobo/100).toLocaleString('en-NG')}</div>
-      <span class="text-[9px] font-black px-1.5 py-0.5 rounded-lg border ${m[1]}">${m[0]}</span></div></div>`; }).join('');
+      <span class="text-[9px] font-black px-1.5 py-0.5 rounded-lg border ${m[1]}">${m[0]}</span>
+      <button type="button" onclick="shareWithdrawalReceipt(${list.indexOf(w)})" class="block ml-auto mt-1 text-[10px] font-black text-emerald-500 underline">Receipt</button></div></div>`; }).join('');
+  window._wdList = list;
 }
 function openPostDetail(postId){
   const post = state.posts.find(p => p.id === postId);
@@ -13774,7 +13778,7 @@ function renderStatusPicker(){
         </div>
         ${opt.key === current ? '<span class="text-emerald-400 font-black text-sm">✓</span>' : ''}`;
       btn.onclick = () => { setMyStatus(opt.key); el('status-picker-modal')?.classList.add('hidden'); };
-      list.appendChild(btn);
+      w.appendChild(btn);
     });
   }
 
@@ -14942,31 +14946,17 @@ function applyBalanceVisibility(){
 
 <!-- TRANSACTION RECEIPT SHARE MODAL -->
 <div id="txn-receipt-modal" class="modal-overlay hidden" onclick="if(event.target===this)this.classList.add('hidden')">
-  <div class="modal-sheet flex flex-col gap-4">
+  <div class="modal-sheet flex flex-col gap-3" style="max-height:92vh;overflow-y:auto">
     <div class="flex justify-between items-center">
-      <div><h3 class="text-base font-black text-white">📄 Transaction Receipt</h3><p class="text-[10px] text-gray-400">Share or save this receipt</p></div>
-      <button onclick="document.getElementById('txn-receipt-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black">✕</button>
+      <div><h3 class="text-base font-black text-white">Receipt</h3><p class="text-[10px] text-gray-400">Share it or save it to your phone</p></div>
+      <button type="button" onclick="document.getElementById('txn-receipt-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black" aria-label="Close">✕</button>
     </div>
-    <!-- Receipt preview -->
-    <textarea id="txn-receipt-text-holder" rows="10" readonly class="inp text-[10px] font-mono resize-none bg-gray-950 text-emerald-300"></textarea>
-    <!-- Share buttons -->
-    <div class="text-[9px] font-black text-gray-500 uppercase tracking-wider">Share via</div>
-    <div class="grid grid-cols-4 gap-2">
-      <button onclick="shareTxnReceiptVia('whatsapp')" class="bg-green-950/50 border border-green-900/50 rounded-xl py-2 flex flex-col items-center gap-0.5 text-[8px] font-black text-green-400 hover:bg-green-950 transition"><span class="text-base">💬</span>WhatsApp</button>
-      <button onclick="shareTxnReceiptVia('telegram')" class="bg-sky-950/50 border border-sky-900/50 rounded-xl py-2 flex flex-col items-center gap-0.5 text-[8px] font-black text-sky-400 hover:bg-sky-950 transition"><span class="text-base">✈️</span>Telegram</button>
-      <button onclick="shareTxnReceiptVia('email')" class="bg-gray-800 border border-gray-700 rounded-xl py-2 flex flex-col items-center gap-0.5 text-[8px] font-black text-gray-300 hover:bg-gray-700 transition"><span class="text-base">📧</span>Email</button>
-      <button onclick="shareTxnReceiptVia('sms')" class="bg-gray-800 border border-gray-700 rounded-xl py-2 flex flex-col items-center gap-0.5 text-[8px] font-black text-gray-300 hover:bg-gray-700 transition"><span class="text-base">💱</span>SMS</button>
-    </div>
-    <div class="grid grid-cols-3 gap-2">
-      <button onclick="shareTxnReceiptVia('twitter')" class="bg-gray-800 border border-gray-700 rounded-xl py-2 flex flex-col items-center gap-0.5 text-[8px] font-black text-gray-300 hover:bg-gray-700 transition"><span class="text-base">🐦</span>X/Twitter</button>
-      <button onclick="shareTxnReceiptVia('copy')" class="bg-gray-800 border border-gray-700 rounded-xl py-2 flex flex-col items-center gap-0.5 text-[8px] font-black text-gray-300 hover:bg-gray-700 transition"><span class="text-base">📋</span>Copy Text</button>
-      <button onclick="shareTxnReceiptVia('native')" class="bg-gray-800 border border-gray-700 rounded-xl py-2 flex flex-col items-center gap-0.5 text-[8px] font-black text-gray-300 hover:bg-gray-700 transition"><span class="text-base">↗️</span>More Apps</button>
-    </div>
-    <!-- Save buttons -->
-    <div class="text-[9px] font-black text-gray-500 uppercase tracking-wider">Save to device</div>
+    <img id="txn-receipt-img" alt="Ememart receipt" class="w-full rounded-xl border border-gray-800" style="background:#f3f4f6">
+    <textarea id="txn-receipt-text-holder" class="hidden" readonly></textarea>
     <div class="grid grid-cols-2 gap-2">
-      <button onclick="saveTxnReceiptAsFile('image')" class="bg-indigo-950/50 border border-indigo-900/50 rounded-xl py-2.5 flex items-center justify-center gap-2 text-[10px] font-black text-indigo-400 hover:bg-indigo-950 transition">🖼️ Save as Image</button>
-      <button onclick="saveTxnReceiptAsFile('pdf')" class="bg-red-950/40 border border-red-900/40 rounded-xl py-2.5 flex items-center justify-center gap-2 text-[10px] font-black text-red-400 hover:bg-red-950 transition">📄 Save as PDF</button>
+      <button type="button" onclick="receiptShare()" class="btn-primary col-span-2">Share receipt</button>
+      <button type="button" onclick="receiptSave()" class="btn-sm-outline">Save image</button>
+      <button type="button" onclick="receiptCopy()" class="btn-sm-outline">Copy details</button>
     </div>
   </div>
 </div>
@@ -18746,6 +18736,140 @@ function requirePin(action, callback){
   const t=el('pin-verify-title'); if(t) t.textContent=action||'Enter Your PIN';
   el('pin-verify-modal').classList.remove('hidden');
 }
+</script>
+<script>
+// ============================================================
+// RECEIPTS + TRANSACTION HISTORY
+// ============================================================
+(function(){
+  var NGN = function(n){ return '₦' + Number(n||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+  var STATUS = { funding:'Successful', withdrawal:'Submitted', withdrawal_reversal:'Returned to wallet', escrow_hold:'Held in escrow',
+    escrow_release:'Released', escrow_refund:'Refunded', fee:'Paid', boost:'Paid', tier:'Paid', vtu:'Paid', vtu_refund:'Refunded', adjustment:'Adjusted' };
+  var _cur = null, _filter = 'all', _blob = null;
+
+  function shortRef(ref){ if(!ref) return ''; ref = String(ref); return /^[0-9a-f-]{30,}$/i.test(ref) ? ref.slice(0,8).toUpperCase() : ref; }
+  function fmtDate(ts){ return new Date(ts).toLocaleString('en-NG',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+
+  // Turn a ledger row or a withdrawal into a receipt
+  function fromTxn(t){
+    var kind = t.category || '';
+    var rows = [['Description', t.desc || '—'], ['Type', t.type === 'credit' ? 'Money in' : 'Money out'], ['Date and time', fmtDate(t.ts)]];
+    var ref = shortRef(t.ref);
+    if(ref) rows.push([(kind.indexOf('escrow')===0 || kind==='fee') ? 'Order' : 'Reference', ref]);
+    if(t.balanceAfter != null && !isNaN(t.balanceAfter)) rows.push(['Balance after', NGN(t.balanceAfter)]);
+    return { no: t.seq ? 'EME-' + String(t.seq).padStart(8,'0') : (t.id||''), status: STATUS[kind] || 'Successful', credit: t.type === 'credit',
+             amount: t.amount, rows: rows, ts: t.ts };
+  }
+  function fromWithdrawal(w){
+    var st = {pending:'Processing', success:'Paid', failed:'Failed, money returned'}[w.status] || 'Processing';
+    var rows = [['Description','Withdrawal to bank'],['Bank', w.bank_name || 'Bank'],['Account', w.account_number || '—']];
+    if(w.account_name) rows.push(['Account name', w.account_name]);
+    rows.push(['Date and time', fmtDate(new Date(w.created_at).getTime())]);
+    return { no:'WDR-' + String(w.id||'').replace(/-/g,'').slice(0,8).toUpperCase(), status: st, credit:false, amount: Number(w.amount_kobo)/100, rows: rows, ts:new Date(w.created_at).getTime(), failed: w.status==='failed' };
+  }
+
+  function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+  function fit(ctx,txt,max){ txt=String(txt); if(ctx.measureText(txt).width<=max) return txt; while(txt.length>1 && ctx.measureText(txt+'…').width>max) txt=txt.slice(0,-1); return txt+'…'; }
+
+  function draw(r){
+    var S=2, W=640, pad=28, name=(window.state&&state.session&&(state.session.full_name||state.session.name))||'';
+    var rows=r.rows.slice(); if(name) rows.push(['Account holder', name]);
+    var H = 360 + rows.length*46 + 70;
+    var cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S; var c=cv.getContext('2d'); c.scale(S,S);
+    var F='-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
+    c.fillStyle='#f3f4f6'; c.fillRect(0,0,W,H);
+    c.fillStyle='#ffffff'; rr(c,pad,pad,W-2*pad,H-2*pad,20); c.fill(); c.strokeStyle='#e5e7eb'; c.lineWidth=1; c.stroke();
+    var x=pad+28, right=W-pad-28, y=pad+28;
+    c.fillStyle='#059669'; rr(c,x,y,118,40,10); c.fill();
+    c.fillStyle='#fff'; c.font='800 20px '+F; c.textBaseline='middle'; c.textAlign='center'; c.fillText('Ememart',x+59,y+21);
+    c.textAlign='right'; c.fillStyle='#6b7280'; c.font='600 13px '+F; c.fillText('Transaction receipt',right,y+21);
+    y+=76; c.textAlign='left';
+    var ok=!r.failed, pill=r.status;
+    c.font='700 13px '+F; var pw=c.measureText(pill).width+28;
+    c.fillStyle=ok?'#ecfdf5':'#fef2f2'; rr(c,x,y,pw,28,14); c.fill();
+    c.fillStyle=ok?'#047857':'#b91c1c'; c.textBaseline='middle'; c.fillText(pill,x+14,y+15);
+    y+=64;
+    c.fillStyle='#6b7280'; c.font='600 13px '+F; c.fillText(r.credit?'Amount received':'Amount',x,y);
+    y+=40; c.fillStyle='#111827'; c.font='800 38px '+F; c.fillText((r.credit?'+ ':'')+NGN(r.amount),x,y);
+    y+=34; c.strokeStyle='#e5e7eb'; c.beginPath(); c.moveTo(x,y); c.lineTo(right,y); c.stroke();
+    rows.forEach(function(row){
+      y+=23; c.fillStyle='#6b7280'; c.font='500 14px '+F; c.textAlign='left'; c.fillText(row[0],x,y);
+      c.fillStyle='#111827'; c.font='700 14px '+F; c.textAlign='right'; c.fillText(fit(c,row[1],right-x-130),right,y);
+      y+=23; c.strokeStyle='#e5e7eb'; c.beginPath(); c.moveTo(x,y); c.lineTo(right,y); c.stroke();
+    });
+    y+=36; c.textAlign='left'; c.fillStyle='#6b7280'; c.font='500 13px '+F; c.fillText('Receipt no.',x,y);
+    c.textAlign='right'; c.fillStyle='#111827'; c.font='700 13px '+F; c.fillText(r.no||'—',right,y);
+    y+=44; c.textAlign='center'; c.fillStyle='#9ca3af'; c.font='500 12px '+F;
+    c.fillText('Automated receipt from Ememart. Keep it as proof of this transaction.',W/2,y);
+    c.fillText('Need help? help@ememart.com  ·  www.ememart.com',W/2,y+20);
+    return cv;
+  }
+  function plain(r){
+    return 'EMEMART RECEIPT\n' + (r.credit?'+ ':'') + NGN(r.amount) + ' (' + r.status + ')\n' +
+      r.rows.map(function(x){return x[0]+': '+x[1]}).join('\n') + '\nReceipt no.: ' + (r.no||'—') + '\nwww.ememart.com';
+  }
+  function show(r){
+    _cur = r; _blob = null;
+    var cv = draw(r), img = document.getElementById('txn-receipt-img');
+    img.src = cv.toDataURL('image/png');
+    var h = document.getElementById('txn-receipt-text-holder'); if(h) h.value = plain(r);
+    cv.toBlob(function(b){ _blob = b; }, 'image/png');
+    document.getElementById('txn-receipt-modal').classList.remove('hidden');
+  }
+  function fileName(){ return 'Ememart-receipt-' + ((_cur&&_cur.no)||Date.now()) + '.png'; }
+
+  window.shareTransactionReceipt = function(t){ show(fromTxn(t)); };
+  window.shareWithdrawalReceipt = function(i){ var w=(window._wdList||[])[i]; if(w) show(fromWithdrawal(w)); };
+  window.openTxnReceipt = function(id){ var t=(state.transactions||[]).find(function(x){return x.id===id}); if(t) show(fromTxn(t)); };
+
+  window.receiptShare = async function(){
+    if(!_cur) return;
+    try{
+      if(_blob && navigator.canShare){
+        var f = new File([_blob], fileName(), {type:'image/png'});
+        if(navigator.canShare({files:[f]})){ await navigator.share({files:[f], title:'Ememart receipt', text:'Ememart receipt ' + (_cur.no||'')}); return; }
+      }
+      if(navigator.share){ await navigator.share({title:'Ememart receipt', text:plain(_cur)}); return; }
+    }catch(e){ if(e && e.name==='AbortError') return; }
+    receiptSave();
+  };
+  window.receiptSave = function(){
+    if(!_blob){ var a0=document.createElement('a'); a0.href=document.getElementById('txn-receipt-img').src; a0.download=fileName(); document.body.appendChild(a0); a0.click(); a0.remove(); return; }
+    var u=URL.createObjectURL(_blob), a=document.createElement('a'); a.href=u; a.download=fileName(); document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(u)},4000);
+    try{ showPopupNotif('✅','Saved','Receipt saved to your downloads.'); }catch(e){}
+  };
+  window.receiptCopy = async function(){
+    if(!_cur) return;
+    try{ await navigator.clipboard.writeText(plain(_cur)); showPopupNotif('✅','Copied','Receipt details copied.'); }
+    catch(e){ try{ var t=document.getElementById('txn-receipt-text-holder'); t.classList.remove('hidden'); t.select(); document.execCommand('copy'); t.classList.add('hidden'); showPopupNotif('✅','Copied','Receipt details copied.'); }catch(_){ showPopupNotif('⚠️','Could not copy','Use Share receipt instead.'); } }
+  };
+
+  // ---------- history list ----------
+  var ICON_IN='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7 7 17"/><path d="M17 17H7V7"/></svg>';
+  var ICON_OUT='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>';
+  function esc(x){ return String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]}); }
+  window.setTxnFilter = function(f){ _filter=f; renderTxnList(); };
+  window.renderTxnList = function(){
+    var w = document.getElementById('transactions-log-list'); if(!w) return;
+    var host = w.parentNode, chips = document.getElementById('txn-filter-chips');
+    if(!chips){ chips = document.createElement('div'); chips.id='txn-filter-chips'; chips.className='flex gap-2 p-2'; host.insertBefore(chips,w); }
+    chips.innerHTML = [['all','All'],['in','Money in'],['out','Money out']].map(function(c){
+      var on=_filter===c[0]; return '<button type="button" onclick="setTxnFilter(\''+c[0]+'\')" class="text-[11px] font-black px-3 py-1.5 rounded-full border" style="'+(on?'background:#059669;color:#fff;border-color:#059669':'color:#6b7280;border-color:#d1d5db')+'">'+c[1]+'</button>'; }).join('');
+    var me = (state.session && state.session.id) || 'guest';
+    var list = (state.transactions||[]).filter(function(t){ return t.userId===me && (_filter==='all' || (_filter==='in')===(t.type==='credit')); });
+    if(!list.length){ w.innerHTML = '<div class="text-center py-12 px-4 text-xs text-gray-500">'+(_filter==='all'?'No transactions yet. When you fund your wallet, pay for an order or withdraw, it shows up here with a receipt.':'Nothing here yet.')+'</div>'; return; }
+    w.innerHTML = list.map(function(t){
+      var cr = t.type==='credit';
+      return '<div class="txn-row" onclick="openTxnReceipt(\''+esc(t.id)+'\')" style="cursor:pointer">'+
+        '<div class="txn-icon '+(cr?'txn-credit text-emerald-500':'txn-debit text-red-500')+'">'+(cr?ICON_IN:ICON_OUT)+'</div>'+
+        '<div class="flex-1 min-w-0"><div class="text-xs font-bold text-white truncate" data-noicon>'+esc(t.desc)+'</div>'+
+        '<div class="text-[10px] text-gray-500 mt-0.5">'+esc(fmtDate(t.ts))+'</div></div>'+
+        '<div class="text-right flex-shrink-0"><div class="text-xs font-black mono '+(cr?'text-emerald-500':'text-red-500')+'">'+(cr?'+':'-')+NGN(t.amount)+'</div>'+
+        '<div class="text-[10px] font-black text-emerald-600 underline">Receipt</div></div></div>';
+    }).join('');
+  };
+  window.openTxnHistory = function(){ showPanel('finance'); switchFinanceTab('txns'); };
+})();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="rules.js?v=20261116c"></script>
