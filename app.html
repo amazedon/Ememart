@@ -6378,8 +6378,7 @@ function handleForgotPassword() {
 
 async function sendForgotOTP() {
   const email = state.session?.email || el('inp-email')?.value.trim() || '';
-  const channel = document.querySelector('input[name="forgot-otp-channel"]:checked')?.value;
-  if (!channel) { showPopupNotif('⚠️','Choose Channel','Select Email or WhatsApp.'); return; }
+  const channel = 'email';
 
   const btn = el('send-forgot-otp-btn');
   btn.textContent = 'Sending...'; btn.disabled = true;
@@ -14583,17 +14582,7 @@ function applyBalanceVisibility(){
       <h3 class="text-base font-black text-white">🔐 Reset Password</h3>
       <button onclick="document.getElementById('forgot-password-modal').classList.add('hidden')" class="text-gray-400 text-lg font-black">✕</button>
     </div>
-    <p class="text-xs text-gray-400">Sending reset OTP to: <span id="forgot-email-display" class="text-emerald-400 font-bold"></span></p>
-    <div class="flex gap-3">
-      <label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-xl px-3 py-3 cursor-pointer flex-1 hover:border-emerald-500 transition">
-        <input type="radio" name="forgot-otp-channel" value="email" class="accent-emerald-500">
-        <div><div class="text-xs font-black text-white">📧 Email</div></div>
-      </label>
-      <label class="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-xl px-3 py-3 cursor-pointer flex-1 hover:border-emerald-500 transition">
-        <input type="radio" name="forgot-otp-channel" value="whatsapp" class="accent-emerald-500">
-        <div><div class="text-xs font-black text-white">💬 WhatsApp</div></div>
-      </label>
-    </div>
+    <p class="text-xs text-gray-400">We will email a 6-digit reset code to: <span id="forgot-email-display" class="text-emerald-400 font-bold"></span></p>
     <button id="send-forgot-otp-btn" onclick="sendForgotOTP()" class="btn-primary py-3">Send Reset OTP</button>
   </div>
 </div>
