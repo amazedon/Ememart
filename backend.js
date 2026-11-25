@@ -69,7 +69,7 @@
   }
   window.callApi = callApi;
   // Push notifications: paste your VAPID public key here (see DEPLOY notes). Leave empty to keep push off.
-  window.EMEMART_VAPID_PUBLIC_KEY = window.EMEMART_VAPID_PUBLIC_KEY || '';
+  window.EMEMART_VAPID_PUBLIC_KEY = window.EMEMART_VAPID_PUBLIC_KEY || 'BCl0CT-PfPokR4EscVxFIjUHo4W8eKyxsplCg1-Qm6ldtuK7r6HMyAqGcZpI3eDkf_nHzxdEvEcoIB56KwKVyVY';
 
   // Builds the "session" object the rest of the app expects.
   async function buildSession() {
@@ -176,6 +176,11 @@
         if (r.error) return { success: false, message: niceError(r.error) };
         const sess = await buildSession();
         return { success: true, user: sess, data: { user: sess } };
+      }
+      case 'wallet.php:reset_pin': {
+        const r = await callApi('POST', '/me/pin/reset', { password: data.password, pin: data.pin });
+        if (r.success && state.session) { state.session.has_pin = true; localStorage.setItem('ememart_user', JSON.stringify(state.session)); }
+        return r;
       }
       case 'wallet.php:set_pin': {
         const r = await callApi('POST', '/me/pin', { pin: data.pin, old_pin: data.old_pin });
@@ -303,6 +308,9 @@
   window.fundWallet = function (amountNaira) {
     return callApi('POST', '/wallet/fund', { amount_kobo: Math.round(Number(amountNaira) * 100) });
   };
+
+  window.getVirtualAccount = function () { return callApi('GET', '/wallet/va'); };
+  window.createVirtualAccount = function (d) { return callApi('POST', '/wallet/va', d); };
 
   async function uploadPrivate(file, label) {
     if (!file) return null;
