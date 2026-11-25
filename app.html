@@ -4798,14 +4798,15 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
 
 
 <!-- DEPOSIT MODAL -->
-<div id="deposit-modal" class="modal-overlay hidden" style="align-items:flex-start;padding-top:16px;" onclick="if(event.target===this)this.classList.add('hidden')">
-  <div class="modal-sheet flex flex-col gap-4">
-    <div class="flex justify-between items-center">
-      <div>
-        <h3 class="text-base font-black text-white">💳 Fund Wallet</h3>
+<div id="deposit-modal" class="modal-overlay hidden" style="align-items:flex-start;padding-top:72px;" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="modal-sheet flex flex-col gap-4" style="max-height:calc(100dvh - 72px);border-radius:20px">
+    <div class="flex items-center gap-3" style="position:sticky;top:-16px;z-index:5;background:inherit;padding:12px 0 10px;margin-top:-12px">
+      <button type="button" onclick="document.getElementById('deposit-modal').classList.add('hidden')" class="text-gray-300 hover:text-white" aria-label="Back" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:12px;border:1px solid rgba(148,163,184,.4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="flex-1">
+        <h3 class="text-base font-black text-white">Fund Wallet</h3>
         <p class="text-[10px] text-gray-400 mt-0.5">Bank transfer, card or USSD</p>
       </div>
-      <button onclick="document.getElementById('deposit-modal').classList.add('hidden')" class="text-gray-400 hover:text-white text-lg font-black">✕</button>
+      <button type="button" onclick="document.getElementById('deposit-modal').classList.add('hidden')" class="text-gray-400 hover:text-white text-lg font-black" aria-label="Close">✕</button>
     </div>
     <div class="bg-emerald-950/40 border border-emerald-900/50 rounded-xl p-3 flex justify-between items-center">
       <span class="text-xs text-gray-400 font-bold">Current Balance</span>
@@ -4903,7 +4904,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
       </div>
 
       <div class="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-gray-800/60 pt-3 text-xs">
-        <div class="flex flex-col gap-0.5"><span class="text-gray-500 mono text-[10px] uppercase">Email</span><span id="acc-email" class="text-white font-bold truncate">—</span></div>
+        <div class="flex flex-col gap-0.5"><span class="text-gray-500 mono text-[10px] uppercase">Email</span><span id="acc-email" class="text-white font-bold" style="word-break:break-all;line-height:1.25;font-size:13px">—</span></div>
         <div class="flex flex-col gap-0.5"><span class="text-gray-500 mono text-[10px] uppercase">Phone</span><span id="acc-phone" class="text-white font-bold">—</span></div>
         <div class="flex flex-col gap-0.5"><span class="text-gray-500 mono text-[10px] uppercase">Town</span><span id="acc-town" class="text-emerald-400 font-bold">—</span></div>
         <div class="flex flex-col gap-0.5"><span class="text-gray-500 mono text-[10px] uppercase">LGA</span><span id="acc-lga" class="text-emerald-400 font-bold">—</span></div>
@@ -13341,7 +13342,7 @@ let _pinVerifyEntry = '';
 
 // Simple hash (for demo — in production use bcrypt on server)
 function hashPin(pin){ let h=0; for(let c of pin){ h=((h<<5)-h)+c.charCodeAt(0); h|=0; } return h.toString(36); }
-function pinIsSet(){ return !!localStorage.getItem(PIN_SET_KEY); }
+function pinIsSet(){ return isPinSet(); }
 function verifyPin(pin){ return hashPin(pin)===localStorage.getItem(PIN_KEY); }
 
 // --- Show PIN setup prompt ---
@@ -14195,7 +14196,12 @@ function checkPinVerify(){
   }
 }
 
-function isPinSet(){ return !!localStorage.getItem(PIN_SET_KEY); }
+// The PIN is stored on the server (profile.has_pin); the browser flag is only the fallback for the old offline mode.
+function isPinSet(){
+  const u = state.session;
+  if(u && typeof u.has_pin === 'boolean' && u.id && u.id !== 'dev-test-user') return u.has_pin;
+  return !!localStorage.getItem(PIN_SET_KEY);
+}
 function isPinLocked(){
   const until = parseInt(localStorage.getItem(PIN_LOCKED_KEY)||'0');
   return until > Date.now();
