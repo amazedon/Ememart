@@ -4905,6 +4905,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
 
       <div class="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-gray-800/60 pt-3 text-xs">
         <div class="flex flex-col gap-0.5"><span class="text-gray-500 mono text-[10px] uppercase">Email</span><span id="acc-email" class="text-white font-bold" style="word-break:break-all;line-height:1.25;font-size:13px">—</span></div>
+        <div class="flex flex-col gap-0.5"><span class="text-gray-500 mono text-[10px] uppercase">Username</span><span id="acc-username" class="text-white font-bold">—</span></div>
         <div class="flex flex-col gap-0.5"><span class="text-gray-500 mono text-[10px] uppercase">Phone</span><span id="acc-phone" class="text-white font-bold">—</span></div>
         <div class="flex flex-col gap-0.5"><span class="text-gray-500 mono text-[10px] uppercase">Town</span><span id="acc-town" class="text-emerald-400 font-bold">—</span></div>
         <div class="flex flex-col gap-0.5"><span class="text-gray-500 mono text-[10px] uppercase">LGA</span><span id="acc-lga" class="text-emerald-400 font-bold">—</span></div>
@@ -4967,7 +4968,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
           <div class="text-xs font-bold text-white">Transaction PIN</div>
           <div id="acc-pin-status" class="text-[9px] text-gray-500 mt-0.5">Protects withdrawals, transfers & payments</div>
         </div>
-        <button id="acc-pin-btn" onclick="openChangePinFlow()" class="btn-sm-outline text-[9px] whitespace-nowrap">Set PIN</button>
+        <div class="flex gap-1.5"><button id="acc-pin-reset-btn" onclick="openResetPinFlow()" class="btn-sm-outline text-[9px] whitespace-nowrap hidden">Reset</button><button id="acc-pin-btn" onclick="openChangePinFlow()" class="btn-sm-outline text-[9px] whitespace-nowrap">Set PIN</button></div>
       </div>
       <div class="flex items-center justify-between bg-gray-950 border border-gray-800 rounded-xl p-3">
         <div>
@@ -8667,24 +8668,25 @@ function feeRuleText(kind){
   const c = (_fundFees && _fundFees[kind]) || {}, parts = [];
   if(Number(c.percent_bps)) parts.push((Number(c.percent_bps)/100) + '%');
   if(Number(c.flat_kobo)) parts.push('₦' + (Number(c.flat_kobo)/100).toLocaleString());
-  if(!parts.length) return '';
-  let t = 'Funding fee: ' + parts.join(' + ');
-  if(Number(c.cap_kobo)) t += ' (most ₦' + (Number(c.cap_kobo)/100).toLocaleString() + ')';
-  return t + '. It is taken from the money you add.';
+  let t = '';
+  if(parts.length){
+    t = 'Ememart fee: ' + parts.join(' + ');
+    if(Number(c.cap_kobo)) t += ' (most ₦' + (Number(c.cap_kobo)/100).toLocaleString() + ')';
+    t += '. ';
+  }
+  return t;
 }
 function updateFundFee(){
   const vn = el('va-fee-note'), cn = el('dep-fee-note');
-  const vt = feeRuleText('transfer');
-  if(vn){ vn.textContent = vt; vn.classList.toggle('hidden', !vt); }
+  if(vn){ vn.textContent = feeRuleText('transfer') + "Squad's transfer charge is also taken from what you send, and your wallet gets the rest."; vn.classList.remove('hidden'); }
   if(!cn) return;
-  const amt = parseFloat(el('dep-amount').value) || 0, fee = amt >= 100 ? fundFeeFor('checkout', amt) : 0;
-  if(fee > 0){
-    cn.textContent = 'Funding fee ₦' + fee.toLocaleString() + '. Your wallet gets ₦' + (amt - fee).toLocaleString() + '.';
-    cn.classList.remove('hidden');
-  } else {
-    const t = feeRuleText('checkout');
-    cn.textContent = t; cn.classList.toggle('hidden', !t);
-  }
+  const amt = parseFloat(el('dep-amount').value) || 0;
+  if(amt < 100){ cn.textContent = "Squad's charge is added on the payment page. Your wallet gets the full amount you choose."; cn.classList.remove('hidden'); return; }
+  const fee = fundFeeFor('checkout', amt);
+  cn.textContent = fee > 0
+    ? 'You pay ₦' + (amt + fee).toLocaleString() + ' (amount ₦' + amt.toLocaleString() + ' + Ememart fee ₦' + fee.toLocaleString() + ") plus Squad's charge on the payment page. Your wallet gets ₦" + amt.toLocaleString() + '.'
+    : "You pay ₦" + amt.toLocaleString() + " plus Squad's charge on the payment page. Your wallet gets ₦" + amt.toLocaleString() + '.';
+  cn.classList.remove('hidden');
 }
 
 async function loadVirtualAccount(){
@@ -10054,7 +10056,7 @@ async function processWithdrawal(){
 
   if(isPinSet()){
     if(!pin){ showPopupNotif('⚠️','PIN Required','Enter your transaction PIN to continue.'); return; }
-    if(hashPin(pin) !== getPinHash()){ showPopupNotif('❌','Wrong PIN','Transaction PIN is incorrect.'); return; }
+    if(!_pinLive() && hashPin(pin) !== getPinHash()){ showPopupNotif('❌','Wrong PIN','Transaction PIN is incorrect.'); return; }
   }
 
   const btn = el('withdraw-submit-btn');
@@ -10102,7 +10104,7 @@ async function processTransfer(){
   if(!amount || amount < 100){ showPopupNotif('⚠️','Invalid Amount','Minimum transfer is ₦100.'); return; }
 
   if(pin && isPinSet()){
-    if(hashPin(pin) !== getPinHash()){
+    if(!_pinLive() && hashPin(pin) !== getPinHash()){
       showPopupNotif('❌','Wrong PIN','Transaction PIN is incorrect.');
       return;
     }
@@ -11571,6 +11573,7 @@ function syncAccountDisplay(){
   if(loggedIn){
     const nameEl  = el('acc-name');     if(nameEl)  nameEl.textContent  = s.full_name || s.name || 'User';
     const emailEl = el('acc-email');    if(emailEl) emailEl.textContent = s.email || '—';
+    const unEl = el('acc-username'); if(unEl) unEl.textContent = s.username ? '@'+String(s.username).replace(/^@/,'') : '—';
     const phoneEl = el('acc-phone');    if(phoneEl) phoneEl.textContent = s.phone || '—';
     const townEl  = el('acc-town');     if(townEl)  townEl.textContent  = s.town  || '—';
     const lgaEl   = el('acc-lga');      if(lgaEl)   lgaEl.textContent   = s.lga   || '—';
@@ -13402,7 +13405,6 @@ const _origDoDeposit = function(){
   el('deposit-modal').classList.remove('hidden');
 };
 window.doDeposit = function(){
-  if(!pinIsSet()) showPinSetup();
   _origDoDeposit?.();
 }
 
@@ -14207,14 +14209,48 @@ function isPinLocked(){
   return until > Date.now();
 }
 
-function completeSetPin(pin){
-  if(isWeakPin(pin)){ showPopupNotif('⚠️','Weak PIN','Avoid repeated digits like 1111.'); _pinSetupStep=1; _pinSetupFirst=''; _pinSetupEntry=''; updatePinDots('pin-dot',''); return; }
-  localStorage.setItem(PIN_KEY, hashPin(pin));
-  localStorage.setItem(PIN_SET_KEY,'1');
-  el('set-pin-modal')?.classList.add('hidden');
-  showPopupNotif('🔐','PIN Set!','Your transaction PIN has been set successfully.');
-  syncPinButtonLabel && syncPinButtonLabel();
+var _pinMode='set', _pinOld='', _pinPassword='';
+function _pinLive(){ const u=state.session; return !!(u && u.id && u.id!=='dev-test-user' && window.EMEMART_BACKEND && window.EMEMART_BACKEND.mode!=='dev'); }
+function _pinResetDots(){ _pinSetupStep=1; _pinSetupFirst=''; _pinSetupEntry=''; updatePinDots('pin-dot',''); }
+function _pinTexts(title,sub,step){
+  if(el('pin-setup-title')) el('pin-setup-title').textContent=title;
+  if(el('pin-setup-subtitle')) el('pin-setup-subtitle').textContent=sub;
+  if(el('pin-step-indicator')) el('pin-step-indicator').textContent=step;
 }
+async function completeSetPin(pin){
+  if(isWeakPin(pin)){ showPopupNotif('⚠️','Weak PIN','Avoid repeated digits like 1111.'); _pinResetDots(); return; }
+  if(_pinLive()){
+    let r;
+    try{
+      r = _pinMode==='reset' ? await apiPost('wallet.php','reset_pin',{password:_pinPassword,pin})
+        : await apiPost('wallet.php','set_pin',{pin, old_pin:(_pinMode==='change'?_pinOld:undefined)});
+    }catch(e){ r={success:false,message:'Connection failed.'}; }
+    if(!r || !r.success){
+      showPopupNotif('❌','PIN not saved',(r&&r.message)||'Try again.');
+      _pinResetDots();
+      if(_pinMode==='change'){ el('set-pin-modal')?.classList.add('hidden'); }
+      return;
+    }
+    if(state.session) state.session.has_pin=true;
+  } else {
+    localStorage.setItem(PIN_KEY, hashPin(pin));
+    localStorage.setItem(PIN_SET_KEY,'1');
+  }
+  const wasMode=_pinMode; _pinMode='set'; _pinOld=''; _pinPassword='';
+  el('set-pin-modal')?.classList.add('hidden');
+  showPopupNotif('🔐', wasMode==='set'?'PIN set':'PIN updated', wasMode==='set'?'Your transaction PIN is ready.':'Your new transaction PIN is saved.');
+  if(typeof syncPinButtonLabel==='function') syncPinButtonLabel();
+  if(typeof syncPinSecurityRow==='function') syncPinSecurityRow();
+  if(_pinVerifyCallback){ const cb=_pinVerifyCallback; _pinVerifyCallback=null; try{cb();}catch(e){} }
+}
+function syncPinSecurityRow(){
+  const set=isPinSet();
+  const b=el('acc-pin-btn'), st=el('acc-pin-status'), rb=el('acc-pin-reset-btn');
+  if(b) b.textContent = set ? 'Change' : 'Set PIN';
+  if(st) st.textContent = set ? 'PIN is set. Protects withdrawals and payments.' : 'No PIN yet. Set one to protect withdrawals and payments.';
+  if(rb) rb.classList.toggle('hidden', !set);
+}
+setInterval(function(){ try{ if(el('acc-pin-btn')) syncPinSecurityRow(); }catch(e){} }, 1500);
 
 function getDisputeRecords(){ try{ return JSON.parse(localStorage.getItem('ememart_disputes_v1')||'[]'); }catch(e){ return []; } }
 function saveDisputeRecords(r){ localStorage.setItem('ememart_disputes_v1', JSON.stringify(r)); }
@@ -17464,7 +17500,8 @@ function pinPadBackspace(){
 }
 
 function pinPadForgot(){
-  showPopupNotif('🔐','Reset PIN','To reset your PIN, please contact support or re-verify your identity via KYC.');
+  el('set-pin-modal')?.classList.add('hidden');
+  if(isPinSet()) openResetPinFlow(); else showPopupNotif('ℹ️','No PIN yet','Create your PIN with the keypad.');
 }
 
 function pinPadPress(digit){
@@ -17872,7 +17909,7 @@ function verifyPinBackspace(){
 
 function verifyPinForgot(){
   el('pin-verify-modal').classList.add('hidden');
-  showPopupNotif('🔐','Forgot PIN?','Contact support to reset your PIN after identity verification.');
+  openResetPinFlow();
 }
 
 function verifyPinPress(digit){
@@ -18692,11 +18729,6 @@ function reactPost(postId, emoji){
 
 function sharePostMenu(postId){ sharePost(postId); }
 
-function openChangePinFlow(){
-  if(!isPinSet()){ showPinSetupPrompt(false); return; }
-  requirePin('Verify Current PIN',()=>{ _pinSetupStep=1; _pinSetupFirst=''; _pinSetupEntry=''; updatePinDots('pin-dot',''); el('set-pin-modal').classList.remove('hidden'); });
-}
-
 function autoReleaseEscrow(orderId){
   const records=getEscrowRecords();
   const rec=records.find(r=>r.orderId===orderId&&r.status==='held');
@@ -18711,17 +18743,41 @@ function autoReleaseEscrow(orderId){
 }
 
 function showPinSetupPrompt(required){
-  _pinRequired=!!required;
-  _pinSetupStep=1; _pinSetupFirst=''; _pinSetupEntry='';
-  updatePinDots('pin-dot','');
-  const t=el('pin-setup-title'), s=el('pin-setup-subtitle'), st=el('pin-step-indicator'), sk=el('pin-skip-btn');
-  if(t) t.textContent='Set Transaction PIN';
-  if(s) s.textContent='Create a 4-digit PIN to secure all wallet transactions.';
-  if(st) st.textContent='Step 1 of 2 — Enter new PIN';
+  _pinRequired=!!required; _pinMode='set'; _pinOld='';
+  _pinResetDots();
+  const sk=el('pin-skip-btn');
+  _pinTexts('Set transaction PIN','Choose a 4-digit PIN. You will use it for withdrawals and payments.','Step 1 of 2: enter new PIN');
   if(sk) sk.classList.toggle('hidden',!!required);
   el('set-pin-modal').classList.remove('hidden');
 }
-
+// Change PIN: ask for the current PIN as text first (the server checks it), then the new PIN twice.
+function openChangePinFlow(){
+  if(!isPinSet()){ showPinSetupPrompt(false); return; }
+  if(!_pinLive()){ requirePin('Verify current PIN',()=>{ _pinMode='change'; _pinResetDots(); _pinTexts('Change PIN','Enter your new PIN.','Step 1 of 2: enter new PIN'); el('set-pin-modal').classList.remove('hidden'); }); return; }
+  _pinMode='change'; _pinOld='';
+  _pinAskOld();
+}
+function _pinAskOld(){
+  const v=window.prompt('Enter your current transaction PIN');
+  if(v==null) return;
+  if(!/^\d{4,6}$/.test(v)){ showPopupNotif('⚠️','Current PIN','Enter your current 4 to 6 digit PIN.'); return; }
+  _pinOld=v; _pinResetDots();
+  _pinTexts('Change PIN','Now choose your new PIN.','Step 1 of 2: enter new PIN');
+  el('pin-skip-btn')?.classList.add('hidden');
+  el('set-pin-modal').classList.remove('hidden');
+}
+// Reset PIN: prove it is you with the account password, then choose a new PIN.
+function openResetPinFlow(){
+  if(!_pinLive()){ showPopupNotif('ℹ️','Reset PIN','Sign in to your account to reset your PIN.'); return; }
+  const pw=window.prompt('To reset your PIN, enter your account password');
+  if(pw==null) return;
+  if(!pw){ showPopupNotif('⚠️','Password needed','Enter your account password.'); return; }
+  _pinPassword=pw; _pinMode='reset'; _pinOld='';
+  _pinResetDots();
+  _pinTexts('Reset PIN','Choose a new PIN.','Step 1 of 2: enter new PIN');
+  el('pin-skip-btn')?.classList.add('hidden');
+  el('set-pin-modal').classList.remove('hidden');
+}
 function requirePin(action, callback){
   if(!isPinSet()){ _pinVerifyCallback=callback; showPinSetupPrompt(true); return; }
   if(isPinLocked()){ showPopupNotif('🔒','PIN Locked','Too many wrong attempts. Try again later.'); return; }
