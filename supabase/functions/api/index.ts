@@ -40,6 +40,65 @@ export function env(name: string): string {
   return v;
 }
 
+// ---------- Email through Termii ----------
+// Every email goes into the email_outbox table first, is sent straight away, and is retried by the jobs function if Termii is down.
+// Secrets needed: TERMII_API_KEY (and optionally TERMII_BASE_URL). Template IDs and the on/off switch live in app_settings key "email".
+const money = (kobo: number) => "₦" + (Number(kobo) / 100).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const lagosNow = () => new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+const shortRef = (id: string) => String(id).slice(0, 8).toUpperCase();
+const EMAIL_VAR_DEFAULTS: Record<string, string> = { amount: "-", order_ref: "-", bank: "-", code: "-", reason: "-", other_party: "-", status: "-", fee: "-" };
+
+export async function queueEmail(userId: string, template: string, vars: Record<string, string> = {}) {
+  try {
+    const { data } = await admin.from("email_outbox").insert({ user_id: userId, template, vars: { date_time: lagosNow(), ...vars } }).select("id").single();
+    if (data) await sendOutboxEmail(Number(data.id));
+  } catch (e) { console.error("queueEmail failed", e); }
+}
+
+export async function sendOutboxEmail(id: number): Promise<boolean> {
+  try {
+    const { data: row } = await admin.from("email_outbox").select("*").eq("id", id).eq("status", "pending").maybeSingle();
+    if (!row) return false;
+    const key = Deno.env.get("TERMII_API_KEY");
+    const { data: s } = await admin.from("app_settings").select("value").eq("key", "email").maybeSingle();
+    const cfg: any = s?.value;
+    if (!key || !cfg?.enabled || !cfg?.config_id) return false;               // not set up yet: it waits in the outbox
+    // claim it, so two workers never send the same email
+    const { data: claimed } = await admin.from("email_outbox").update({ attempts: row.attempts + 1 })
+      .eq("id", id).eq("status", "pending").eq("attempts", row.attempts).select("id");
+    if (!claimed?.length) return false;
+    const fail = async (msg: string) => {
+      await admin.from("email_outbox").update({ last_error: msg.slice(0, 300), status: row.attempts + 1 >= 5 ? "failed" : "pending" }).eq("id", id);
+      return false;
+    };
+    const templateId = cfg.templates?.[row.template];
+    if (!templateId) return await fail("No template ID for " + row.template);
+    const { data: u } = await admin.auth.admin.getUserById(row.user_id);
+    const to = u?.user?.email;
+    if (!to) return await fail("User has no email");
+    const { data: p } = await admin.from("profiles").select("full_name").eq("id", row.user_id).maybeSingle();
+    const variables: Record<string, string> = { ...EMAIL_VAR_DEFAULTS, name: String(p?.full_name || "there").split(" ")[0], date_time: lagosNow() };
+    for (const [k, v] of Object.entries(row.vars ?? {})) variables[k] = String(v);
+    const base = (Deno.env.get("TERMII_BASE_URL") ?? "https://v4.api.termii.com").replace(/\/+$/, "");
+    const res = await fetch(`${base}/api/templates/send-email`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: key, email: to, subject: cfg.subjects?.[row.template] ?? "Ememart", email_configuration_id: cfg.config_id, template_id: templateId, variables }),
+    });
+    const out: any = await res.json().catch(() => ({}));
+    if (!res.ok || (out.code && out.code !== "ok")) return await fail(`Termii ${res.status}: ${out.message ?? JSON.stringify(out)}`);
+    await admin.from("email_outbox").update({ status: "sent", sent_at: new Date().toISOString(), last_error: null }).eq("id", id);
+    return true;
+  } catch (e) { console.error("sendOutboxEmail failed", e); return false; }
+}
+
+// Sends whatever is waiting (used right after an order is released or refunded, and by the jobs function as the retry).
+export async function flushEmails(limit = 20) {
+  try {
+    const { data } = await admin.from("email_outbox").select("id").eq("status", "pending").lt("attempts", 5).order("id").limit(limit);
+    for (const r of data ?? []) await sendOutboxEmail(Number(r.id));
+  } catch (e) { console.error("flushEmails failed", e); }
+}
+
 export async function notify(
   userId: string, kind: string, title: string, body: string, data: Record<string, unknown> = {},
 ) {
@@ -139,12 +198,13 @@ async function call(method: string, path: string, body?: unknown) {
 
 /** Hosted checkout for wallet funding. amount in kobo. */
 export async function initiatePayment(p: {
-  ref: string; email: string; amountKobo: number; name?: string; callbackUrl?: string;
+  ref: string; email: string; amountKobo: number; name?: string; callbackUrl?: string; passCharge?: boolean;
 }) {
   const r = await call("POST", "/transaction/initiate", {
     email: p.email, amount: p.amountKobo, currency: "NGN", initiate_type: "inline",
     transaction_ref: p.ref, customer_name: p.name, callback_url: p.callbackUrl,
     payment_channels: ["card", "bank", "transfer", "ussd"],
+    pass_charge: p.passCharge === true,   // true = Squad adds its own charge on top, so the customer pays it
   });
   const url = r.data?.data?.checkout_url as string | undefined;
   if (!url) throw new Error(`Squad initiate failed (${r.httpStatus}): ${r.data?.message ?? "no message"}`);
@@ -305,6 +365,24 @@ me.post("/me/pin", async (c) => {
     await checkPin(p, old_pin);
   }
   await admin.from("profiles").update({ pin_hash: await hashPin(pin), pin_failed: 0, pin_locked_until: null }).eq("id", p.id);
+  return c.json({ ok: true });
+});
+
+// Forgot the PIN: prove it is you with the account password, then choose a new PIN.
+// Supabase Auth rate-limits wrong passwords, and we also count them here.
+me.post("/me/pin/reset", async (c) => {
+  const p = c.get("profile");
+  const email = p.email ?? c.get("email");
+  const { password, pin } = await parseBody(c, z.object({ password: z.string().min(1).max(200), pin: pinSchema }));
+  if (!email) throw new HttpError(400, "No email on this account. Contact help@ememart.com");
+  const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!r.ok) throw new HttpError(401, "That password is not correct. If you signed up with Google, email help@ememart.com to reset your PIN.");
+  await admin.from("profiles").update({ pin_hash: await hashPin(pin), pin_failed: 0, pin_locked_until: null }).eq("id", p.id);
+  await audit(p.id, "pin_reset", p.id, {});
   return c.json({ ok: true });
 });
 
@@ -927,12 +1005,17 @@ wallet.post("/wallet/fund", async (c) => {
   const email = p.email ?? c.get("email");
   if (!email) throw new HttpError(400, "An email address is required to fund your wallet");
   const ref = `EMEFUND${Date.now()}${crypto.randomUUID().slice(0, 8)}`.toUpperCase();
-  const fee_kobo = fundingFee(await getFundingFees(), "checkout", amount_kobo);
-  await admin.from("funding_intents").insert({ ref, user_id: p.id, amount_kobo, fee_kobo });
+  // The customer pays: the amount they want in the wallet + Ememart's own fee (set in admin) + Squad's charge (added by Squad at checkout).
+  // Squad is asked to collect amount + Ememart's fee; the wallet is credited the amount, and Ememart's fee is booked when the payment lands.
+  const feesCfg = await getFundingFees();
+  const fee_kobo = fundingFee(feesCfg, "checkout", amount_kobo);
+  const pay_kobo = amount_kobo + fee_kobo;
+  const passCharge = (await getSetting("funding_fees")).pass_squad_charge !== false;
+  await admin.from("funding_intents").insert({ ref, user_id: p.id, amount_kobo: pay_kobo, fee_kobo });
   const checkout_url = await initiatePayment({
-    ref, email, amountKobo: amount_kobo, name: p.full_name, callbackUrl: Deno.env.get("PAYMENT_CALLBACK_URL"),
+    ref, email, amountKobo: pay_kobo, name: p.full_name, callbackUrl: Deno.env.get("PAYMENT_CALLBACK_URL"), passCharge,
   });
-  return c.json({ ref, checkout_url, fee_kobo });
+  return c.json({ ref, checkout_url, fee_kobo, pay_kobo });
 });
 
 wallet.get("/wallet/banks", (c) => c.json({ banks: BANKS }));
@@ -995,6 +1078,9 @@ wallet.post("/wallet/withdraw", async (c) => {
     await admin.rpc("ledger_post", { p_user: p.id, p_amount: b.amount_kobo, p_kind: "withdrawal_reversal", p_ref: wd.id, p_idem: `wdrev:${wd.id}` });
   }
   await admin.from("withdrawals").update({ status }).eq("id", wd.id);
+  const bankLabel = `${BANKS.find((x) => x.code === b.bank_code)?.name ?? "Bank"} ******${b.account_number.slice(-4)}`;
+  if (status === "success") await queueEmail(p.id, "withdrawal", { amount: money(b.amount_kobo), bank: bankLabel });
+  if (status === "failed") await queueEmail(p.id, "withdrawal_failed", { amount: money(b.amount_kobo), bank: bankLabel });
   await audit(p.id, "wallet.withdraw", wd.id, { status, amount: b.amount_kobo });
   if (status === "failed") throw new HttpError(502, "Transfer failed. Your money was returned to your wallet.");
   return c.json({ id: wd.id, status });
@@ -1057,6 +1143,10 @@ orders.post("/orders", async (c) => {
     { delivery_fee_kobo: b.delivery_fee_kobo, address: b.address, note: b.note });
   const { data: bal } = await admin.from("wallets").select("balance_kobo").eq("user_id", p.id).single();
   const accMin = Number((await getSetting("escrow")).accept_minutes ?? 30);
+  const heldKobo = await ledgerAbs(id, p.id, "escrow_hold");
+  await notify(p.id, "escrow_held", "Payment held in escrow", `${money(heldKobo)} is held safely until your order is delivered.`, { order: id });
+  await queueEmail(p.id, "escrow_held", { order_ref: shortRef(id), amount: money(heldKobo) });
+  await queueEmail(post.author_id, "new_order", { order_ref: shortRef(id), amount: money(unit * b.quantity) });
   await notify(post.author_id, "new_order", "New order", `${p.full_name || "A buyer"} ordered "${post.title}". Accept or decline within ${accMin} minutes, or the customer is refunded.`, { order: id });
   return c.json({ id, balance_kobo: bal?.balance_kobo ?? 0 }, 201);
 });
@@ -1117,6 +1207,7 @@ orders.post("/orders/:id/handover", async (c) => {
   }
   const { error } = await admin.rpc("release_order", { p_order: o.id });
   if (error) throw new HttpError(500, error.message);
+  await flushEmails();
   const now = new Date().toISOString();
   await admin.from("orders").update({ delivery_status: "delivered", delivered_at: o.delivered_at ?? now, ...(isRider ? { rider_delivered_at: now } : {}) }).eq("id", o.id);
   await notify(o.buyer_id, "order_delivered", "Order delivered", "Your delivery code was entered and the payment has been released to the Partner.", { order: o.id });
@@ -1131,6 +1222,7 @@ orders.post("/orders/:id/confirm", async (c) => {
   if (!["held", "delivered"].includes(o.status)) throw new HttpError(400, `Order is ${o.status}`);
   const { error } = await admin.rpc("release_order", { p_order: o.id });
   if (error) throw new HttpError(500, error.message);
+  await flushEmails();
   return c.json({ ok: true });
 });
 
@@ -1144,8 +1236,10 @@ orders.post("/orders/:id/cancel", async (c) => {
   if (byBuyer && o.accepted_at) throw new HttpError(400, "The Partner has already accepted this order. Message them, or open a dispute if there is a problem.");
   const { error } = await admin.rpc("refund_order", { p_order: o.id });
   if (error) throw new HttpError(500, error.message);
+  await flushEmails();
   if (byBuyer) {
     await notify(o.seller_id, "order_cancelled", "Order cancelled", "The customer cancelled before you accepted. No action needed.", { order: o.id });
+    await queueEmail(o.seller_id, "order_cancelled", { order_ref: shortRef(o.id), amount: money(Number(o.amount_kobo)) });
     await notify(o.buyer_id, "order_cancelled", "Order cancelled", "You cancelled. Your money is back in your wallet in full.", { order: o.id });
     await audit(c.get("uid"), "order.cancelled_by_buyer", o.id);
   } else {
@@ -1161,6 +1255,7 @@ orders.post("/orders/:id/decline", async (c) => {
   if (o.status !== "held" || o.accepted_at) throw new HttpError(400, "This order can no longer be declined");
   const { error } = await admin.rpc("refund_order", { p_order: o.id });
   if (error) throw new HttpError(500, error.message);
+  await flushEmails();
   await notify(o.buyer_id, "order_declined", "Order declined", "The Partner could not take your order. Your money is back in your wallet.", { order: o.id });
   await audit(c.get("uid"), "order.declined", o.id);
   return c.json({ ok: true });
@@ -1177,6 +1272,8 @@ orders.post("/orders/:id/dispute", async (c) => {
   if (error) throw new HttpError(400, error.message);
   await admin.from("orders").update({ status: "disputed", auto_release_at: null }).eq("id", o.id);
   await notify(uid === o.buyer_id ? o.seller_id : o.buyer_id, "dispute_opened", "A dispute was opened", `Please reply with your side and any evidence within ${replyHours} hours. Support will review.`, { dispute: data.id, order: o.id });
+  const otherId = uid === o.buyer_id ? o.seller_id : o.buyer_id;
+  await queueEmail(otherId, "dispute_against", { order_ref: shortRef(o.id), amount: money(Number(o.amount_kobo)), other_party: String(c.get("profile")?.full_name || "The other party"), reason: String(b.reason).slice(0, 300) });
   await audit(uid, "dispute.opened", data.id);
   return c.json({ id: data.id }, 201);
 });
@@ -1327,6 +1424,10 @@ function need(c: any, area: keyof typeof PERMS) {
   return role;
 }
 
+async function ledgerAbs(orderId: string, userId: string, kind: string): Promise<number> {
+  const { data } = await admin.from("ledger_entries").select("amount_kobo").eq("ref", orderId).eq("user_id", userId).eq("kind", kind).limit(1).maybeSingle();
+  return Math.abs(Number(data?.amount_kobo ?? 0));
+}
 const naira = (kobo: number) => "\u20A6" + Math.round(kobo / 100).toLocaleString("en-NG");
 
 // ----- order timing and fees (editable in the admin Settings tab) -----
@@ -1360,6 +1461,21 @@ adminRoutes.put("/admin/settings/funding_fees", async (c) => {
   if (error) throw new HttpError(400, error.message);
   await audit(c.get("uid"), "settings.funding_fees_updated", "funding_fees", { before: cur, after: next });
   return c.json({ ok: true, settings: next });
+});
+
+// ----- email: send a sample of any template to the signed-in admin's own address -----
+adminRoutes.post("/admin/email/test", async (c) => {
+  need(c, "support");
+  const b = await parseBody(c, z.object({ template: z.string().min(2).max(40) }));
+  const { data: s } = await admin.from("app_settings").select("value").eq("key", "email").maybeSingle();
+  if (!s?.value?.templates?.[b.template]) throw new HttpError(400, "Unknown template");
+  if (!Deno.env.get("TERMII_API_KEY")) throw new HttpError(400, "TERMII_API_KEY is not set in the Edge Function secrets yet");
+  const sample = { amount: money(250000), order_ref: "A1B2C3D4", bank: "Test Bank ******1234", code: "482916", reason: "Sample reason", other_party: "Sample Customer", status: "New message from the other party", fee: money(4500) };
+  const { data, error } = await admin.from("email_outbox").insert({ user_id: c.get("uid"), template: b.template, vars: { ...sample, date_time: lagosNow() } }).select("id").single();
+  if (error) throw new HttpError(500, error.message);
+  const ok = await sendOutboxEmail(Number(data.id));
+  const { data: row } = await admin.from("email_outbox").select("status, last_error").eq("id", data.id).single();
+  return c.json({ ok, status: row?.status, error: row?.last_error ?? null });
 });
 
 // ----- promotions (off until switched on in the admin Settings tab) -----
@@ -1518,6 +1634,13 @@ adminRoutes.post("/admin/disputes/:id/resolve", async (c) => {
   for (const u of [d.orders.buyer_id, d.orders.seller_id]) {
     await notify(u, "dispute_resolved", "Dispute resolved", b.outcome === "split" ? `Decision: the money was shared. ${naira(b.refund_kobo ?? 0)} went back to the customer. ${b.note}` : `Decision in favour of the ${b.outcome}. ${b.note}`, { dispute: d.id });
   }
+  if (b.outcome !== "split") {
+    const winner = b.outcome === "buyer" ? d.orders.buyer_id : d.orders.seller_id, loser = b.outcome === "buyer" ? d.orders.seller_id : d.orders.buyer_id;
+    const vars = { order_ref: shortRef(d.order_id), amount: money(Number(d.orders.amount_kobo)) };
+    await queueEmail(winner, "dispute_won", vars);
+    await queueEmail(loser, "dispute_lost", vars);
+  }
+  await flushEmails();
   await audit(c.get("uid"), "dispute.resolved", d.id, { outcome: b.outcome });
   return c.json({ ok: true });
 });
@@ -1658,7 +1781,11 @@ partners.post("/disputes/:id/messages", async (c) => {
   const { d, o } = await myDispute(c.req.param("id"), uid);
   if (!["open", "under_review"].includes(d.status)) throw new HttpError(400, "This dispute is closed");
   await admin.from("dispute_messages").insert({ dispute_id: d.id, user_id: uid, body: b.body });
-  await notify(uid === o.buyer_id ? o.seller_id : o.buyer_id, "dispute_message", "New message on a dispute", b.body.slice(0, 120), { dispute: d.id, order: o.id });
+  const msgTo = uid === o.buyer_id ? o.seller_id : o.buyer_id;
+  await notify(msgTo, "dispute_message", "New message on a dispute", b.body.slice(0, 120), { dispute: d.id, order: o.id });
+  const { data: recent } = await admin.from("email_outbox").select("id").eq("user_id", msgTo).eq("template", "dispute_update")
+    .gte("created_at", new Date(Date.now() - 30 * 60_000).toISOString()).limit(1);
+  if (!recent?.length) await queueEmail(msgTo, "dispute_update", { order_ref: shortRef(o.id), amount: money(Number(o.amount_kobo)), status: "New message from the other party" });
   return c.json({ ok: true }, 201);
 });
 partners.post("/disputes/:id/withdraw", async (c) => {
@@ -1751,7 +1878,9 @@ partners.post("/rider/jobs/:id/status", async (c) => {
   if (b.status === "delivered") patch.rider_delivered_at = new Date().toISOString();
   await admin.from("orders").update(patch).eq("id", o.id);
   const text = { picked_up: "Your order was picked up.", on_the_way: "Your rider is on the way.", delivered: "The rider marked your order as delivered. Please confirm in the app." }[b.status];
-  const body = b.status === "on_the_way" ? deliveryCodeText(await ensureDeliveryCode(o.id), "rider") : text;
+  const riderCode = b.status === "on_the_way" ? await ensureDeliveryCode(o.id) : "";
+  const body = b.status === "on_the_way" ? deliveryCodeText(riderCode, "rider") : text;
+  if (riderCode) await queueEmail(o.buyer_id, "delivery_code", { code: riderCode, order_ref: shortRef(o.id) });
   await notify(o.buyer_id, "delivery_" + b.status, "Delivery update", body, { order: o.id });
   await audit(c.get("uid"), "rider." + b.status, o.id);
   return c.json({ ok: true });
@@ -1785,7 +1914,9 @@ partners.post("/orders/:id/progress", async (c) => {
     accepted: "The Partner accepted your order.", preparing: "Your order is being prepared.",
     ready: "Your order is ready.", on_the_way: "Your order is on the way.",
   };
-  const body = b.step === "on_the_way" ? deliveryCodeText(await ensureDeliveryCode(o.id), "Partner") : text[b.step];
+  const partnerCode = b.step === "on_the_way" ? await ensureDeliveryCode(o.id) : "";
+  const body = b.step === "on_the_way" ? deliveryCodeText(partnerCode, "Partner") : text[b.step];
+  if (partnerCode) await queueEmail(o.buyer_id, "delivery_code", { code: partnerCode, order_ref: shortRef(o.id) });
   await notify(o.buyer_id, "order_" + b.step, "Order update", body, { order: o.id });
   await audit(uid, "order." + b.step, o.id);
   return c.json({ ok: true, step: b.step });
