@@ -338,7 +338,7 @@ VIEWS.settings = async function () {
     alert(x._ok ? 'Saved. New orders use these settings.' : x._err);
   };
 
-  // wallet funding fees: the Customer pays these, they are taken from the money they add
+  // wallet funding fees: Squad's charge is automatic; these are Ememart's own extra fee
   var ff = {};
   try { var fr = await sb.from('app_settings').select('value').eq('key', 'funding_fees').maybeSingle(); ff = (fr.data && fr.data.value) || {}; } catch (e) {}
   function ffBox(kind, title, note) {
@@ -350,9 +350,9 @@ VIEWS.settings = async function () {
       '<label style="display:inline-block;margin:0 0 10px 0">Highest fee (naira, 0 = no limit)<br><input data-ff="' + kind + '.cap_kobo" data-div="0.01" type="number" min="0" step="any" value="' + n(c.cap_kobo, 100) + '" style="width:120px"></label></div>';
   }
   var box = document.createElement('div'); box.className = 'card'; box.style.marginTop = '14px';
-  box.innerHTML = '<h3>Wallet funding fees</h3><p class="mute">The Customer pays this fee. It is taken from the money they add, and shows as its own line in their history. Leave everything at 0 for no fee. Changes apply to new payments straight away.</p>' +
-    ffBox('transfer', 'Bank transfer to the Customer\'s own account number', 'Example: 0.5% with a highest fee of 200 naira.') +
-    ffBox('checkout', 'Card, USSD or transfer on the payment page', 'Same rules, set separately.') +
+  box.innerHTML = '<h3>Wallet funding fees</h3><p class="mute">Squad\'s own charge is added automatically and the Customer pays it, so you do not set it here. What you set below is your own extra fee on top. Leave everything at 0 for no extra fee. Changes apply to new payments straight away.</p>' +
+    ffBox('transfer', 'Bank transfer to the Customer\'s own account number', 'Squad\'s charge and your fee are both taken from the money sent. Example: 0.5% with a highest fee of 200 naira.') +
+    ffBox('checkout', 'Card, USSD or transfer on the payment page', 'The Customer pays the amount, plus your fee, plus Squad\'s charge. Their wallet gets the full amount they chose.') +
     '<button class="btn ok" id="ff-save">Save funding fees</button>';
   document.querySelector('#st-save').closest('.card').insertAdjacentElement('afterend', box);
   $('ff-save').onclick = async function () {
@@ -378,6 +378,19 @@ VIEWS.settings = async function () {
     '<p class="mute" style="margin-top:10px">Referral rewards and loyalty points are not available yet, so Customers do not see them.</p>' +
     '<button class="btn ok" id="pr-save" style="margin-top:8px">Save promotions</button>';
   box.insertAdjacentElement('afterend', pbox);
+
+  // email: send a sample of any template to the signed-in admin
+  var TPL = [['welcome','Welcome'],['escrow_held','Escrow held'],['escrow_released','Escrow released'],['refund','Refund'],['new_order','New order'],['order_cancelled','Order cancelled'],['delivery_code','Delivery code'],['wallet_funded','Wallet funded'],['withdrawal','Withdrawal'],['withdrawal_failed','Withdrawal failed'],['dispute_against','Dispute against'],['dispute_update','Dispute update'],['dispute_won','Dispute won'],['dispute_lost','Dispute lost']];
+  var ebox = document.createElement('div'); ebox.className = 'card'; ebox.style.marginTop = '14px';
+  ebox.innerHTML = '<h3>Test emails</h3><p class="mute">Sends a sample of the email to your own admin address, so you can check how it looks and that Termii delivers it.</p>' +
+    '<div class="row" style="margin-top:10px"><select id="em-tpl" class="grow">' + TPL.map(function (t) { return '<option value="' + t[0] + '">' + t[1] + '</option>'; }).join('') + '</select>' +
+    '<button class="btn ok" id="em-send">Send test</button></div><p class="mute" id="em-out" style="margin-top:8px"></p>';
+  pbox.insertAdjacentElement('afterend', ebox);
+  $('em-send').onclick = async function () {
+    $('em-out').textContent = 'Sending...';
+    var x = await api('POST', '/admin/email/test', { template: $('em-tpl').value });
+    $('em-out').textContent = !x._ok ? x._err : (x.ok ? 'Sent. Check your inbox (and spam).' : 'Not sent: ' + (x.error || 'Termii did not accept it. Check the TERMII_API_KEY secret.'));
+  };
   $('pr-save').onclick = async function () {
     var x = await api('PUT', '/admin/settings/promos', { deposit_bonus: {
       enabled: $('pr-dep-on').checked,
