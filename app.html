@@ -15,6 +15,41 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
 <script>
+// In-page dialogs: replace the browser's own pop-ups (which print the site address above the message).
+(function () {
+  function build(msg, opts, kind) {
+    return new Promise(function (resolve) {
+      var o = document.createElement('div');
+      o.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px;z-index:99999';
+      var b = document.createElement('div'); b.className = 'modal-sheet';
+      b.setAttribute('role', 'dialog'); b.setAttribute('aria-modal', 'true');
+      b.style.cssText = 'border-radius:18px;max-width:380px;padding:20px;max-height:80vh';
+      var p = document.createElement('div'); p.style.cssText = 'white-space:pre-wrap;line-height:1.45;font-size:14px;font-weight:700;margin-bottom:14px'; p.textContent = msg; b.appendChild(p);
+      var inp = null;
+      if (kind === 'prompt') {
+        inp = document.createElement('input'); inp.className = 'inp'; inp.type = (opts && opts.type) || 'text'; inp.style.marginBottom = '14px';
+        if (opts && opts.numeric) { inp.setAttribute('inputmode', 'numeric'); inp.maxLength = opts.maxLength || 6; inp.autocomplete = 'off'; }
+        if (opts && opts.placeholder) inp.placeholder = opts.placeholder;
+        b.appendChild(inp);
+      }
+      var row = document.createElement('div'); row.style.cssText = 'display:flex;gap:10px';
+      function done(v) { document.removeEventListener('keydown', key, true); o.remove(); resolve(v); }
+      if (kind !== 'alert') { var c = document.createElement('button'); c.className = 'btn-primary'; c.style.cssText = 'background:transparent;color:#9ca3af;border:1px solid #374151'; c.textContent = 'Cancel'; c.onclick = function () { done(kind === 'prompt' ? null : false); }; row.appendChild(c); }
+      var ok = document.createElement('button'); ok.className = 'btn-primary'; ok.textContent = (opts && opts.ok) || 'OK';
+      ok.onclick = function () { done(kind === 'prompt' ? inp.value : true); }; row.appendChild(ok);
+      b.appendChild(row); o.appendChild(b); document.body.appendChild(o);
+      function key(e) { if (e.key === 'Escape') { e.stopPropagation(); done(kind === 'alert' ? true : kind === 'prompt' ? null : false); } else if (e.key === 'Enter' && kind !== 'alert') { e.preventDefault(); ok.click(); } }
+      document.addEventListener('keydown', key, true);
+      setTimeout(function () { (inp || ok).focus(); }, 30);
+    });
+  }
+  window.uiAlert = function (m, o) { return build(String(m == null ? '' : m), o, 'alert'); };
+  window.uiConfirm = function (m, o) { return build(String(m), o, 'confirm'); };
+  window.uiPrompt = function (m, o) { return build(String(m), o, 'prompt'); };
+  window.alert = function (m) { window.uiAlert(m); };
+})();
+</script>
+<script>
 // ============================================================
 // SERVICE WORKER + PUSH NOTIFICATIONS
 // ============================================================
@@ -4972,6 +5007,13 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
       </div>
       <div class="flex items-center justify-between bg-gray-950 border border-gray-800 rounded-xl p-3">
         <div>
+          <div class="text-xs font-bold text-white">Push notifications</div>
+          <div id="acc-push-status" class="text-[9px] text-gray-500 mt-0.5">Get order and payment alerts on this device</div>
+        </div>
+        <button id="acc-push-btn" onclick="togglePushSetting()" class="btn-sm-outline text-[9px] whitespace-nowrap">Turn on</button>
+      </div>
+      <div class="flex items-center justify-between bg-gray-950 border border-gray-800 rounded-xl p-3">
+        <div>
           <div class="text-xs font-bold text-white">Change Password</div>
           <div class="text-[9px] text-gray-500 mt-0.5">Update your sign-in password</div>
         </div>
@@ -6210,7 +6252,7 @@ function sendSupportChatMessage(){ sendSupportMessage(); }
 // ============================================================
 // DELETE POST
 // ============================================================
-function deletePost(postId){
+async function deletePost(postId){
   if(!state.session){ showPopupNotif('🔐','Sign In','Please sign in first.'); return; }
   const idx = state.posts.findIndex(p => p.id === postId);
   if(idx === -1){ showPopupNotif('❌','Not Found','Post not found.'); return; }
@@ -6219,7 +6261,7 @@ function deletePost(postId){
     showPopupNotif('❌','Permission Denied','You can only delete your own posts.');
     return;
   }
-  if(!confirm('Delete this post permanently?')) return;
+  if(!(await uiConfirm('Delete this post permanently?',{ok:'Delete'}))) return;
   state.posts.splice(idx, 1);
   try { localStorage.setItem('ememart_posts', JSON.stringify(state.posts.filter(p => !p.demo))); } catch(e){}
   renderFeed();
@@ -14243,6 +14285,27 @@ async function completeSetPin(pin){
   if(typeof syncPinSecurityRow==='function') syncPinSecurityRow();
   if(_pinVerifyCallback){ const cb=_pinVerifyCallback; _pinVerifyCallback=null; try{cb();}catch(e){} }
 }
+
+async function syncPushRow(){
+  const st=el('acc-push-status'), b=el('acc-push-btn'); if(!st||!b) return;
+  if(typeof window.pushState!=='function'){ st.textContent='Available after you sign in'; b.classList.add('hidden'); return; }
+  const s=await window.pushState();
+  b.classList.remove('hidden'); b.disabled=false;
+  if(s==='on'){ st.textContent='On for this device'; b.textContent='Turn off'; }
+  else if(s==='blocked'){ st.textContent='Blocked in your browser settings. Allow notifications for this site to turn on.'; b.classList.add('hidden'); }
+  else if(s==='unsupported'){ st.textContent='This browser does not support push. On iPhone, add Ememart to your Home Screen first.'; b.classList.add('hidden'); }
+  else { st.textContent='Get order and payment alerts on this device'; b.textContent='Turn on'; }
+}
+async function togglePushSetting(){
+  const b=el('acc-push-btn'); if(b) b.disabled=true;
+  const cur=await window.pushState();
+  const r = cur==='on' ? await window.turnPushOff() : await window.turnPushOn();
+  if(r==='on') showPopupNotif('🔔','Notifications on','You will get alerts on this device.');
+  else if(r==='blocked') showPopupNotif('⚠️','Blocked','Allow notifications for this site in your browser settings.');
+  else if(r==='error') showPopupNotif('⚠️','Could not turn on','Check your connection and try again.');
+  syncPushRow();
+}
+setInterval(function(){ try{ if(el('acc-push-btn')) syncPushRow(); }catch(e){} }, 4000);
 function syncPinSecurityRow(){
   const set=isPinSet();
   const b=el('acc-pin-btn'), st=el('acc-pin-status'), rb=el('acc-pin-reset-btn');
@@ -18751,14 +18814,14 @@ function showPinSetupPrompt(required){
   el('set-pin-modal').classList.remove('hidden');
 }
 // Change PIN: ask for the current PIN as text first (the server checks it), then the new PIN twice.
-function openChangePinFlow(){
+async function openChangePinFlow(){
   if(!isPinSet()){ showPinSetupPrompt(false); return; }
   if(!_pinLive()){ requirePin('Verify current PIN',()=>{ _pinMode='change'; _pinResetDots(); _pinTexts('Change PIN','Enter your new PIN.','Step 1 of 2: enter new PIN'); el('set-pin-modal').classList.remove('hidden'); }); return; }
   _pinMode='change'; _pinOld='';
-  _pinAskOld();
+  await _pinAskOld();
 }
-function _pinAskOld(){
-  const v=window.prompt('Enter your current transaction PIN');
+async function _pinAskOld(){
+  const v=await uiPrompt('Enter your current transaction PIN',{type:'password',numeric:true,maxLength:6,ok:'Continue'});
   if(v==null) return;
   if(!/^\d{4,6}$/.test(v)){ showPopupNotif('⚠️','Current PIN','Enter your current 4 to 6 digit PIN.'); return; }
   _pinOld=v; _pinResetDots();
@@ -18767,9 +18830,9 @@ function _pinAskOld(){
   el('set-pin-modal').classList.remove('hidden');
 }
 // Reset PIN: prove it is you with the account password, then choose a new PIN.
-function openResetPinFlow(){
+async function openResetPinFlow(){
   if(!_pinLive()){ showPopupNotif('ℹ️','Reset PIN','Sign in to your account to reset your PIN.'); return; }
-  const pw=window.prompt('To reset your PIN, enter your account password');
+  const pw=await uiPrompt('To reset your PIN, enter your account password',{type:'password',ok:'Continue'});
   if(pw==null) return;
   if(!pw){ showPopupNotif('⚠️','Password needed','Enter your account password.'); return; }
   _pinPassword=pw; _pinMode='reset'; _pinOld='';
