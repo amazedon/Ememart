@@ -106,21 +106,36 @@ export async function notify(
   await sendPush(userId, title, body, data); // best effort: never blocks or fails the action
 }
 
-// Web push. Needs secrets VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (a mailto: address). Skipped when not set.
+// ---- Web push ----------------------------------------------------------------------------
+// The sending keys are created once, on first use, and kept in the push_vapid table (no one can read it but the
+// server). The app fetches the public half from GET /push/key. Nothing to paste or set up.
+let _vapid: { pub: string; priv: string } | null = null;
+async function vapidKeys(webpush: any): Promise<{ pub: string; priv: string }> {
+  if (_vapid) return _vapid;
+  let { data } = await admin.from("push_vapid").select("public_key, private_key").eq("id", 1).maybeSingle();
+  if (!data) {
+    const k = webpush.generateVAPIDKeys();
+    await admin.from("push_vapid").upsert({ id: 1, public_key: k.publicKey, private_key: k.privateKey }, { onConflict: "id", ignoreDuplicates: true });
+    ({ data } = await admin.from("push_vapid").select("public_key, private_key").eq("id", 1).single());
+  }
+  _vapid = { pub: data!.public_key, priv: data!.private_key };
+  return _vapid;
+}
 async function sendPush(userId: string, title: string, body: string, data: Record<string, unknown>) {
   try {
-    const pub = Deno.env.get("VAPID_PUBLIC_KEY"), priv = Deno.env.get("VAPID_PRIVATE_KEY");
-    if (!pub || !priv) return;
     const { data: subs } = await admin.from("push_subscriptions").select("endpoint, p256dh, auth").eq("user_id", userId);
     if (!subs?.length) return;
     const webpush = (await import("npm:web-push@3.6.7")).default;
-    webpush.setVapidDetails(Deno.env.get("VAPID_SUBJECT") ?? "mailto:support@ememart.com", pub, priv);
-    const payload = JSON.stringify({ title, body, data });
+    const k = await vapidKeys(webpush);
+    webpush.setVapidDetails("mailto:" + (Deno.env.get("SUPPORT_EMAIL") ?? "help@ememart.com"), k.pub, k.priv);
+    const payload = JSON.stringify({ title, body: body.slice(0, 180), url: "/app.html", tag: String((data as any)?.order_id ?? (data as any)?.kind ?? "ememart"), data });
     await Promise.all(subs.map(async (s: any) => {
       try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 86400, urgency: "high" });
+        await admin.from("push_subscriptions").update({ last_used: new Date().toISOString() }).eq("endpoint", s.endpoint);
       } catch (e: any) {
         if (e?.statusCode === 404 || e?.statusCode === 410) await admin.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+        else console.error("push send failed", e?.statusCode, e?.body ?? e?.message);
       }
     }));
   } catch (e) { console.error("push failed", e); }
@@ -486,10 +501,6 @@ me.post("/notifications/read-all", async (c) => {
   return c.json({ ok: true });
 });
 
-// Web-push subscription from the PWA
-me.post("/push/subscribe", async (c) => {
-  const b = await parseBody(c, z.object({ endpoint: z.string().url(), keys: z.object({ p256dh: z.string(), auth: z.string() }) }));
-  await admin.from("push_subscriptions").upsert({ user_id: c.get("uid"), endpoint: b.endpoint, keys: b.keys }, { onConflict: "endpoint" });
   return c.json({ ok: true });
 });
 
@@ -1923,9 +1934,16 @@ partners.post("/orders/:id/progress", async (c) => {
 });
 
 // ---------- push subscriptions ----------
+// The public half of the sending key. The app needs it to subscribe this device.
+partners.get("/push/key", async (c) => {
+  const webpush = (await import("npm:web-push@3.6.7")).default;
+  const k = await vapidKeys(webpush);
+  return c.json({ key: k.pub });
+});
 partners.post("/push/subscribe", async (c) => {
   const b = await parseBody(c, z.object({ endpoint: z.string().url(), p256dh: z.string(), auth: z.string() }));
-  await admin.from("push_subscriptions").upsert({ user_id: c.get("uid"), endpoint: b.endpoint, p256dh: b.p256dh, auth: b.auth }, { onConflict: "endpoint" });
+  // one device belongs to one account: if someone else signed in on it before, the subscription moves to the new account
+  await admin.from("push_subscriptions").upsert({ user_id: c.get("uid"), endpoint: b.endpoint, p256dh: b.p256dh, auth: b.auth, user_agent: (c.req.header("user-agent") ?? "").slice(0, 200) }, { onConflict: "endpoint" });
   return c.json({ ok: true }, 201);
 });
 partners.post("/push/unsubscribe", async (c) => {
