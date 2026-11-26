@@ -176,7 +176,7 @@
     var post = state.posts.find(function (p) { return p.id === postId; });
     if (!post) { toast('❌', 'Not Found', 'Post not found.'); return; }
     if (post.authorId !== u.id) { toast('❌', 'Permission Denied', 'You can only delete your own posts.'); return; }
-    if (!confirm('Delete this post permanently?')) return;
+    if (!(await uiConfirm('Delete this post permanently?'))) return;
     var d = await sb.from('posts').delete().eq('id', postId);
     if (d.error) { toast('❌', 'Not deleted', d.error.message); return; }
     toast('🗑️', 'Deleted', 'Post has been removed.');
