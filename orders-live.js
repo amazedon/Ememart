@@ -235,13 +235,13 @@
     toast('ℹ️', 'Waiting for the buyer', 'The buyer confirms delivery to release payment, or it releases automatically ' + CFG.auto_release_hours + ' hours after you mark it delivered.');
   };
   window.declineOrderAsSeller = async function (orderId) {
-    if (!confirm('Decline this order? The customer will be refunded.')) return;
+    if (!(await uiConfirm('Decline this order? The customer will be refunded.'))) return;
     var r = await api('POST', '/orders/' + orderId + '/decline');
     if (!r.success) { toast('❌', 'Not declined', r.message || 'Please try again.'); return; }
     toast('✅', 'Order declined', 'The customer was refunded.'); loadOrders();
   };
   window.cancelOrderAsSeller = async function (orderId) {
-    if (!confirm('Cancel this order and refund the buyer?')) return;
+    if (!(await uiConfirm('Cancel this order and refund the buyer?'))) return;
     var r = await api('POST', '/orders/' + orderId + '/cancel');
     if (!r.success) { toast('❌', 'Not cancelled', r.message || ''); return; }
     toast('✅', 'Order cancelled', 'The buyer was refunded.'); loadOrders();
@@ -340,8 +340,8 @@
   document.addEventListener('visibilitychange', function () { if (!document.hidden && me()) { loadOrders(); loadWallet(); } });
 
   // ---- 9. boosts and vendor plans: paid from the real wallet ---------------------------------
-  function askPin(title) {
-    var v = window.prompt(title + '\nEnter your 4-digit transaction PIN');
+  async function askPin(title) {
+    var v = await uiPrompt(title + '\nEnter your 4-digit transaction PIN', { type: 'password', numeric: true, maxLength: 4, ok: 'Confirm' });
     if (v == null) return null;
     if (!/^\d{4}$/.test(v)) { toast('⚠️', 'PIN Required', 'Enter exactly 4 digits.'); return null; }
     return v;
@@ -351,7 +351,7 @@
   }
   window.confirmBoost = async function () {
     if (!_boostPostId || !_boostHours) { toast('⚠️', 'Select Plan', 'Please select a boost duration first.'); return; }
-    var pin = askPin('Boost for ' + _boostHours + ' hours'); if (!pin) return;
+    var pin = await askPin('Boost for ' + _boostHours + ' hours'); if (!pin) return;
     var r = await api('POST', '/boosts', { post_id: _boostPostId, hours: _boostHours, pin: pin });
     if (!r || r.success === false || r.error) { toast('❌', 'Boost failed', (r && (r.message || r.error)) || 'Try again.'); return; }
     E('boost-modal').classList.add('hidden');
@@ -360,7 +360,7 @@
     if (B.reloadPosts) B.reloadPosts(); loadWallet(); refreshMe();
   };
   window.confirmVendorTierUpgrade = async function (tierKey) {
-    var pin = tierKey === 'free' ? '' : askPin('Switch to the ' + tierKey + ' plan'); if (tierKey !== 'free' && !pin) return;
+    var pin = tierKey === 'free' ? '' : await askPin('Switch to the ' + tierKey + ' plan'); if (tierKey !== 'free' && !pin) return;
     var r = await api('POST', '/tier', { tier: tierKey, pin: pin || '0000' });
     if (!r || r.success === false || r.error) { toast('❌', 'Plan not changed', (r && (r.message || r.error)) || 'Try again.'); return; }
     E('vendor-tier-modal').classList.add('hidden');
@@ -375,7 +375,7 @@
   window.initializeSplitPayment = function () { notYet('Group split'); };
   // The Customer can cancel until the Partner accepts. The server refunds in full.
   window.cancelOrder = async function (postId, orderId) {
-    if (!confirm('Cancel this order? Your money goes back to your wallet in full.')) return;
+    if (!(await uiConfirm('Cancel this order? Your money goes back to your wallet in full.'))) return;
     var r = await api('POST', '/orders/' + orderId + '/cancel');
     if (!r.success) { toast('❌', 'Not cancelled', r.message || 'Please try again.'); return; }
     toast('✅', 'Order cancelled', 'Your money is back in your wallet.'); loadOrders();
