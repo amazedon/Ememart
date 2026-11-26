@@ -1,7 +1,7 @@
 // sw.js  (save in the same folder as index.html and app.html)
 // Ememart service worker: offline app shell + push notifications.
 // Rule: only our own static files are cached. API calls, Supabase and Squad are NEVER cached.
-const VERSION = 'ememart-v51';
+const VERSION = 'ememart-v52';
 const SHELL = ['/', '/index.html', '/app.html', '/backend.js', '/manifest.json', '/icon-180.png', '/icon-192.png', '/icon-512.png', '/support.js', '/privacy.html', '/terms.html'];
 
 self.addEventListener('install', (e) => {
