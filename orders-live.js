@@ -310,14 +310,36 @@
     return _oldPost.apply(this, arguments);
   };
 
-  // when the user taps the account-name box on the withdraw form we look the account up
-  document.addEventListener('input', async function (ev) {
-    if (!ev.target || ev.target.id !== 'withdraw-account-no') return;
-    var no = ev.target.value.trim(), bank = (E('withdraw-bank') || {}).value;
-    if (!/^\d{10}$/.test(no) || !bank) return;
+  // The account name is not typed by the person. We ask the bank (through Squad) who owns the account
+  // and fill it in, so it can never be mistyped and money only goes to the account that was checked.
+  var _lkSeq = 0;
+  function lkStatus(msg, bad) {
+    var n = E('withdraw-lookup-status');
+    if (!n) {
+      var box = E('withdraw-account-name'); if (!box) return;
+      n = document.createElement('div'); n.id = 'withdraw-lookup-status'; n.style.cssText = 'font-size:11px;margin-top:4px';
+      box.parentNode.appendChild(n);
+    }
+    n.textContent = msg || ''; n.style.color = bad ? '#f87171' : '#9ca3af';
+  }
+  async function lookupWithdrawAccount() {
+    var noEl = E('withdraw-account-no'), nameEl = E('withdraw-account-name'), bankEl = E('withdraw-bank');
+    if (!noEl || !nameEl) return;
+    nameEl.readOnly = true; nameEl.placeholder = 'Filled in automatically from your bank';
+    var no = (noEl.value || '').trim(), bank = bankEl ? bankEl.value : '';
+    nameEl.value = '';
+    if (!/^\d{10}$/.test(no)) { lkStatus(''); return; }
+    if (!bank) { lkStatus('Choose your bank first.', true); return; }
+    var mine = ++_lkSeq;
+    lkStatus('Checking account...');
     var r = await api('POST', '/wallet/lookup', { bank_code: bank, account_number: no });
-    if (r.success && r.account_name && E('withdraw-account-name')) E('withdraw-account-name').value = r.account_name;
-  });
+    if (mine !== _lkSeq) return;           // a newer check is running
+    if (r.success && r.account_name) { nameEl.value = r.account_name; lkStatus('Account found. Check the name is yours.'); }
+    else lkStatus(r.message || 'Could not verify that account. Check the bank and number.', true);
+  }
+  document.addEventListener('input', function (ev) { if (ev.target && ev.target.id === 'withdraw-account-no') lookupWithdrawAccount(); });
+  document.addEventListener('change', function (ev) { if (ev.target && ev.target.id === 'withdraw-bank') lookupWithdrawAccount(); });
+  document.addEventListener('focusin', function (ev) { if (ev.target && ev.target.id === 'withdraw-account-name') { ev.target.readOnly = true; ev.target.placeholder = 'Filled in automatically from your bank'; } });
 
   // ---- 8. coming back from the Squad payment page --------------------------------------------
   function afterFunding() {
