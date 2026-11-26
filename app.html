@@ -10094,7 +10094,7 @@ async function processWithdrawal(){
 
   if(!bank_code){ showPopupNotif('⚠️','Select Bank','Please select your bank.'); return; }
   if(!account_no || account_no.length !== 10){ showPopupNotif('⚠️','Invalid Account','Enter a valid 10-digit account number.'); return; }
-  if(!account_name){ showPopupNotif('⚠️','Account Name Required','Enter the account name — it must match your bank records.'); return; }
+  if(!account_name){ showPopupNotif('⚠️','Account Name Required','Enter the bank and 10-digit account number and wait for the account name to appear.'); return; }
   if(!amount || amount < 100){ showPopupNotif('⚠️','Invalid Amount','Minimum withdrawal is ₦100.'); return; }
 
   if(isPinSet()){
@@ -14857,7 +14857,7 @@ function applyBalanceVisibility(){
     </div>
     <div class="flex flex-col gap-1">
       <label class="label-sm">Account Name</label>
-      <input type="text" id="withdraw-account-name" placeholder="Must match your KYC name" class="inp">
+      <input type="text" id="withdraw-account-name" placeholder="Filled in automatically from your bank" class="inp">
     </div>
     <div class="flex flex-col gap-1">
       <label class="label-sm">Amount (₦)</label>
