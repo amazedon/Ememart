@@ -8743,6 +8743,7 @@ async function loadVirtualAccount(){
     loadingEl?.classList.add('hidden');
     if(res.success && res.account){ showVirtualAccount(res.account); }
     else {
+      if(!res.success && errEl){ errEl.textContent = (res.message || 'Could not check for your account number') + ' You can still request one below.'; errEl.classList.remove('hidden'); }
       setupEl?.classList.remove('hidden');
       const ph = el('va-mobile'); if(ph && !ph.value && state.session && state.session.phone) ph.value = state.session.phone;
     }
@@ -14309,20 +14310,26 @@ async function togglePushSetting(){
 setInterval(function(){ try{ if(el('acc-push-btn')) syncPushRow(); }catch(e){} }, 4000);
 
 // ---- Account number strip on the wallet card -------------------------------------------------
-var _walletVa = undefined, _walletVaUser = null;
+var _walletVa = undefined, _walletVaUser = null, _walletVaShown = null;
 function escapeHtml(x){ return String(x==null?'':x).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]}); }
 async function refreshWalletVaStrip(force){
   const box = el('wallet-va-strip'); if(!box) return;
   const uid = state.session && state.session.id;
   if(!uid || typeof window.getVirtualAccount !== 'function'){ box.classList.add('hidden'); return; }
   if(_walletVaUser !== uid || force){ _walletVa = undefined; _walletVaUser = uid; }
-  if(_walletVa === undefined){
-    try { const r = await window.getVirtualAccount(); _walletVa = (r && r.success && r.account) ? r.account : null; }
-    catch(e){ box.classList.add('hidden'); return; }
-  }
   box.classList.remove('hidden');
-  if(_walletVa){
-    box.innerHTML = '<div class="flex items-center justify-between gap-2 bg-gray-950/60 border border-emerald-900/40 rounded-xl p-2.5"><div class="min-w-0"><div class="text-[9px] text-gray-400 font-bold">Fund by bank transfer · '+escapeHtml(_walletVa.bank_name||'Bank')+'</div><div class="text-base font-black text-emerald-400 mono tracking-wider">'+escapeHtml(_walletVa.account_number)+'</div><div class="text-[9px] text-gray-500 truncate">'+escapeHtml(_walletVa.account_name||'')+'</div></div><button type="button" onclick="copyWalletVa()" class="btn-sm-outline text-[9px] whitespace-nowrap">Copy</button></div>';
+  if(_walletVa === undefined){
+    if(!box.innerHTML) renderWalletVa(null);      // show the button straight away, replace it if an account exists
+    try { const r = await window.getVirtualAccount(); _walletVa = (r && r.success && r.account) ? r.account : null; }
+    catch(e){ _walletVa = null; }
+  }
+  renderWalletVa(_walletVa);
+}
+function renderWalletVa(acc){
+  const box = el('wallet-va-strip'); if(!box) return;
+  _walletVaShown = acc;
+  if(acc){
+    box.innerHTML = '<div class="flex items-center justify-between gap-2 bg-gray-950/60 border border-emerald-900/40 rounded-xl p-2.5"><div class="min-w-0"><div class="text-[9px] text-gray-400 font-bold">Fund by bank transfer · '+escapeHtml(acc.bank_name||'Bank')+'</div><div class="text-base font-black text-emerald-400 mono tracking-wider">'+escapeHtml(acc.account_number)+'</div><div class="text-[9px] text-gray-500 truncate">'+escapeHtml(acc.account_name||'')+'</div></div><button type="button" onclick="copyWalletVa()" class="btn-sm-outline text-[9px] whitespace-nowrap">Copy</button></div>';
   } else {
     box.innerHTML = '<button type="button" onclick="doDeposit()" class="w-full bg-gray-950/60 border border-dashed border-emerald-700/60 rounded-xl p-2.5 text-left flex items-center justify-between gap-2"><span><span class="block text-xs font-black text-emerald-400">Get my account number</span><span class="block text-[9px] text-gray-400 mt-0.5">Your own bank account number for funding this wallet by transfer</span></span><span class="text-emerald-400 text-lg" aria-hidden="true">&rsaquo;</span></button>';
   }
