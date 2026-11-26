@@ -126,7 +126,7 @@
       };
       var wd = document.getElementById('dd-withdraw');
       if (wd) wd.onclick = async function () {
-        if (!confirm('Withdraw this dispute? The order will continue as normal.')) return;
+        if (!(await uiConfirm('Withdraw this dispute? The order will continue as normal.'))) return;
         try { await api('POST', '/disputes/' + t.serverId + '/withdraw'); toast('✅', 'Dispute withdrawn', 'The order continues as normal.'); await loadDisputes(); var m = document.getElementById('dispute-detail-modal'); if (m) m.classList.add('hidden'); try { if (B.reloadOrders) B.reloadOrders(); } catch (e) {} }
         catch (e) { toast('❌', 'Could not withdraw', (e && e.message) || 'Please try again.'); }
       };
@@ -207,7 +207,7 @@
     catch (e) { toast('⚠️', 'Not available', e.message || 'Try another job.'); refreshAvailableOrders(); }
   };
   window.riderDrop = async function (id) {
-    if (!confirm('Drop this job? It goes back to other riders.')) return;
+    if (!(await uiConfirm('Drop this job? It goes back to other riders.'))) return;
     try { await api('POST', '/rider/jobs/' + id + '/drop'); renderRiderActiveDeliveries(); } catch (e) { toast('⚠️', 'Cannot drop', e.message || ''); }
   };
   window.riderStep = async function (id, status) {
@@ -217,22 +217,47 @@
   };
 
   // ---- 3. push notifications ---------------------------------------------------------------
-  // Needs window.EMEMART_VAPID_PUBLIC_KEY (set in backend.js). Asks once, after the user is signed in.
+  // The sending key comes from the server (GET /push/key). The browser's permission box only opens when the
+  // person taps "Turn on" in Account > Security, never on its own.
   function b64(u) { var p = '='.repeat((4 - u.length % 4) % 4), s = (u + p).replace(/-/g, '+').replace(/_/g, '/'), r = atob(s), a = new Uint8Array(r.length); for (var i = 0; i < r.length; i++) a[i] = r.charCodeAt(i); return a; }
-  async function enablePush() {
-    try {
-      var key = window.EMEMART_VAPID_PUBLIC_KEY;
-      if (!key || !me() || !('serviceWorker' in navigator) || !('PushManager' in window) || Notification.permission === 'denied') return;
-      var reg = await navigator.serviceWorker.ready;
-      var sub = await reg.pushManager.getSubscription();
-      if (!sub) {
-        if (Notification.permission !== 'granted') { var p = await Notification.requestPermission(); if (p !== 'granted') return; }
-        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(key) });
-      }
-      var j = sub.toJSON();
-      await api('POST', '/push/subscribe', { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
-    } catch (e) {}
+  function pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+  function sameKey(sub, keyBytes) {
+    try { var cur = new Uint8Array(sub.options.applicationServerKey); if (cur.length !== keyBytes.length) return false; for (var i = 0; i < cur.length; i++) if (cur[i] !== keyBytes[i]) return false; return true; } catch (e) { return true; }
   }
+  // ask = true: may open the permission box (a tap). ask = false: only refreshes a device that already said yes.
+  async function syncPush(ask) {
+    if (!pushSupported() || !me()) return 'unsupported';
+    if (Notification.permission === 'denied') return 'blocked';
+    if (Notification.permission !== 'granted' && !ask) return 'off';
+    var kr = await api('GET', '/push/key');
+    if (!kr || !kr.key) return 'error';
+    var keyBytes = b64(kr.key);
+    var reg = await navigator.serviceWorker.ready;
+    var sub = await reg.pushManager.getSubscription();
+    if (sub && !sameKey(sub, keyBytes)) { try { await sub.unsubscribe(); } catch (e) {} sub = null; }
+    if (!sub) {
+      if (Notification.permission !== 'granted') { var p = await Notification.requestPermission(); if (p !== 'granted') return p === 'denied' ? 'blocked' : 'off'; }
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes });
+    }
+    var j = sub.toJSON();
+    var r = await api('POST', '/push/subscribe', { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
+    return r && r.success === false ? 'error' : 'on';
+  }
+  window.pushState = async function () {
+    if (!pushSupported()) return 'unsupported';
+    if (Notification.permission === 'denied') return 'blocked';
+    if (Notification.permission !== 'granted') return 'off';
+    try { var reg = await navigator.serviceWorker.ready; return (await reg.pushManager.getSubscription()) ? 'on' : 'off'; } catch (e) { return 'off'; }
+  };
+  window.turnPushOn = async function () { try { return await syncPush(true); } catch (e) { return 'error'; } };
+  window.turnPushOff = async function () {
+    try {
+      var reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+      if (sub) { await api('POST', '/push/unsubscribe', { endpoint: sub.endpoint }); await sub.unsubscribe(); }
+      return 'off';
+    } catch (e) { return 'error'; }
+  };
+  async function enablePush() { try { await syncPush(false); } catch (e) {} }
 
   function start() { loadStats(); loadDisputes(); remindUnrated(); setTimeout(enablePush, 4000); }
   var tries = 0, t = setInterval(function () { if (me() || ++tries > 40) { clearInterval(t); if (me()) start(); } }, 500);
