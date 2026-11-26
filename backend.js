@@ -55,14 +55,20 @@
     const { data: s } = await sb.auth.getSession();
     const token = s && s.session ? s.session.access_token : null;
     let res;
+    // never wait forever: a stalled request gives up after 25 seconds so screens do not hang on "Loading..."
+    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = ctl ? setTimeout(function () { ctl.abort(); }, 25000) : null;
     try {
       res = await fetch(API + path, {
         method: method,
         headers: Object.assign({ 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
           token ? { Authorization: 'Bearer ' + token } : {}),
         body: body ? JSON.stringify(body) : undefined,
+        signal: ctl ? ctl.signal : undefined,
       });
-    } catch (e) { return { success: false, message: 'Connection failed. Check your internet.' }; }
+    } catch (e) {
+      return { success: false, message: e && e.name === 'AbortError' ? 'The server took too long to answer. Try again.' : 'Connection failed. Check your internet.' };
+    } finally { if (timer) clearTimeout(timer); }
     let data = {};
     try { data = await res.json(); } catch (e) {}
     return Object.assign({}, data, { success: res.ok, message: res.ok ? (data.message || '') : (data.error || 'Request failed') });
