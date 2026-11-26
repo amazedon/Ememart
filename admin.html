@@ -52,6 +52,36 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
+// In-page dialogs: replace the browser's own pop-ups (which print the site address above the message).
+(function () {
+  function build(msg, opts, kind) {
+    return new Promise(function (resolve) {
+      var o = document.createElement('div');
+      o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;z-index:99999';
+      var b = document.createElement('div');
+      b.setAttribute('role', 'dialog'); b.setAttribute('aria-modal', 'true');
+      b.style.cssText = 'background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:14px;max-width:420px;width:100%;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.5)';
+      var p = document.createElement('div'); p.style.cssText = 'white-space:pre-wrap;line-height:1.45;margin-bottom:14px'; p.textContent = msg; b.appendChild(p);
+      var inp = null;
+      if (kind === 'prompt') { inp = document.createElement('input'); inp.type = (opts && opts.type) || 'text'; inp.style.marginBottom = '14px'; b.appendChild(inp); }
+      var row = document.createElement('div'); row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+      function done(v) { document.removeEventListener('keydown', key, true); o.remove(); resolve(v); }
+      if (kind !== 'alert') { var c = document.createElement('button'); c.className = 'btn'; c.textContent = 'Cancel'; c.onclick = function () { done(kind === 'prompt' ? null : false); }; row.appendChild(c); }
+      var ok = document.createElement('button'); ok.className = 'btn ok'; ok.textContent = (opts && opts.ok) || 'OK';
+      ok.onclick = function () { done(kind === 'prompt' ? inp.value : true); }; row.appendChild(ok);
+      b.appendChild(row); o.appendChild(b); document.body.appendChild(o);
+      function key(e) { if (e.key === 'Escape') { e.stopPropagation(); done(kind === 'alert' ? true : kind === 'prompt' ? null : false); } else if (e.key === 'Enter' && kind !== 'alert' && e.target !== document.body) { e.preventDefault(); ok.click(); } }
+      document.addEventListener('keydown', key, true);
+      (inp || ok).focus();
+    });
+  }
+  window.uiAlert = function (m, o) { return build(String(m == null ? '' : m), o, 'alert'); };
+  window.uiConfirm = function (m, o) { return build(String(m), o, 'confirm'); };
+  window.uiPrompt = function (m, o) { return build(String(m), o, 'prompt'); };
+  window.alert = function (m) { window.uiAlert(m); };
+})();
+</script>
+<script>
 // ---- YOUR SETTINGS (same two values as in backend.js) ----------------------------------------
 var SUPABASE_URL = 'https://jjiiuwhybqagorygfarh.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_V87YLH0V1lQ_45ZHR_XiRw_zbi1bVLc';
@@ -125,7 +155,7 @@ function open(k) {
   $('view').innerHTML = '<p class="mute">Loading…</p>'; VIEWS[k]();
 }
 function view(html) { $('view').innerHTML = html; }
-function ask(msg) { var r = prompt(msg); return r && r.trim() ? r.trim() : null; }
+async function ask(msg) { var r = await uiPrompt(msg); return r && r.trim() ? r.trim() : null; }
 
 // ---- verification ----------------------------------------------------------------------------
 VIEWS.verifications = async function () {
@@ -146,7 +176,7 @@ VIEWS.verifications = async function () {
   $('view').onclick = async function (e) {
     var b = e.target.closest('button[data-a]'); if (!b) return;
     var approve = b.dataset.a === 'approve', reason = null;
-    if (!approve) { reason = ask('Reason for rejecting (the user will see this):'); if (!reason) return; }
+    if (!approve) { reason = await ask('Reason for rejecting (the user will see this):'); if (!reason) return; }
     var x = await api('POST', '/admin/verifications/' + b.dataset.id + '/review', { approve: approve, reason: reason || undefined });
     if (!x._ok) return say(x._err); VIEWS.verifications();
   };
@@ -167,7 +197,7 @@ VIEWS.roles = async function () {
   $('view').onclick = async function (e) {
     var b = e.target.closest('button[data-a]'); if (!b) return;
     var approve = b.dataset.a === '1', reason = null;
-    if (!approve) { reason = ask('Reason for declining:'); if (!reason) return; }
+    if (!approve) { reason = await ask('Reason for declining:'); if (!reason) return; }
     var x = await api('POST', '/admin/role-applications/' + b.dataset.id + '/review', { approve: approve, reason: reason || undefined });
     if (!x._ok) return say(x._err); VIEWS.roles();
   };
@@ -193,12 +223,12 @@ VIEWS.disputes = async function () {
     var b = e.target.closest('button[data-w]'); if (!b) return;
     var refund;
     if (b.dataset.w === 'split') {
-      var amt = ask('How much in naira goes BACK to the customer? (The Partner gets the rest of the item amount, minus the Partner fee.) Item amount: ' + naira(b.dataset.max));
+      var amt = await ask('How much in naira goes BACK to the customer? (The Partner gets the rest of the item amount, minus the Partner fee.) Item amount: ' + naira(b.dataset.max));
       if (!amt) return;
       refund = Math.round(Number(String(amt).replace(/[^\d.]/g, '')) * 100);
       if (!(refund > 0) || refund >= Number(b.dataset.max)) return say('Enter an amount above zero and below the item amount.');
     }
-    var note = ask('Note explaining the decision (both sides will see it):'); if (!note) return;
+    var note = await ask('Note explaining the decision (both sides will see it):'); if (!note) return;
     var x = await api('POST', '/admin/disputes/' + b.dataset.id + '/resolve', { outcome: b.dataset.w, note: note, refund_kobo: refund });
     if (!x._ok) return say(x._err); VIEWS.disputes();
   };
@@ -221,11 +251,11 @@ VIEWS.users = function () {
   $('view').onclick = async function (e) {
     var b = e.target.closest('button[data-id]'); if (!b) return;
     if (b.dataset.rv) {
-      var why = ask('Reason for removing the blue tick:'); if (!why) return;
+      var why = await ask('Reason for removing the blue tick:'); if (!why) return;
       var y = await api('POST', '/admin/users/' + b.dataset.id + '/revoke-verification', { reason: why });
       if (!y._ok) return say(y._err); return go();
     }
-    var reason = b.dataset.s === 'suspended' ? ask('Reason for suspending (the user will see this):') : '';
+    var reason = b.dataset.s === 'suspended' ? await ask('Reason for suspending (the user will see this):') : '';
     if (b.dataset.s === 'suspended' && !reason) return;
     var x = await api('POST', '/admin/users/' + b.dataset.id + '/status', { status: b.dataset.s, reason: reason || undefined });
     if (!x._ok) return say(x._err); go();
@@ -262,7 +292,7 @@ VIEWS.team = function () {
     var u = (f.users || []).filter(function (x) { return (x.email || '').toLowerCase() === email.toLowerCase(); })[0];
     if (!u) return say('No user with that email.');
     var role = $('tr').value || null;
-    if (!confirm((role ? 'Make ' + email + ' ' + role.replace('_', ' ') : 'Remove admin access for ' + email) + '?')) return;
+    if (!(await uiConfirm((role ? 'Make ' + email + ' ' + role.replace('_', ' ') : 'Remove admin access for ' + email) + '?'))) return;
     var x = await api('POST', '/admin/team', { user_id: u.id, role: role });
     say(x._ok ? 'Saved.' : x._err);
   };
@@ -288,14 +318,14 @@ VIEWS.broadcasts = async function () {
   $('bc-send').onclick = async function () {
     var msg = $('bc-msg').value.trim();
     if (msg.length < 3) return alert('Write the message first.');
-    if (!confirm('Send this to ' + $('bc-aud').options[$('bc-aud').selectedIndex].text.toLowerCase() + ' now?')) return;
+    if (!(await uiConfirm('Send this to ' + $('bc-aud').options[$('bc-aud').selectedIndex].text.toLowerCase() + ' now?'))) return;
     var x = await api('POST', '/admin/broadcasts', { message: msg, audience: $('bc-aud').value, hours: parseInt($('bc-hrs').value, 10) });
     if (!x._ok) return alert(x._err);
     VIEWS.broadcasts();
   };
   Array.prototype.forEach.call(document.querySelectorAll('[data-stop]'), function (b) {
     b.onclick = async function () {
-      if (!confirm('Stop this broadcast now?')) return;
+      if (!(await uiConfirm('Stop this broadcast now?'))) return;
       var x = await api('DELETE', '/admin/broadcasts/' + b.dataset.stop);
       if (!x._ok) return alert(x._err);
       VIEWS.broadcasts();
@@ -451,7 +481,7 @@ async function supOpen(id) {
     if ($('sp-text')) $('sp-text').value = typed;
     $('sp-back').onclick = function () { VIEWS.support(); };
     if ($('sp-close')) $('sp-close').onclick = async function () {
-      if (!confirm('Close this chat? The customer can start a new one.')) return;
+      if (!(await uiConfirm('Close this chat? The customer can start a new one.'))) return;
       var x = await api('POST', '/admin/support/' + id + '/close', {}); if (!x._ok) return alert(x._err); VIEWS.support();
     };
     if ($('sp-send')) $('sp-send').onclick = async function () {
