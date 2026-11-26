@@ -38,10 +38,70 @@ export function env(name: string): string {
   return v;
 }
 
+// ---------- Email through Termii ----------
+// Every email goes into the email_outbox table first, is sent straight away, and is retried by the jobs function if Termii is down.
+// Secrets needed: TERMII_API_KEY (and optionally TERMII_BASE_URL). Template IDs and the on/off switch live in app_settings key "email".
+const money = (kobo: number) => "₦" + (Number(kobo) / 100).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const lagosNow = () => new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+const shortRef = (id: string) => String(id).slice(0, 8).toUpperCase();
+const EMAIL_VAR_DEFAULTS: Record<string, string> = { amount: "-", order_ref: "-", bank: "-", code: "-", reason: "-", other_party: "-", status: "-", fee: "-" };
+
+export async function queueEmail(userId: string, template: string, vars: Record<string, string> = {}) {
+  try {
+    const { data } = await admin.from("email_outbox").insert({ user_id: userId, template, vars: { date_time: lagosNow(), ...vars } }).select("id").single();
+    if (data) await sendOutboxEmail(Number(data.id));
+  } catch (e) { console.error("queueEmail failed", e); }
+}
+
+export async function sendOutboxEmail(id: number): Promise<boolean> {
+  try {
+    const { data: row } = await admin.from("email_outbox").select("*").eq("id", id).eq("status", "pending").maybeSingle();
+    if (!row) return false;
+    const key = Deno.env.get("TERMII_API_KEY");
+    const { data: s } = await admin.from("app_settings").select("value").eq("key", "email").maybeSingle();
+    const cfg: any = s?.value;
+    if (!key || !cfg?.enabled || !cfg?.config_id) return false;               // not set up yet: it waits in the outbox
+    // claim it, so two workers never send the same email
+    const { data: claimed } = await admin.from("email_outbox").update({ attempts: row.attempts + 1 })
+      .eq("id", id).eq("status", "pending").eq("attempts", row.attempts).select("id");
+    if (!claimed?.length) return false;
+    const fail = async (msg: string) => {
+      await admin.from("email_outbox").update({ last_error: msg.slice(0, 300), status: row.attempts + 1 >= 5 ? "failed" : "pending" }).eq("id", id);
+      return false;
+    };
+    const templateId = cfg.templates?.[row.template];
+    if (!templateId) return await fail("No template ID for " + row.template);
+    const { data: u } = await admin.auth.admin.getUserById(row.user_id);
+    const to = u?.user?.email;
+    if (!to) return await fail("User has no email");
+    const { data: p } = await admin.from("profiles").select("full_name").eq("id", row.user_id).maybeSingle();
+    const variables: Record<string, string> = { ...EMAIL_VAR_DEFAULTS, name: String(p?.full_name || "there").split(" ")[0], date_time: lagosNow() };
+    for (const [k, v] of Object.entries(row.vars ?? {})) variables[k] = String(v);
+    const base = (Deno.env.get("TERMII_BASE_URL") ?? "https://v4.api.termii.com").replace(/\/+$/, "");
+    const res = await fetch(`${base}/api/templates/send-email`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: key, email: to, subject: cfg.subjects?.[row.template] ?? "Ememart", email_configuration_id: cfg.config_id, template_id: templateId, variables }),
+    });
+    const out: any = await res.json().catch(() => ({}));
+    if (!res.ok || (out.code && out.code !== "ok")) return await fail(`Termii ${res.status}: ${out.message ?? JSON.stringify(out)}`);
+    await admin.from("email_outbox").update({ status: "sent", sent_at: new Date().toISOString(), last_error: null }).eq("id", id);
+    return true;
+  } catch (e) { console.error("sendOutboxEmail failed", e); return false; }
+}
+
+// Sends whatever is waiting (used right after an order is released or refunded, and by the jobs function as the retry).
+export async function flushEmails(limit = 20) {
+  try {
+    const { data } = await admin.from("email_outbox").select("id").eq("status", "pending").lt("attempts", 5).order("id").limit(limit);
+    for (const r of data ?? []) await sendOutboxEmail(Number(r.id));
+  } catch (e) { console.error("flushEmails failed", e); }
+}
+
 export async function notify(
   userId: string, kind: string, title: string, body: string, data: Record<string, unknown> = {},
 ) {
   await admin.from("notifications").insert({ user_id: userId, kind, title, body, data, pushed_at: new Date().toISOString() });
+  await sendPush(userId, title, body, data);
 }
 
 export async function audit(actor: string | null, action: string, target: string, detail: unknown = {}) {
@@ -238,10 +298,12 @@ async function reconcileWithdrawals() {
       const ageMin = (Date.now() - new Date(w.created_at).getTime()) / 60_000;
       if (code === 200 && desc.includes("success")) {
         await admin.from("withdrawals").update({ status: "success" }).eq("id", w.id); done++;
+        await queueEmail(w.user_id, "withdrawal", { amount: money(Number(w.amount_kobo)), bank: `Bank ******${String(w.account_number).slice(-4)}` });
       } else if (code === 412 || (code === 404 && ageMin > 30)) {   // reversed / never reached the bank
         await admin.rpc("ledger_post", { p_user: w.user_id, p_amount: Number(w.amount_kobo), p_kind: "withdrawal_reversal", p_ref: w.id, p_idem: `wdrev:${w.id}` });
         await admin.from("withdrawals").update({ status: "failed" }).eq("id", w.id);
         await audit(null, "withdrawal.auto_reversed", w.id, { code }); done++;
+        await queueEmail(w.user_id, "withdrawal_failed", { amount: money(Number(w.amount_kobo)), bank: `Bank ******${String(w.account_number).slice(-4)}` });
       }
       // anything else: still unknown, try again next run. Finance can see it in /admin/finance/withdrawals
     } catch (e) { console.error("requery failed", w.id, e); }
@@ -255,21 +317,36 @@ async function expireTiers() {
   return data?.length ?? 0;
 }
 
-// Web push. Needs secrets VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (a mailto: address). Skipped when not set.
+// ---- Web push ----------------------------------------------------------------------------
+// The sending keys are created once, on first use, and kept in the push_vapid table (no one can read it but the
+// server). The app fetches the public half from GET /push/key. Nothing to paste or set up.
+let _vapid: { pub: string; priv: string } | null = null;
+async function vapidKeys(webpush: any): Promise<{ pub: string; priv: string }> {
+  if (_vapid) return _vapid;
+  let { data } = await admin.from("push_vapid").select("public_key, private_key").eq("id", 1).maybeSingle();
+  if (!data) {
+    const k = webpush.generateVAPIDKeys();
+    await admin.from("push_vapid").upsert({ id: 1, public_key: k.publicKey, private_key: k.privateKey }, { onConflict: "id", ignoreDuplicates: true });
+    ({ data } = await admin.from("push_vapid").select("public_key, private_key").eq("id", 1).single());
+  }
+  _vapid = { pub: data!.public_key, priv: data!.private_key };
+  return _vapid;
+}
 async function sendPush(userId: string, title: string, body: string, data: Record<string, unknown>) {
   try {
-    const pub = Deno.env.get("VAPID_PUBLIC_KEY"), priv = Deno.env.get("VAPID_PRIVATE_KEY");
-    if (!pub || !priv) return;
     const { data: subs } = await admin.from("push_subscriptions").select("endpoint, p256dh, auth").eq("user_id", userId);
     if (!subs?.length) return;
     const webpush = (await import("npm:web-push@3.6.7")).default;
-    webpush.setVapidDetails(Deno.env.get("VAPID_SUBJECT") ?? "mailto:support@ememart.com", pub, priv);
-    const payload = JSON.stringify({ title, body, data });
+    const k = await vapidKeys(webpush);
+    webpush.setVapidDetails("mailto:" + (Deno.env.get("SUPPORT_EMAIL") ?? "help@ememart.com"), k.pub, k.priv);
+    const payload = JSON.stringify({ title, body: body.slice(0, 180), url: "/app.html", tag: String((data as any)?.order_id ?? (data as any)?.kind ?? "ememart"), data });
     await Promise.all(subs.map(async (s: any) => {
       try {
-        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 86400, urgency: "high" });
+        await admin.from("push_subscriptions").update({ last_used: new Date().toISOString() }).eq("endpoint", s.endpoint);
       } catch (e: any) {
         if (e?.statusCode === 404 || e?.statusCode === 410) await admin.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+        else console.error("push send failed", e?.statusCode, e?.body ?? e?.message);
       }
     }));
   } catch (e) { console.error("push failed", e); }
@@ -293,6 +370,12 @@ Deno.serve(async (req) => {
     storage_removed: await drainStorageQueue(),
     withdrawals_settled: await reconcileWithdrawals(),
     tiers_expired: await expireTiers(),
+    emails: await (async () => {
+      await flushEmails(40);
+      await admin.from("email_outbox").delete().eq("status", "sent").lt("created_at", new Date(Date.now() - 30 * 86400_000).toISOString());
+      const { count } = await admin.from("email_outbox").select("id", { count: "exact", head: true }).eq("status", "pending");
+      return { still_waiting: count ?? 0 };
+    })(),
     pushes_sent: await pushPending(),
   };
   return new Response(JSON.stringify(result), { headers: { "Content-Type": "application/json" } });
