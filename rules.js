@@ -293,7 +293,7 @@
         else if (action === 'fulfil') res = await B.fulfilBooking(id);
         else if (action === 'confirm') res = await B.confirmOrder(bk.order_id);
         else if (action === 'dispute') {
-          var reason = window.prompt('What went wrong? (at least 10 characters)');
+          var reason = await uiPrompt('What went wrong? (at least 10 characters)');
           if (!reason) return;
           res = await B.disputeOrder(bk.order_id, reason);
         }
