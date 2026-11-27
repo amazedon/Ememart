@@ -249,15 +249,31 @@
     if (Notification.permission !== 'granted') return 'off';
     try { var reg = await navigator.serviceWorker.ready; return (await reg.pushManager.getSubscription()) ? 'on' : 'off'; } catch (e) { return 'off'; }
   };
-  window.turnPushOn = async function () { try { return await syncPush(true); } catch (e) { return 'error'; } };
+  function userTurnedOff() { try { return localStorage.getItem('ememart_push_off') === '1'; } catch (e) { return false; } }
+  function setTurnedOff(v) { try { if (v) localStorage.setItem('ememart_push_off', '1'); else localStorage.removeItem('ememart_push_off'); } catch (e) {} }
+  window.turnPushOn = async function () { setTurnedOff(false); try { return await syncPush(true); } catch (e) { return 'error'; } };
   window.turnPushOff = async function () {
     try {
       var reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
       if (sub) { await api('POST', '/push/unsubscribe', { endpoint: sub.endpoint }); await sub.unsubscribe(); }
+      setTurnedOff(true);
       return 'off';
     } catch (e) { return 'error'; }
   };
-  async function enablePush() { try { await syncPush(false); } catch (e) {} }
+  // On by default: subscribe quietly if the browser already allows it, otherwise ask on the person's first tap
+  // (browsers only show the permission box after a tap). Never again once the person has turned it off.
+  async function enablePush() {
+    if (userTurnedOff() || !pushSupported() || !me()) return;
+    try {
+      if (Notification.permission === 'granted') { await syncPush(false); return; }
+      if (Notification.permission !== 'default') return;
+      var once = function () {
+        document.removeEventListener('click', once, true); document.removeEventListener('touchend', once, true);
+        if (!userTurnedOff()) syncPush(true).catch(function () {});
+      };
+      document.addEventListener('click', once, true); document.addEventListener('touchend', once, true);
+    } catch (e) {}
+  }
 
   function start() { loadStats(); loadDisputes(); remindUnrated(); setTimeout(enablePush, 4000); }
   var tries = 0, t = setInterval(function () { if (me() || ++tries > 40) { clearInterval(t); if (me()) start(); } }, 500);
