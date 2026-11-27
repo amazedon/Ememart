@@ -134,7 +134,7 @@ var TABS = [
   ['support', 'Live chat', ['super_admin', 'support']],
   ['disputes', 'Disputes', ['super_admin', 'support']],
   ['users', 'Users', ['super_admin', 'support', 'verification_reviewer']],
-  ['broadcasts', 'Broadcasts', ['super_admin', 'support']],
+  ['broadcasts', 'Broadcasts and push', ['super_admin', 'support']],
   ['settings', 'Settings', ['super_admin', 'finance']],
   ['finance', 'Finance', ['super_admin', 'finance']],
   ['team', 'Admin team', ['super_admin']],
@@ -303,7 +303,15 @@ VIEWS.broadcasts = async function () {
   var r = await api('GET', '/admin/broadcasts');
   if (!r._ok) return view('<p class="bad">' + esc(r._err) + '</p>');
   var now = Date.now();
-  view('<div class="card"><h3>Send a broadcast</h3>' +
+  var ps = await api('GET', '/admin/push/stats');
+  view('<div class="card"><h3>Push notifications</h3>' +
+    '<p class="mute" id="ps-stat">' + (ps._ok ? esc(ps.devices) + ' device' + (ps.devices === 1 ? '' : 's') + ' from ' + esc(ps.people) + ' ' + (ps.people === 1 ? 'person' : 'people') + ' can receive push. People turn it on in the app under Account, Security.' : esc(ps._err)) + '</p>' +
+    '<input id="ps-title" maxlength="60" placeholder="Title (2 to 60 characters)" style="width:100%;margin-bottom:6px">' +
+    '<textarea id="ps-msg" rows="2" maxlength="180" placeholder="Message (3 to 180 characters)" style="width:100%"></textarea>' +
+    '<div class="row" style="margin-top:8px"><select id="ps-aud"><option value="all">Everyone</option><option value="buyer">Buyers</option><option value="vendor">Vendors</option><option value="rider">Riders</option><option value="artisan">Artisans</option></select>' +
+    '<span class="grow"></span><button class="btn" id="ps-test">Send test to me</button><button class="btn ok" id="ps-send">Send push</button></div>' +
+    '<p class="mute" id="ps-out" style="margin-top:8px"></p></div>' +
+    '<div class="card"><h3>Send a broadcast</h3>' +
     '<textarea id="bc-msg" rows="3" maxlength="400" placeholder="Message everyone will see scrolling at the top of the app (3 to 400 characters)" style="width:100%"></textarea>' +
     '<div class="row" style="margin-top:8px"><select id="bc-aud"><option value="all">Everyone</option><option value="buyer">Buyers</option><option value="vendor">Vendors</option><option value="rider">Riders</option><option value="artisan">Artisans</option></select>' +
     '<select id="bc-hrs"><option value="6">Show for 6 hours</option><option value="24" selected>Show for 1 day</option><option value="72">Show for 3 days</option><option value="168">Show for 7 days</option></select>' +
@@ -315,6 +323,24 @@ VIEWS.broadcasts = async function () {
         '<div style="margin:6px 0">' + esc(b.message) + '</div>' +
         (live ? '<button class="btn bad" data-stop="' + esc(b.id) + '">Stop now</button>' : '') + '</div>';
     }).join(''));
+  $('ps-test').onclick = async function () {
+    $('ps-out').textContent = 'Sending test...';
+    var x = await api('POST', '/admin/push/test');
+    if (!x._ok) { $('ps-out').textContent = x._err; return; }
+    $('ps-out').textContent = x.devices === 0
+      ? 'You have no device with push turned on. Open the app with this account, go to Account, Security, and turn on Push notifications.'
+      : (x.sent + ' of ' + x.devices + ' of your devices got it.' + (x.errors && x.errors.length ? ' Problem: ' + x.errors.join('; ') : ''));
+  };
+  $('ps-send').onclick = async function () {
+    var t = $('ps-title').value.trim(), m = $('ps-msg').value.trim();
+    if (t.length < 2 || m.length < 3) return alert('Write a title and a message first.');
+    if (!(await uiConfirm('Send this push to ' + $('ps-aud').options[$('ps-aud').selectedIndex].text.toLowerCase() + ' now? It cannot be taken back.', { ok: 'Send push' }))) return;
+    $('ps-out').textContent = 'Sending...';
+    var x = await api('POST', '/admin/push/send', { title: t, message: m, audience: $('ps-aud').value });
+    if (!x._ok) { $('ps-out').textContent = x._err; return; }
+    $('ps-out').textContent = 'Sent to ' + x.sent + ' device' + (x.sent === 1 ? '' : 's') + ' (' + x.people + ' people)' + (x.failed ? ', ' + x.failed + ' failed' : '') + '.';
+    $('ps-title').value = ''; $('ps-msg').value = '';
+  };
   $('bc-send').onclick = async function () {
     var msg = $('bc-msg').value.trim();
     if (msg.length < 3) return alert('Write the message first.');
