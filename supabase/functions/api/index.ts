@@ -121,10 +121,13 @@ async function vapidKeys(webpush: any): Promise<{ pub: string; priv: string }> {
   _vapid = { pub: data!.public_key, priv: data!.private_key };
   return _vapid;
 }
-async function sendPush(userId: string, title: string, body: string, data: Record<string, unknown>) {
+type PushReport = { devices: number; sent: number; failed: number; errors: string[] };
+async function sendPushReport(userId: string, title: string, body: string, data: Record<string, unknown>): Promise<PushReport> {
+  const rep: PushReport = { devices: 0, sent: 0, failed: 0, errors: [] };
   try {
     const { data: subs } = await admin.from("push_subscriptions").select("endpoint, p256dh, auth").eq("user_id", userId);
-    if (!subs?.length) return;
+    rep.devices = subs?.length ?? 0;
+    if (!subs?.length) return rep;
     const webpush = (await import("npm:web-push@3.6.7")).default;
     const k = await vapidKeys(webpush);
     webpush.setVapidDetails("mailto:" + (Deno.env.get("SUPPORT_EMAIL") ?? "help@ememart.com"), k.pub, k.priv);
@@ -132,13 +135,19 @@ async function sendPush(userId: string, title: string, body: string, data: Recor
     await Promise.all(subs.map(async (s: any) => {
       try {
         await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 86400, urgency: "high" });
+        rep.sent++;
         await admin.from("push_subscriptions").update({ last_used: new Date().toISOString() }).eq("endpoint", s.endpoint);
       } catch (e: any) {
+        rep.failed++;
         if (e?.statusCode === 404 || e?.statusCode === 410) await admin.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
-        else console.error("push send failed", e?.statusCode, e?.body ?? e?.message);
+        else { rep.errors.push(String(e?.statusCode ?? "") + " " + String(e?.body ?? e?.message ?? "").slice(0, 120)); console.error("push send failed", e?.statusCode, e?.body ?? e?.message); }
       }
     }));
-  } catch (e) { console.error("push failed", e); }
+  } catch (e) { rep.errors.push(String((e as Error)?.message ?? e).slice(0, 160)); console.error("push failed", e); }
+  return rep;
+}
+async function sendPush(userId: string, title: string, body: string, data: Record<string, unknown>) {
+  await sendPushReport(userId, title, body, data);
 }
 
 export async function audit(actor: string | null, action: string, target: string, detail: unknown = {}) {
@@ -234,11 +243,16 @@ export async function verifyPayment(ref: string): Promise<{ success: boolean; am
   return { success: ok, amountKobo: Number(d?.transaction_amount ?? d?.amount ?? 0) };
 }
 
+/** Thrown when Squad itself could not answer (key, permission or service problem), as opposed to "no such account". */
+export class LookupUnavailable extends Error {}
 export async function lookupAccount(bankCode: string, accountNumber: string) {
   const r = await call("POST", "/payout/account/lookup", { bank_code: bankCode, account_number: accountNumber });
   const name = r.data?.data?.account_name as string | undefined;
-  if (!name) throw new Error("Account not found");
-  return name;
+  if (name) return name;
+  // The real reason goes to the function logs so it can be fixed; the customer gets a plain message.
+  console.error("squad account lookup failed", r.httpStatus, JSON.stringify(r.data ?? null).slice(0, 300));
+  if (r.httpStatus === 401 || r.httpStatus === 403 || r.httpStatus >= 500 || r.httpStatus === 0) throw new LookupUnavailable(`Squad ${r.httpStatus}`);
+  throw new Error("Account not found");
 }
 
 export const transferRef = (withdrawalId: string) =>
@@ -498,9 +512,6 @@ me.get("/verification", async (c) => {
 me.post("/notifications/read-all", async (c) => {
   await admin.from("notifications").update({ read_at: new Date().toISOString() })
     .eq("user_id", c.get("uid")).is("read_at", null);
-  return c.json({ ok: true });
-});
-
   return c.json({ ok: true });
 });
 
@@ -1040,7 +1051,10 @@ wallet.get("/wallet/withdrawals", async (c) => {
 wallet.post("/wallet/lookup", async (c) => {
   const b = await parseBody(c, z.object({ bank_code: z.string().regex(/^\d{6}$/), account_number: z.string().regex(/^\d{10}$/) }));
   try { return c.json({ account_name: await lookupAccount(b.bank_code, b.account_number) }); }
-  catch { throw new HttpError(404, "Account not found"); }
+  catch (e) {
+    if (e instanceof LookupUnavailable) throw new HttpError(503, "Bank verification is not available right now. Try again later.");
+    throw new HttpError(404, "Account not found");
+  }
 });
 
 wallet.post("/wallet/withdraw", async (c) => {
@@ -1057,7 +1071,10 @@ wallet.post("/wallet/withdraw", async (c) => {
 
   let accountName: string;
   try { accountName = await lookupAccount(b.bank_code, b.account_number); }
-  catch { throw new HttpError(400, "Could not verify that bank account"); }
+  catch (e) {
+    if (e instanceof LookupUnavailable) throw new HttpError(503, "Bank verification is not available right now. Your money was not touched. Try again later.");
+    throw new HttpError(400, "Could not verify that bank account. Check the bank and account number.");
+  }
 
   const { data: wd, error: wdErr } = await admin.from("withdrawals").insert({
     user_id: p.id, amount_kobo: b.amount_kobo, bank_code: b.bank_code,
@@ -1532,6 +1549,42 @@ adminRoutes.delete("/admin/broadcasts/:id", async (c) => {
   await admin.from("broadcasts").update({ active: false }).eq("id", c.req.param("id"));
   await audit(c.get("uid"), "broadcast.stopped", c.req.param("id"), {});
   return c.json({ ok: true });
+});
+
+// ----- push notifications (admin) -----
+adminRoutes.get("/admin/push/stats", async (c) => {
+  need(c, "broadcast");
+  const { data } = await admin.from("push_subscriptions").select("user_id");
+  const rows = data ?? [];
+  return c.json({ devices: rows.length, people: new Set(rows.map((r: any) => r.user_id)).size });
+});
+// A test to the signed-in admin's own devices, with the real result so problems are visible.
+adminRoutes.post("/admin/push/test", async (c) => {
+  need(c, "broadcast");
+  const rep = await sendPushReport(c.get("uid"), "Ememart test", "Push notifications are working on this device.", { kind: "test" });
+  return c.json(rep);
+});
+adminRoutes.post("/admin/push/send", async (c) => {
+  need(c, "broadcast");
+  const b = await parseBody(c, z.object({
+    title: z.string().trim().min(2).max(60),
+    message: z.string().trim().min(3).max(180),
+    audience: z.enum(["all", "buyer", "vendor", "rider", "artisan"]).default("all"),
+  }));
+  const { data: subs } = await admin.from("push_subscriptions").select("user_id");
+  let ids = [...new Set((subs ?? []).map((r: any) => r.user_id as string))];
+  if (b.audience !== "all" && ids.length) {
+    const { data: ps } = await admin.from("profiles").select("id").in("id", ids).eq("role", b.audience);
+    ids = (ps ?? []).map((p: any) => p.id as string);
+  }
+  ids = ids.slice(0, 2000);
+  let sent = 0, failed = 0;
+  for (let i = 0; i < ids.length; i += 20) {
+    const reps = await Promise.all(ids.slice(i, i + 20).map((id) => sendPushReport(id, b.title, b.message, { kind: "announcement" })));
+    for (const r of reps) { sent += r.sent; failed += r.failed; }
+  }
+  await audit(c.get("uid"), "push.sent", "", { audience: b.audience, people: ids.length, sent, failed, title: b.title });
+  return c.json({ people: ids.length, sent, failed });
 });
 
 // ----- verification -----
