@@ -4853,7 +4853,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-400"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8"/><path d="M3 20h18"/></svg>
         <span class="text-xs font-black text-white">Pay by bank transfer</span>
       </div>
-      <p id="va-loading" class="text-[11px] text-gray-400">Loading your account number...</p>
+      <p id="va-loading" class="hidden"></p>
       <div id="va-display" class="hidden flex flex-col gap-2">
         <div class="flex justify-between items-center bg-emerald-950/40 border border-emerald-900/50 rounded-lg p-3">
           <div>
@@ -4866,7 +4866,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
         <p class="text-[10px] text-gray-500 leading-relaxed">Send any amount from any bank app to this account. Your wallet is credited automatically, usually within a minute.</p>
         <p id="va-fee-note" class="hidden text-[10px] text-amber-400 leading-relaxed"></p>
       </div>
-      <div id="va-setup" class="hidden flex flex-col gap-2">
+      <div id="va-setup" class="flex flex-col gap-2">
         <p class="text-[11px] text-gray-400 leading-relaxed">Get your own account number once. Your BVN is sent to our payment partner Squad to open it. Ememart does not keep your BVN.</p>
         <input id="va-bvn" inputmode="numeric" maxlength="11" placeholder="BVN (11 digits)" class="inp">
         <div class="flex gap-2">
@@ -5057,7 +5057,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
         </div>
         <div class="flex items-center justify-between">
           <div><div class="text-xs font-bold text-white">Vendor Promos</div><div class="text-[9px] text-gray-500">Flash sales and vendor discounts</div></div>
-          <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="notif-pref-promos" class="sr-only peer"><div class="w-9 h-5 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div></label>
+          <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="notif-pref-promos" checked class="sr-only peer"><div class="w-9 h-5 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div></label>
         </div>
         <div class="flex items-center justify-between">
           <div><div class="text-xs font-bold text-white">🔊 Sound Effects</div><div class="text-[9px] text-gray-500">Play sound on new notifications</div></div>
@@ -8734,23 +8734,16 @@ function updateFundFee(){
 
 async function loadVirtualAccount(){
   loadFundFees();
-  const loadingEl = el('va-loading'), setupEl = el('va-setup'), displayEl = el('va-display'), errEl = el('va-error');
+  // The request form is visible straight away. If the person already has an account number, it replaces the form.
+  const setupEl = el('va-setup'), displayEl = el('va-display'), errEl = el('va-error');
   errEl?.classList.add('hidden');
-  if(typeof window.getVirtualAccount !== 'function'){ loadingEl?.classList.add('hidden'); return; }
-  loadingEl?.classList.remove('hidden'); setupEl?.classList.add('hidden'); displayEl?.classList.add('hidden');
+  if(!_virtualAccountNumber){ setupEl?.classList.remove('hidden'); displayEl?.classList.add('hidden'); }
+  const ph = el('va-mobile'); if(ph && !ph.value && state.session && state.session.phone) ph.value = state.session.phone;
+  if(typeof window.getVirtualAccount !== 'function') return;
   try {
     const res = await window.getVirtualAccount();
-    loadingEl?.classList.add('hidden');
-    if(res.success && res.account){ showVirtualAccount(res.account); }
-    else {
-      if(!res.success && errEl){ errEl.textContent = (res.message || 'Could not check for your account number') + ' You can still request one below.'; errEl.classList.remove('hidden'); }
-      setupEl?.classList.remove('hidden');
-      const ph = el('va-mobile'); if(ph && !ph.value && state.session && state.session.phone) ph.value = state.session.phone;
-    }
-  } catch(e){
-    loadingEl?.classList.add('hidden');
-    if(errEl){ errEl.textContent = 'Could not load your account number. Use card or USSD below.'; errEl.classList.remove('hidden'); }
-  }
+    if(res && res.success && res.account) showVirtualAccount(res.account);
+  } catch(e){ /* keep the form; creating an account number works without this check */ }
 }
 
 function showVirtualAccount(acc){
@@ -14296,7 +14289,7 @@ async function syncPushRow(){
   if(s==='on'){ st.textContent='On for this device'; b.textContent='Turn off'; }
   else if(s==='blocked'){ st.textContent='Blocked in your browser settings. Allow notifications for this site to turn on.'; b.classList.add('hidden'); }
   else if(s==='unsupported'){ st.textContent='This browser does not support push. On iPhone, add Ememart to your Home Screen first.'; b.classList.add('hidden'); }
-  else { st.textContent='Get order and payment alerts on this device'; b.textContent='Turn on'; }
+  else { st.textContent='Off on this device. Turn on to get order and payment alerts.'; b.textContent='Turn on'; }
 }
 async function togglePushSetting(){
   const b=el('acc-push-btn'); if(b) b.disabled=true;
