@@ -113,7 +113,7 @@
     state.transactions = (r.entries || []).map(function (e) {
       var amt = Number(e.amount_kobo);
       return { id: 'led-' + e.id, type: amt >= 0 ? 'credit' : 'debit', category: e.kind, userId: u.id,
-               amount: Math.abs(amt) / 100, desc: KIND[e.kind] || e.kind, ts: new Date(e.created_at).getTime(),
+               amount: Math.abs(amt) / 100, desc: (e.meta && e.meta.title) || KIND[e.kind] || e.kind, meta: e.meta || null, ts: new Date(e.created_at).getTime(),
                ref: e.ref || '', seq: e.id, balanceAfter: e.balance_after == null ? null : Number(e.balance_after) / 100 };
     });
     try { syncAccountDisplay(); } catch (e) {}
