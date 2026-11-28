@@ -388,6 +388,37 @@ me.get("/me", async (c) => {
   return c.json({ profile: safe, has_pin: !!pin_hash, balance_kobo: wallet?.balance_kobo ?? 0, admin_role: adm?.role ?? null, pending_role: pend?.role ?? null });
 });
 
+// Profile form: saved by the server so phone and business name are really stored (the browser may only change name/photo/area).
+me.post("/me/profile", async (c) => {
+  const p = c.get("profile");
+  const b = await parseBody(c, z.object({
+    full_name: z.string().trim().min(1, "Enter your name").max(80),
+    business: z.string().trim().max(80).optional().default(""),
+    phone: z.string().trim().max(20).optional().default(""),
+    town: z.string().trim().max(60).optional().default(""),
+    lga: z.string().trim().max(60).optional().default(""),
+    state: z.string().trim().max(60).optional().default(""),
+  }));
+  let phone: string | null = null;
+  if (b.phone) {
+    let d = b.phone.replace(/[^\d+]/g, "");
+    if (d.startsWith("+234")) d = "0" + d.slice(4);
+    else if (d.startsWith("234") && d.length === 13) d = "0" + d.slice(3);
+    if (!/^0\d{10}$/.test(d)) throw new HttpError(400, "Enter an 11-digit phone number, like 08012345678.");
+    phone = d;
+  }
+  const area = [b.town, b.lga, b.state].filter(Boolean).join(", ");
+  const { error } = await admin.from("profiles").update({
+    full_name: b.full_name, business: b.business || null, phone, area: area || null,
+  }).eq("id", p.id);
+  if (error) {
+    if ((error as { code?: string }).code === "23505") throw new HttpError(409, "That phone number is already used by another account.");
+    throw new HttpError(500, "Could not save your profile. Please try again.");
+  }
+  await audit(p.id, "profile.update", p.id, { phone_changed: phone !== (p.phone ?? null) });
+  return c.json({ ok: true });
+});
+
 me.post("/me/pin", async (c) => {
   const p = c.get("profile");
   const { pin, old_pin } = await parseBody(c, z.object({ pin: pinSchema, old_pin: pinSchema.optional() }));
