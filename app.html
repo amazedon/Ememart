@@ -4037,9 +4037,13 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
     <span class="text-base font-black text-white">Menu</span>
     <button onclick="closeMenu()" class="text-[11px] font-black text-gray-400 border border-gray-700 rounded-lg px-3 py-1.5">Close</button>
   </div>
+  <button type="button" class="menu-sec-head" onclick="closeMenu();toggleNotifCenter()">
+    <span class="text-[11px] font-black text-white uppercase tracking-widest">Notifications</span>
+    <span class="notif-badge bg-red-500 text-white text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center hidden" style="margin-left:8px">0</span>
+    <span class="chev" style="transform:none">&#9656;</span>
+  </button>
   <section class="flex flex-col gap-2">
-    <h3 class="text-[11px] font-black text-white uppercase tracking-widest border-b border-gray-800 pb-1">Notifications and appearance</h3>
-    <button onclick="closeMenu();toggleNotifCenter()" class="relative text-left bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-black text-gray-200">Notifications <span class="notif-badge absolute top-2 right-3 bg-red-500 text-white text-[9px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center hidden">0</span></button>
+    <h3 class="text-[11px] font-black text-white uppercase tracking-widest border-b border-gray-800 pb-1">Appearance</h3>
     <button onclick="toggleTheme()" class="theme-btn text-left bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-black text-gray-200">Switch to light</button>
   </section>
 
