@@ -284,20 +284,22 @@ export async function getFundingFees() {
 
 /** Static virtual account for one customer. The BVN is sent to Squad and never stored by Ememart. */
 export async function createVirtualAccount(p: {
-  customerId: string; firstName: string; lastName: string; mobile: string; email?: string | null;
+  customerId: string; firstName: string; middleName?: string; lastName: string; mobile: string; email?: string | null;
   bvn: string; dob: string; gender: string; address: string;
 }) {
   const body: Record<string, unknown> = {
     customer_identifier: p.customerId, first_name: p.firstName, last_name: p.lastName, mobile_num: p.mobile,
     bvn: p.bvn, dob: p.dob, gender: p.gender, address: p.address,
   };
+  if (p.middleName) body.middle_name = p.middleName;
   if (p.email) body.email = p.email;
   const ben = Deno.env.get("SQUAD_BENEFICIARY_ACCOUNT");   // your settlement account, only if Squad asks for it
   if (ben) body.beneficiary_account = ben;
   const r = await call("POST", "/virtual-account", body);
   const d = r.data?.data;
   if (r.httpStatus !== 200 || !d?.virtual_account_number) {
-    throw new Error(String(r.data?.message ?? "Could not create the account number"));
+    console.error("squad virtual account failed", r.httpStatus, String(r.data?.message ?? ""));   // reason only, never the request (it holds the BVN)
+    throw Object.assign(new Error(String(r.data?.message ?? "Could not create the account number")), { squadStatus: r.httpStatus });
   }
   return { accountNumber: String(d.virtual_account_number), bankCode: String(d.bank_code ?? "") };
 }
@@ -967,7 +969,7 @@ wallet.get("/wallet", async (c) => {
   const p = c.get("profile");
   const [{ data: w }, { data: entries }, limits] = await Promise.all([
     admin.from("wallets").select("balance_kobo").eq("user_id", p.id).single(),
-    admin.from("ledger_entries").select("id, amount_kobo, balance_after, kind, ref, created_at")
+    admin.from("ledger_entries").select("id, amount_kobo, balance_after, kind, ref, created_at, meta")
       .eq("user_id", p.id).order("id", { ascending: false }).limit(50),
     getSetting("wallet_limits"),
   ]);
@@ -975,45 +977,83 @@ wallet.get("/wallet", async (c) => {
 });
 
 // ----- bank transfer funding: each customer gets their own account number -----
-const vaCustomerId = (uid: string) => `EME_${uid}`;
+const VA_DAILY_ATTEMPTS = 3;
+const vaPrefix = () => (Deno.env.get("SQUAD_CUSTOMER_PREFIX") ?? "EMART").replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "EMART";
+const vaCustomerId = (uid: string) => `${vaPrefix()}_${uid}`;
+async function vaAttemptsLeft(uid: string) {
+  const since = new Date(Date.now() - 86_400_000).toISOString();
+  const { count } = await admin.from("va_attempts").select("id", { count: "exact", head: true }).eq("user_id", uid).gte("created_at", since);
+  return Math.max(0, VA_DAILY_ATTEMPTS - (count ?? 0));
+}
 wallet.get("/wallet/va", async (c) => {
-  const { data } = await admin.from("virtual_accounts").select("account_number, bank_name, account_name").eq("user_id", c.get("uid")).maybeSingle();
-  return c.json({ account: data ?? null });
+  const uid = c.get("uid");
+  const { data } = await admin.from("virtual_accounts").select("account_number, bank_name, account_name").eq("user_id", uid).maybeSingle();
+  return c.json({ account: data ?? null, attempts_left: await vaAttemptsLeft(uid) });
 });
+const properName = (label: string) => z.string().trim().min(1, `Enter your ${label}`).max(40).regex(/^[A-Za-z][A-Za-z '\-]*$/, `${label[0].toUpperCase()}${label.slice(1)} can only have letters`);
 wallet.post("/wallet/va", async (c) => {
   const p = c.get("profile");
   if (p.country !== "NG") throw new HttpError(403, "Bank transfer funding is only available in Nigeria for now");
   const { data: ex } = await admin.from("virtual_accounts").select("account_number, bank_name, account_name").eq("user_id", p.id).maybeSingle();
-  if (ex) return c.json({ account: ex });
+  if (ex) return c.json({ account: ex, attempts_left: await vaAttemptsLeft(p.id) });
   const b = await parseBody(c, z.object({
     bvn: z.string().regex(/^\d{11}$/, "BVN must be 11 digits"),
     dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter your date of birth"),
-    gender: z.enum(["1", "2"]),
-    address: z.string().trim().min(5, "Enter your address").max(200),
-    mobile: z.string().trim().max(20).optional(),
+    first_name: properName("first name"),
+    middle_name: z.string().trim().max(40).regex(/^[A-Za-z '\-]*$/, "Middle name can only have letters").optional(),
+    last_name: properName("last name"),
+    gender: z.enum(["1", "2"], { errorMap: () => ({ message: "Select your gender" }) }),
+    address: z.string().trim().min(5, "Enter your home address").max(200),
+    mobile: z.string().trim().max(20),
+    email: z.string().trim().email("Enter a valid email address").max(120),
+    consent: z.literal(true, { errorMap: () => ({ message: "Please tick the box to agree" }) }),
   }));
+  // date: the form sends yyyy-mm-dd; Squad wants mm/dd/yyyy (month first)
   const [yy, mm, dd] = b.dob.split("-");
-  if (isNaN(Date.parse(b.dob)) || Number(yy) < 1900) throw new HttpError(400, "Enter a valid date of birth");
-  let mobile = String(b.mobile || p.phone || "").replace(/\D/g, "");
-  if (mobile.startsWith("234")) mobile = "0" + mobile.slice(3);
-  if (mobile.length < 10) throw new HttpError(400, "Enter your phone number");
-  const parts = String(p.full_name || "").trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) throw new HttpError(400, "Add your full name to your profile first");
+  const born = new Date(`${b.dob}T00:00:00Z`);
+  if (isNaN(born.getTime()) || Number(yy) < 1900) throw new HttpError(400, "Enter a valid date of birth");
+  const adult = new Date(); adult.setUTCFullYear(adult.getUTCFullYear() - 18);
+  if (born > adult) throw new HttpError(400, "You must be 18 or older to open an account number");
+  // phone: 11 digits starting with 0
+  let mobile = b.mobile.replace(/\D/g, "");
+  if (mobile.startsWith("234") && mobile.length === 13) mobile = "0" + mobile.slice(3);
+  else if (mobile.length === 10) mobile = "0" + mobile;
+  if (!/^0\d{10}$/.test(mobile)) throw new HttpError(400, "Enter an 11-digit phone number, for example 08012345678");
+
+  let left = await vaAttemptsLeft(p.id);
+  if (left <= 0) throw new HttpError(429, `You have used all ${VA_DAILY_ATTEMPTS} attempts for today. Please try again tomorrow or contact support.`);
+  const att = await admin.from("va_attempts").insert({ user_id: p.id, status: "started" }).select("id").single();   // no BVN is ever written here
+  left -= 1;
+  const finish = (status: string, error?: string) =>
+    admin.from("va_attempts").update({ status, error: error ? error.slice(0, 160) : null }).eq("id", att.data?.id ?? "");
+  const customerId = vaCustomerId(p.id);
   let acc;
   try {
     acc = await createVirtualAccount({
-      customerId: vaCustomerId(p.id), firstName: parts[0], lastName: parts.slice(1).join(" ") || parts[0], mobile,
-      email: p.email ?? c.get("email"), bvn: b.bvn, dob: `${mm}/${dd}/${yy}`, gender: b.gender, address: b.address,
+      customerId, firstName: b.first_name, middleName: b.middle_name || undefined, lastName: b.last_name, mobile,
+      email: b.email, bvn: b.bvn, dob: `${mm}/${dd}/${yy}`, gender: b.gender, address: b.address,
     });
-  } catch (e) { throw new HttpError(400, (e as Error).message); }
+  } catch (e) {
+    const err = e as Error & { squadStatus?: number };
+    const raw = String(err.message || ""), low = raw.toLowerCase();
+    await finish("failed", raw);
+    if (err.squadStatus === undefined) throw new HttpError(503, "Could not reach the server. Check your connection.");
+    if (/address/.test(low) && /required/.test(low)) throw new HttpError(400, "Please fill in your home address.");
+    if (/gender/.test(low) && /required/.test(low)) throw new HttpError(400, "Please select your gender.");
+    if (/beneficiary/.test(low) || err.squadStatus === 401) throw new HttpError(500, "Please contact support.");
+    if (/opening limit|account opening/.test(low)) throw new HttpError(503, "Opening new accounts is temporarily unavailable. Please try again later or contact support.");
+    throw new HttpError(400, `We couldn't verify those details with the bank. Check that your BVN, date of birth and names match your bank records. You have ${left} attempt${left === 1 ? "" : "s"} left today.`);
+  }
+  const fullName = [b.first_name, b.middle_name, b.last_name].filter(Boolean).join(" ").toUpperCase();
   const row = {
-    user_id: p.id, account_number: acc.accountNumber, account_name: p.full_name,
+    user_id: p.id, account_number: acc.accountNumber, account_name: fullName, customer_identifier: customerId,
     bank_name: BANKS.find((x) => x.code === acc.bankCode)?.name ?? (acc.bankCode === "058" ? "GTBank" : "Bank"),
   };
   const ins = await admin.from("virtual_accounts").insert(row);
-  if (ins.error) throw new HttpError(500, "Could not save your account number. Try again.");
+  if (ins.error) { await finish("failed", "save failed"); throw new HttpError(500, "Could not save your account number. Try again."); }
+  await finish("success");
   await audit(p.id, "va.created", p.id, { bank: row.bank_name });   // never log the BVN
-  return c.json({ account: { account_number: row.account_number, bank_name: row.bank_name, account_name: row.account_name } });
+  return c.json({ account: { account_number: row.account_number, bank_name: row.bank_name, account_name: row.account_name }, attempts_left: left });
 });
 
 wallet.post("/wallet/fund", async (c) => {
@@ -1544,8 +1584,21 @@ adminRoutes.post("/admin/broadcasts", async (c) => {
   await audit(c.get("uid"), "broadcast.sent", data.id, { audience: b.audience, hours: b.hours });
   return c.json({ id: data.id }, 201);
 });
+// Remove finished broadcasts from the list for good (live ones are left alone)
+adminRoutes.post("/admin/broadcasts/clear-ended", async (c) => {
+  need(c, "broadcast");
+  const nowIso = new Date().toISOString();
+  const { data } = await admin.from("broadcasts").delete().or(`active.eq.false,ends_at.lt.${nowIso}`).select("id");
+  await audit(c.get("uid"), "broadcast.cleared", "all-ended", { removed: (data ?? []).length });
+  return c.json({ success: true, removed: (data ?? []).length });
+});
 adminRoutes.delete("/admin/broadcasts/:id", async (c) => {
   need(c, "broadcast");
+  if (c.req.query("remove") === "1") {
+    await admin.from("broadcasts").delete().eq("id", c.req.param("id"));
+    await audit(c.get("uid"), "broadcast.removed", c.req.param("id"), {});
+    return c.json({ success: true });
+  }
   await admin.from("broadcasts").update({ active: false }).eq("id", c.req.param("id"));
   await audit(c.get("uid"), "broadcast.stopped", c.req.param("id"), {});
   return c.json({ ok: true });
