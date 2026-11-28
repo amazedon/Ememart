@@ -11495,6 +11495,10 @@ function openProfileModal(gate, after){
   _pmAfter = after || null;
   const parts = String(s.full_name || s.name || '').trim().split(/\s+/);
   el('pm-fn').value = parts.shift() || ''; el('pm-ln').value = parts.join(' ');
+  el('pm-fn').readOnly = !!s.name_locked; el('pm-ln').readOnly = !!s.name_locked;
+  el('pm-fn').style.opacity = el('pm-ln').style.opacity = s.name_locked ? '.65' : '';
+  { let nl = el('pm-name-lock'); if(!nl){ nl = document.createElement('p'); nl.id = 'pm-name-lock'; nl.className = 'text-[11px] text-gray-400'; nl.style.margin = '0'; el('pm-ln').closest('.flex.flex-col').parentElement.after(nl); }
+    nl.textContent = s.name_locked ? 'Your name is verified with your BVN and cannot be changed.' : ''; nl.classList.toggle('hidden', !s.name_locked); }
   el('pm-biz').value = s.business || ''; el('pm-phone').value = s.phone || '';
   el('pm-town').value = s.town || ''; el('pm-lga').value = s.lga || ''; el('pm-state').value = s.state || '';
   const needRole = (s.role||'user') === 'user' && !window._pendingRole;
