@@ -318,10 +318,19 @@ export async function validWebhookSignature(rawBody: string, header: string | nu
   if (!header) return false;
   const got = header.trim().toLowerCase();
   const secret = env("SQUAD_SECRET_KEY");
-  if (timingSafeEqual((await hmacSha512Hex(secret, rawBody)).toLowerCase(), got)) return true;
+  const same = async (msg: string) => timingSafeEqual((await hmacSha512Hex(secret, msg)).toLowerCase(), got);
+  if (await same(rawBody)) return true;                                  // v1: the whole body, as received
   try {
-    return timingSafeEqual((await hmacSha512Hex(secret, JSON.stringify(JSON.parse(rawBody)))).toLowerCase(), got);
-  } catch { return false; }
+    const j = JSON.parse(rawBody);
+    if (await same(JSON.stringify(j))) return true;                      // v1: re-serialised
+    // v2 and v3 virtual-account webhooks: only six fields, joined with "|"
+    const e = j?.Body ?? j;
+    if (e?.transaction_reference && e?.virtual_account_number) {
+      const parts = [e.transaction_reference, e.virtual_account_number, e.currency, e.principal_amount, e.settled_amount, e.customer_identifier];
+      if (await same(parts.map((x) => String(x ?? "")).join("|"))) return true;
+    }
+  } catch { /* not JSON */ }
+  return false;
 }
 
 // Squad calls this when a wallet-funding payment succeeds.
@@ -338,22 +347,28 @@ async function handleVirtual(evt: any, ref: string) {
   if (String(evt.transaction_indicator ?? "C") !== "C") return reply(200, ref, "Ignored");
   if (evt.meta?.freeze_transaction_ref) return reply(200, ref, "Frozen transaction, not credited");
   const acct = String(evt.virtual_account_number ?? "");
-  const { data: va } = await admin.from("virtual_accounts").select("user_id").eq("account_number", acct).maybeSingle();
+  const { data: va } = await admin.from("virtual_accounts").select("user_id, customer_identifier").eq("account_number", acct).maybeSingle();
   if (!va) {
     await admin.from("squad_events").update({ processed: true }).eq("event_ref", ref);
     return reply(200, ref, "Not an Ememart account");
   }
-  const v = await verifyVaTransaction(String(evt.customer_identifier ?? `EME_${va.user_id}`), ref);
+  const v = await verifyVaTransaction(String(va.customer_identifier ?? evt.customer_identifier ?? `EME_${va.user_id}`), ref);
   if (!v.found || v.amountKobo <= 0) return reply(500, ref, "Could not confirm payment yet");   // Squad will retry
-  const { error } = await admin.rpc("ledger_post", {
-    p_user: va.user_id, p_amount: v.amountKobo, p_kind: "funding", p_ref: ref, p_idem: `vafund:${ref}`,
-  });
-  if (error) { console.error(error); return reply(500, ref, "Credit failed"); }
   // Both fees come out of the money sent: Squad's charge (automatic) and Ememart's own fee (set in admin).
   const ememartFee = fundingFee(await getFundingFees(), "transfer", v.amountKobo);
   const fee = Math.min(v.amountKobo - 1, ememartFee + v.squadFeeKobo);
+  const sender = String(evt.sender_name ?? "").trim();
+  const detail = {
+    method: "dedicated_account", title: "Wallet funding – Dedicated account", from: sender || null,
+    amount_sent_kobo: v.amountKobo, fee_kobo: fee, squad_fee_kobo: v.squadFeeKobo, ememart_fee_kobo: ememartFee,
+    credited_kobo: v.amountKobo - fee, status: "Credited",
+  };
+  const { error } = await admin.rpc("ledger_post", {
+    p_user: va.user_id, p_amount: v.amountKobo, p_kind: "funding", p_ref: ref, p_idem: `vafund:${ref}`, p_meta: detail,
+  });
+  if (error) { console.error(error); return reply(500, ref, "Credit failed"); }
   if (fee > 0) {
-    const fe = await admin.rpc("ledger_post", { p_user: va.user_id, p_amount: -fee, p_kind: "fee", p_ref: ref, p_idem: `vafee:${ref}` });
+    const fe = await admin.rpc("ledger_post", { p_user: va.user_id, p_amount: -fee, p_kind: "fee", p_ref: ref, p_idem: `vafee:${ref}`, p_meta: { ...detail, title: "Fee – Dedicated account funding" } });
     if (fe.error) { console.error(fe.error); return reply(500, ref, "Fee failed"); }   // Squad retries; the credit above is not repeated
   }
   await admin.from("squad_events").update({ processed: true }).eq("event_ref", ref);
