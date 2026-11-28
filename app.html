@@ -179,6 +179,8 @@ document.addEventListener('click', function askOnce(){
   .tab-pill:not(.active){color:#6b7280;border-color:#374151}
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:flex-end;justify-content:center;padding-bottom:0}
   .modal-overlay.hidden{display:none}
+  .dep-sheet > *{flex-shrink:0}
+  .dep-sheet{padding-bottom:100px !important}
   .modal-sheet{background:#111827;border:1px solid #1f2937;border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:90vh;max-height:90dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 16px 32px}
   .notif-popup{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:300;background:#111827;border:1px solid #10b981;border-radius:16px;padding:14px 18px;max-width:340px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.5)}
   .notif-popup.hidden{display:none}
@@ -4865,8 +4867,8 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
 
 
 <!-- DEPOSIT MODAL -->
-<div id="va-sheet" class="modal-overlay hidden" onclick="if(event.target===this)closeVaSheet()">
-  <div class="modal-sheet" style="padding:18px 16px 22px">
+<div id="va-sheet" class="modal-overlay hidden" style="z-index:260" onclick="if(event.target===this)closeVaSheet()">
+  <div class="modal-sheet" style="padding:18px 16px 100px">
     <h3 class="text-base font-black" style="margin-bottom:2px">Verify &amp; get your account</h3>
     <p class="text-xs text-gray-400" style="margin-bottom:12px">Use the details on your BVN. It takes a few seconds.</p>
     <div class="flex flex-col gap-3">
@@ -4891,7 +4893,7 @@ document.documentElement.style.colorScheme=t;}catch(e){}})();
 </div>
 
 <div id="deposit-modal" class="modal-overlay hidden" style="align-items:flex-start;padding-top:72px;" onclick="if(event.target===this)this.classList.add('hidden')">
-  <div class="modal-sheet flex flex-col gap-4" style="max-height:calc(100dvh - 72px);border-radius:20px">
+  <div class="modal-sheet dep-sheet flex flex-col gap-4" style="max-height:calc(100dvh - 72px);border-radius:20px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain">
     <div class="flex items-center gap-3" style="position:sticky;top:-16px;z-index:5;background:inherit;padding:12px 0 10px;margin-top:-12px">
       <button type="button" onclick="document.getElementById('deposit-modal').classList.add('hidden')" class="text-gray-300 hover:text-white" aria-label="Back" style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:12px;border:1px solid rgba(148,163,184,.4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
       <div class="flex-1">
@@ -8797,12 +8799,18 @@ function updateFundFee(){
   cn.classList.remove('hidden');
 }
 
-function toggleFundCard(id){
-  const c = el(id); if(!c) return;
-  const open = !c.classList.contains('open');
+function _setFundCard(c, open){
   c.classList.toggle('open', open);
   const body = c.querySelector('.fund-card-body'); if(body) body.style.display = open ? '' : 'none';
   const h = c.querySelector('.fund-card-head'); if(h) h.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+function toggleFundCard(id){
+  const c = el(id); if(!c) return;
+  const open = !c.classList.contains('open');
+  // only one card open at a time: opening one closes the other
+  document.querySelectorAll('#deposit-modal .fund-card').forEach(function(o){ if(o !== c) _setFundCard(o, false); });
+  _setFundCard(c, open);
+  if(open) setTimeout(function(){ try{ c.scrollIntoView({block:'nearest', behavior:'smooth'}); }catch(e){} }, 60);
 }
 function showNoVirtualAccount(){
   _virtualAccountNumber = null;
@@ -8811,8 +8819,11 @@ function showNoVirtualAccount(){
   const sub = el('va-sub'); if(sub) sub.textContent = 'Your own account number for bank transfers';
 }
 async function loadVirtualAccount(){
-  loadFundFees();
-  const va = el('fc-va'); if(va && !va.classList.contains('open')) toggleFundCard('fc-va');
+  // start with the dedicated account card open and Pay Now closed
+  const va = el('fc-va'), pay = el('fc-pay');
+  if(pay) _setFundCard(pay, false);
+  if(va) _setFundCard(va, true);
+  try{ loadFundFees(); }catch(e){}
   if(!_virtualAccountNumber) showNoVirtualAccount();      // the card is useful straight away: no loading text
   if(typeof window.getVirtualAccount !== 'function') return;
   try {
@@ -13540,6 +13551,7 @@ const _origDoDeposit = function(){
   const depBal = el('dep-balance-display');
   if(depBal) depBal.textContent = fmtCurrency(state.session.balance||0);
   el('deposit-modal').classList.remove('hidden');
+  try{ loadVirtualAccount(); }catch(e){}
 };
 window.doDeposit = function(){
   _origDoDeposit?.();
