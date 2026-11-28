@@ -91,7 +91,7 @@
       role: role, username: p.username || '', role_changes: p.role_changes || 0, balance: Number(me.balance_kobo || 0) / 100, wallet_balance: Number(me.balance_kobo || 0) / 100,
       town: meta.town || '', lga: meta.lga || '', state: meta.state || '', business: p.business || meta.business || '',
       accountNum: 'EM-' + authUser.id.slice(0, 8).toUpperCase(),
-      verified: !!p.verified, vendorTier: p.tier || 'free', has_pin: !!me.has_pin, admin_role: me.admin_role || null,
+      verified: !!p.verified, vendorTier: p.tier || 'free', has_pin: !!me.has_pin, name_locked: !!me.name_locked, admin_role: me.admin_role || null,
       avatar: meta.avatar_url || meta.picture || null,
     };
   }
