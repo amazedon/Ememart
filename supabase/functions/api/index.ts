@@ -379,13 +379,14 @@ export const me = newRouter();
 
 me.get("/me", async (c) => {
   const p = c.get("profile");
-  const [{ data: wallet }, { data: adm }, { data: pend }] = await Promise.all([
+  const [{ data: wallet }, { data: adm }, { data: pend }, { data: lockVa }] = await Promise.all([
     admin.from("wallets").select("balance_kobo").eq("user_id", p.id).single(),
     admin.from("admin_users").select("role").eq("user_id", p.id).maybeSingle(),
     admin.from("role_applications").select("role").eq("user_id", p.id).eq("status", "pending").maybeSingle(),
+    admin.from("virtual_accounts").select("user_id").eq("user_id", p.id).maybeSingle(),
   ]);
   const { pin_hash, pin_failed, pin_locked_until, ...safe } = p;
-  return c.json({ profile: safe, has_pin: !!pin_hash, balance_kobo: wallet?.balance_kobo ?? 0, admin_role: adm?.role ?? null, pending_role: pend?.role ?? null });
+  return c.json({ name_locked: !!lockVa, profile: safe, has_pin: !!pin_hash, balance_kobo: wallet?.balance_kobo ?? 0, admin_role: adm?.role ?? null, pending_role: pend?.role ?? null });
 });
 
 // Profile form: saved by the server so phone and business name are really stored (the browser may only change name/photo/area).
@@ -408,8 +409,9 @@ me.post("/me/profile", async (c) => {
     phone = d;
   }
   const area = [b.town, b.lga, b.state].filter(Boolean).join(", ");
+  const { data: lockVa } = await admin.from("virtual_accounts").select("user_id").eq("user_id", p.id).maybeSingle();
   const { error } = await admin.from("profiles").update({
-    full_name: b.full_name, business: b.business || null, phone, area: area || null,
+    full_name: lockVa ? p.full_name : b.full_name, business: b.business || null, phone, area: area || null,
   }).eq("id", p.id);
   if (error) {
     if ((error as { code?: string }).code === "23505") throw new HttpError(409, "That phone number is already used by another account.");
@@ -1083,6 +1085,11 @@ wallet.post("/wallet/va", async (c) => {
   const ins = await admin.from("virtual_accounts").insert(row);
   if (ins.error) { await finish("failed", "save failed"); throw new HttpError(500, "Could not save your account number. Try again."); }
   await finish("success");
+  // the name Squad checked against the BVN becomes the person's real name on the profile (and is locked from now on)
+  const properCase = (s: string) => s.toLowerCase().replace(/(^|[\s'\-])([a-z])/g, (_m, a, ch) => a + ch.toUpperCase());
+  const verifiedName = properCase([b.first_name, b.middle_name, b.last_name].filter(Boolean).join(" "));
+  await admin.from("profiles").update({ full_name: verifiedName }).eq("id", p.id);
+  try { await admin.auth.admin.updateUserById(p.id, { user_metadata: { full_name: verifiedName } }); } catch { /* the profile row is what the app reads */ }
   await audit(p.id, "va.created", p.id, { bank: row.bank_name });   // never log the BVN
   return c.json({ account: { account_number: row.account_number, bank_name: row.bank_name, account_name: row.account_name }, attempts_left: left });
 });
@@ -1119,9 +1126,41 @@ wallet.get("/wallet/withdrawals", async (c) => {
   return c.json({ withdrawals: (data ?? []).map((w: any) => ({ ...w, bank_name: bank.get(w.bank_code) ?? "Bank", account_number: "******" + String(w.account_number).slice(-4) })) });
 });
 
+// ---------- name match: money may only be withdrawn to an account in the user's own (verified) name ----------
+const NAME_NOISE = new Set(["MR","MRS","MISS","MS","DR","PROF","CHIEF","ALHAJI","ALHAJA","HON","ENGR","SIR","MADAM","PASTOR","REV","OF","AND","THE"]);
+function nameTokens(s: string): string[] {
+  return String(s ?? "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z\s'\-]/g, " ").replace(/['\-]/g, "")
+    .split(/\s+/).filter((t) => t.length > 1 && !NAME_NOISE.has(t));
+}
+/** true when the bank's account name and the expected name share at least two name parts
+ *  (or the single part, if the expected name has only one). Order does not matter. */
+export function namesMatch(accountName: string, expected: string): boolean {
+  const a = new Set(nameTokens(accountName));
+  const e = nameTokens(expected);
+  if (!a.size || !e.length) return false;
+  const hits = e.filter((t) => a.has(t)).length;
+  return hits >= Math.min(2, e.length);
+}
+/** The name we compare against: the BVN-verified name on the dedicated account if there is one,
+ *  otherwise the profile name. Returns null when the check is switched off. */
+async function nameToMatch(p: Profile): Promise<{ name: string; verified: boolean } | null> {
+  let cfg = { enabled: true, require_bvn: false };
+  try { cfg = { ...cfg, ...(await getSetting("withdraw_name_match")) }; } catch { /* setting not created yet: use the safe default */ }
+  if (!cfg.enabled) return null;
+  const { data: va } = await admin.from("virtual_accounts").select("account_name").eq("user_id", p.id).maybeSingle();
+  if (va?.account_name) return { name: va.account_name, verified: true };
+  if (cfg.require_bvn) throw new HttpError(403, "To withdraw, first get your dedicated account in Fund Wallet. It verifies your name with your BVN.");
+  return { name: p.full_name ?? "", verified: false };
+}
+
 wallet.post("/wallet/lookup", async (c) => {
   const b = await parseBody(c, z.object({ bank_code: z.string().regex(/^\d{6}$/), account_number: z.string().regex(/^\d{10}$/) }));
-  try { return c.json({ account_name: await lookupAccount(b.bank_code, b.account_number) }); }
+  try {
+    const account_name = await lookupAccount(b.bank_code, b.account_number);
+    const exp = await nameToMatch(c.get("profile"));
+    return c.json({ account_name, name_match: exp ? namesMatch(account_name, exp.name) : true });
+  }
   catch (e) {
     if (e instanceof LookupUnavailable) throw new HttpError(503, "Bank verification is not available right now. Try again later.");
     throw new HttpError(404, "Account not found");
@@ -1145,6 +1184,11 @@ wallet.post("/wallet/withdraw", async (c) => {
   catch (e) {
     if (e instanceof LookupUnavailable) throw new HttpError(503, "Bank verification is not available right now. Your money was not touched. Try again later.");
     throw new HttpError(400, "Could not verify that bank account. Check the bank and account number.");
+  }
+  const expected = await nameToMatch(p);
+  if (expected && !namesMatch(accountName, expected.name)) {
+    await audit(p.id, "wallet.withdraw_name_mismatch", p.id, { bank_code: b.bank_code, verified_name: expected.verified });
+    throw new HttpError(400, `The name on that account (${accountName}) does not match your ${expected.verified ? "verified " : ""}name. You can only withdraw to an account in your own name. Your money was not touched.`);
   }
 
   const { data: wd, error: wdErr } = await admin.from("withdrawals").insert({
